@@ -8,22 +8,22 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_TL_MPI_FUTURE_HPP
-#define INCLUDED_GHEX_TL_MPI_FUTURE_HPP
+#ifndef INCLUDED_GHEX_TL_UCX_FUTURE_HPP
+#define INCLUDED_GHEX_TL_UCX_FUTURE_HPP
 
 #include "./request.hpp"
 
 namespace gridtools{
     namespace ghex {
         namespace tl {
-            namespace mpi {
+            namespace ucx {
 
                 /** @brief future template for non-blocking communication */
-                template<typename T>
+                template<typename T, typename ThreadPrimitives>
                 struct future_t
                 {
                     using value_type  = T;
-                    using handle_type = request_t;
+                    using handle_type = request_ft<ThreadPrimitives>;
 
                     value_type m_data;
                     handle_type m_handle;
@@ -62,19 +62,14 @@ namespace gridtools{
                       * @return True if the request was successfully canceled */
                     bool cancel()
                     {
-                        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
-                        MPI_Status st;
-                        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
-                        int flag = false;
-                        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
-                        return flag;
+                        return m_handle.cancel();
                     }
                 };
 
-                template<>
-                struct future_t<void>
+                template<typename ThreadPrimitives>
+                struct future_t<void, ThreadPrimitives>
                 {
-                    using handle_type = request_t;
+                    using handle_type = request_ft<ThreadPrimitives>;
 
                     handle_type m_handle;
 
@@ -109,19 +104,14 @@ namespace gridtools{
 
                     bool cancel()
                     {
-                        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
-                        MPI_Status st;
-                        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
-                        int flag = false;
-                        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
-                        return flag;
+                        return m_handle.cancel();
                     }
                 };
 
-            } // namespace mpi
+            } // namespace ucx
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TL_MPI_FUTURE_HPP */
+#endif /* INCLUDED_GHEX_TL_UCX_FUTURE_HPP */
 
