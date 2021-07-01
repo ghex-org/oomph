@@ -3,6 +3,7 @@
 #include <oomph/util/moved_bit.hpp>
 #include <oomph/util/mpi_clone_comm.hpp>
 #include <oomph/util/heap_pimpl.hpp>
+#include <oomph/message_buffer.hpp>
 #include <hwmalloc/config.hpp>
 
 namespace oomph
@@ -11,6 +12,7 @@ class context
 {
   public:
     class impl;
+    using pimpl = util::heap_pimpl<impl>;
 
   private:
     class mpi_comm_holder
@@ -36,8 +38,8 @@ class context
     };
 
   private:
-    mpi_comm_holder        m_mpi_comm;
-    util::heap_pimpl<impl> m;
+    mpi_comm_holder m_mpi_comm;
+    pimpl           m;
 
   public:
     context(MPI_Comm comm);
@@ -49,6 +51,15 @@ class context
 
   public:
     MPI_Comm mpi_comm() const noexcept { return m_mpi_comm.get(); }
+
+    template<typename T>
+    message_buffer<T> make_buffer(std::size_t size)
+    {
+        return {make_buffer_core(size * sizeof(T)), size};
+    }
+
+  private:
+    detail::message_buffer make_buffer_core(std::size_t size);
 };
 
 template<typename Context>
