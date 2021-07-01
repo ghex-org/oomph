@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include "./mpi_test_fixture.hpp"
 
+#include <thread>
+
 TEST_F(mpi_test_fixture, construct)
 {
     auto c = oomph::context(MPI_COMM_WORLD);
@@ -19,6 +21,20 @@ TEST_F(mpi_test_fixture, construct)
 
     for (auto x : b) std::cout << x << " ";
     std::cout << std::endl;
+
+    auto comm = c.get_communicator();
+    auto b2 = comm.make_buffer<int>(20);
+
+    auto func = [&c]()
+    {
+        auto comm = c.get_communicator();
+    };
+
+    std::vector<std::thread> threads;
+    threads.push_back( std::thread{func} );
+    //threads.push_back( std::thread{func} );
+    for (auto& t : threads)
+        t.join();
 
     std::cout << "done" << std::endl;
 }

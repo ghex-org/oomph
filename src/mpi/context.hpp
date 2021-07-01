@@ -2,18 +2,19 @@
 
 #include <oomph/context.hpp>
 #include "../util/heap_pimpl_impl.hpp"
+#include "../communicator_holder.hpp"
 #include "./region.hpp"
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/heap.hpp>
 
 namespace oomph
 {
-class context::impl
+class context_impl
 {
   public:
     using region_type = region;
     using device_region_type = region;
-    using heap_type = hwmalloc::heap<context::impl>;
+    using heap_type = hwmalloc::heap<context_impl>;
 
   private:
     struct mpi_win_holder
@@ -26,9 +27,10 @@ class context::impl
     MPI_Comm       m_comm;
     mpi_win_holder m_win;
     heap_type      m_heap;
+    tl_comm_holder m_comms;
 
   public:
-    impl(MPI_Comm comm)
+    context_impl(MPI_Comm comm)
     : m_comm{comm}
     , m_heap{this}
     {
@@ -40,14 +42,17 @@ class context::impl
         //MPI_Win_create_dynamic(MPI_INFO_NULL, m_comm, &m_win);
         OOMPH_CHECK_MPI_RESULT(MPI_Win_fence(0, m_win.m));
     }
-    impl(impl const&) = delete;
-    impl(impl&&) = delete;
+    context_impl(context_impl const&) = delete;
+    context_impl(context_impl&&) = delete;
 
     region make_region(void* ptr, std::size_t size) const { return {m_comm, m_win.m, ptr, size}; }
 
     auto  get_window() const noexcept { return m_win.m; }
     auto  get_comm() const noexcept { return m_comm; }
     auto& get_heap() noexcept { return m_heap; }
+
+    void add_communicator(communicator::impl** c) { m_comms.insert(c); }
+    void remove_communicator(communicator::impl** c) { m_comms.remove(c); }
 };
 
 } // namespace oomph

@@ -3,15 +3,17 @@
 #include <oomph/util/mpi_comm_holder.hpp>
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/message_buffer.hpp>
+#include <oomph/communicator.hpp>
 #include <hwmalloc/config.hpp>
 
 namespace oomph
 {
+class context_impl;
 class context
 {
   public:
-    class impl;
-    using pimpl = util::heap_pimpl<impl>;
+    //class impl;
+    using pimpl = util::heap_pimpl<context_impl>;
 
   private:
     util::mpi_comm_holder m_mpi_comm;
@@ -33,6 +35,8 @@ class context
     {
         return {make_buffer_core(size * sizeof(T)), size};
     }
+
+    communicator get_communicator();
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);

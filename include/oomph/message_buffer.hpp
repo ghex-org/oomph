@@ -6,6 +6,7 @@
 namespace oomph
 {
 class context;
+class communicator;
 
 template<typename T>
 class message_buffer;
@@ -40,6 +41,7 @@ class message_buffer
 {
   private:
     friend class context;
+    friend class communicator;
 
   private:
     detail::message_buffer m;
