@@ -41,8 +41,14 @@ class stack_storage
 
   private:
     aligned_storage m_impl;
+    bool            m_empty = false;
 
   public:
+    stack_storage()
+    : m_empty{true}
+    {
+    }
+
     template<typename... Args>
     stack_storage(Args&&... args)
     {
@@ -50,24 +56,49 @@ class stack_storage
     }
     stack_storage(stack_storage const&) = delete;
     stack_storage(stack_storage&& other)
+    : m_empty{other.m_empty}
     {
-        placement_new<T>(&m_impl, BufferSize, std::move(*other.get()));
+        if (!m_empty) placement_new<T>(&m_impl, BufferSize, std::move(*other.get()));
     }
     stack_storage& operator=(stack_storage const&) = delete;
     stack_storage& operator=(stack_storage&& other)
     {
-        *get() = std::move(*other.get());
-        return *this;
+        if (m_empty && other.m_empty) { return *this; }
+        else if (m_empty && !other.m_empty)
+        {
+            placement_new<T>(&m_impl, BufferSize, std::move(*other.get()));
+            m_empty = false;
+            return *this;
+        }
+        else if (!m_empty && other.m_empty)
+        {
+            placement_delete<T>(&m_impl);
+            m_empty = true;
+            return *this;
+        }
+        else
+        {
+            *get() = std::move(*other.get());
+            return *this;
+        }
     }
     ~stack_storage()
     {
         detail::size_comparer<BufferSize, sizeof(T), BufferAlignment, alignof(T)> s{};
-        placement_delete<T>(&m_impl);
+        if (!m_empty) placement_delete<T>(&m_impl);
     }
 
-    T* get() noexcept { return reinterpret_cast<T*>(&m_impl); }
+    T* get() noexcept
+    {
+        assert(!m_empty);
+        return reinterpret_cast<T*>(&m_impl);
+    }
 
-    T const* get() const noexcept { return reinterpret_cast<T const*>(&m_impl); }
+    T const* get() const noexcept
+    {
+        assert(!m_empty);
+        return reinterpret_cast<T const*>(&m_impl);
+    }
 };
 
 } // namespace util

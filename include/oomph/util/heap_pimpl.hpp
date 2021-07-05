@@ -13,6 +13,7 @@ class heap_pimpl
     std::unique_ptr<T> m;
 
   public:
+    heap_pimpl();
     template<typename... Args>
     heap_pimpl(Args&&...);
     heap_pimpl(heap_pimpl const&) = delete;

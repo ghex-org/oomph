@@ -24,14 +24,16 @@ class message_buffer
     using pimpl = util::pimpl<heap_ptr_impl, 64, 8>;
 
   private:
-    void* m_ptr;
+    void* m_ptr = nullptr;
     pimpl m_heap_ptr;
 
   public:
+    message_buffer();
     template<typename VoidPtr>
     message_buffer(VoidPtr ptr);
     message_buffer(message_buffer&&);
     ~message_buffer();
+    message_buffer& operator=(message_buffer&&);
 };
 
 } // namespace detail
@@ -55,7 +57,9 @@ class message_buffer
     }
 
   public:
+    message_buffer() = default;
     message_buffer(message_buffer&&) = default;
+    message_buffer& operator=(message_buffer&&) = default;
 
   public:
     std::size_t size() const noexcept { return m_size; }

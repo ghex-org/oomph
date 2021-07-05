@@ -13,6 +13,7 @@ class stack_pimpl
     util::stack_storage<T, BufferSize, Alignment> m;
 
   public:
+    stack_pimpl();
     template<typename... Args>
     stack_pimpl(Args&&... args);
     stack_pimpl(stack_pimpl const&) = delete;

@@ -15,7 +15,10 @@ TEST_F(mpi_test_fixture, construct)
     //c2 = std::move(c);
 
     //auto b = oomph::make_buffer<int>(c, 10);
-    auto b = c.make_buffer<int>(10);
+
+    oomph::message_buffer<int> b;
+
+    b = c.make_buffer<int>(10);
 
     for (auto& x : b) x = 99;
 
@@ -25,16 +28,12 @@ TEST_F(mpi_test_fixture, construct)
     auto comm = c.get_communicator();
     auto b2 = comm.make_buffer<int>(20);
 
-    auto func = [&c]()
-    {
-        auto comm = c.get_communicator();
-    };
+    auto func = [&c]() { auto comm = c.get_communicator(); };
 
     std::vector<std::thread> threads;
-    threads.push_back( std::thread{func} );
+    threads.push_back(std::thread{func});
     //threads.push_back( std::thread{func} );
-    for (auto& t : threads)
-        t.join();
+    for (auto& t : threads) t.join();
 
     std::cout << "done" << std::endl;
 }

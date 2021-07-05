@@ -7,6 +7,9 @@ namespace oomph
 namespace util
 {
 template<typename T, std::size_t BufferSize, std::size_t Alignment>
+stack_pimpl<T, BufferSize, Alignment>::stack_pimpl() = default;
+
+template<typename T, std::size_t BufferSize, std::size_t Alignment>
 template<typename... Args>
 stack_pimpl<T, BufferSize, Alignment>::stack_pimpl(Args&&... args)
 : m(std::forward<Args>(args)...)

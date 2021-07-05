@@ -7,6 +7,9 @@ namespace oomph
 namespace util
 {
 template<typename T>
+heap_pimpl<T>::heap_pimpl() = default;
+
+template<typename T>
 template<typename... Args>
 heap_pimpl<T>::heap_pimpl(Args&&... args)
 : m{new T{std::forward<Args>(args)...}}

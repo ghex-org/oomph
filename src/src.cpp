@@ -90,6 +90,8 @@ class message_buffer::heap_ptr_impl
     void     release() { m.release(); }
 };
 
+message_buffer::message_buffer() = default;
+
 template<>
 message_buffer::message_buffer<typename context_impl::heap_type::pointer>(
     typename context_impl::heap_type::pointer ptr)
@@ -107,6 +109,15 @@ message_buffer::message_buffer(message_buffer&& other)
 message_buffer::~message_buffer()
 {
     if (m_ptr) m_heap_ptr->release();
+}
+
+message_buffer&
+message_buffer::operator=(message_buffer&& other)
+{
+    if (m_ptr) m_heap_ptr->release();
+    m_ptr = std::exchange(other.m_ptr, nullptr);
+    m_heap_ptr = std::move(other.m_heap_ptr);
+    return *this;
 }
 
 } // namespace detail
