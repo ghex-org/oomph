@@ -16,9 +16,13 @@ TEST_F(mpi_test_fixture, construct)
 
     //auto b = oomph::make_buffer<int>(c, 10);
 
+    // empty message buffer
     oomph::message_buffer<int> b;
+    EXPECT_FALSE(b);
 
+    // allocate buffer and move it to b
     b = c.make_buffer<int>(10);
+    EXPECT_TRUE(b);
 
     for (auto& x : b) x = 99;
 
@@ -36,4 +40,51 @@ TEST_F(mpi_test_fixture, construct)
     for (auto& t : threads) t.join();
 
     std::cout << "done" << std::endl;
+}
+
+TEST_F(mpi_test_fixture, sendrecv)
+{
+    auto c = oomph::context(MPI_COMM_WORLD);
+
+    const auto send_rank = (world_rank + 1) % world_size;
+    const auto send_tag = world_rank;
+    const auto recv_rank = (world_rank + world_size - 1) % world_size;
+    const auto recv_tag = recv_rank;
+    
+    auto recv_buffer = c.make_buffer<int>(10);
+    for (auto& x : recv_buffer) x = -1;
+    auto send_buffer = c.make_buffer<int>(10);
+    for (auto& x : send_buffer) x = world_rank;
+
+    auto comm = c.get_communicator();
+
+    auto send_req = comm.send(send_buffer, send_rank, send_tag);
+    auto recv_req = comm.recv(recv_buffer, recv_rank, recv_tag);
+
+    send_req.wait();
+    recv_req.wait();
+}
+
+TEST_F(mpi_test_fixture, sendrecv2)
+{
+    auto c = oomph::context(MPI_COMM_WORLD);
+
+    const auto send_rank = (world_rank + 1) % world_size;
+    const auto send_tag = world_rank;
+    const auto recv_rank = (world_rank + world_size - 1) % world_size;
+    const auto recv_tag = recv_rank;
+    
+    auto recv_buffer = c.make_buffer<int>(10);
+    for (auto& x : recv_buffer) x = -1;
+    auto send_buffer = c.make_buffer<int>(10);
+    for (auto& x : send_buffer) x = world_rank;
+
+    auto comm = c.get_communicator();
+    
+    std::cout << "send buffer address: " << (void*)send_buffer.data() << std::endl;
+    auto send_req = comm.send(send_buffer, send_rank, send_tag);
+    auto recv_req = comm.recv(recv_buffer, recv_rank, recv_tag);
+
+    send_req.wait();
+    recv_req.wait();
 }

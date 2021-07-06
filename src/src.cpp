@@ -1,4 +1,8 @@
 #include <hwmalloc/numa.hpp>
+#include <oomph/util/heap_pimpl.hpp>
+#include <oomph/util/stack_pimpl.hpp>
+#include "./util/heap_pimpl_impl.hpp"
+#include "./util/stack_pimpl_impl.hpp"
 
 namespace oomph
 {
@@ -21,58 +25,33 @@ context::~context() = default;
 communicator
 context::get_communicator()
 {
-    auto context_impl_ptr = &(*m);
-    return {context_impl_ptr};
-}
-
-///////////////////////////////
-// thread_local communicator //
-///////////////////////////////
-
-communicator::impl*
-get_tl_comm(context_impl* c)
-{
-    static thread_local tl_comm tl_c(c);
-    return tl_c.m_communicator;
-}
-
-tl_comm::tl_comm(context_impl* c)
-: m_context{c}
-, m_communicator{new communicator::impl{m_context}}
-{
-    m_context->add_communicator(&m_communicator);
-}
-
-tl_comm::~tl_comm()
-{
-    if (m_communicator) m_context->remove_communicator(&m_communicator);
+    return {m->get_communicator()};
 }
 
 ///////////////////////////////
 // communicator              //
 ///////////////////////////////
 
-communicator::communicator(context_impl* c_impl_)
-: m_context_impl{c_impl_}
+communicator::communicator(impl* impl_)
+: m_impl{impl_}
 {
-    get_impl();
 }
 
-communicator::impl*
-communicator::get_impl()
+communicator::communicator(communicator&& other)
+: m_impl{std::exchange(other.m_impl, nullptr)}
 {
-    return get_tl_comm(m_context_impl);
 }
 
-///////////////////////////////
-// communicator_holder       //
-///////////////////////////////
-
-void
-tl_comm_holder::destroy(communicator::impl** c)
+communicator&
+communicator::operator=(communicator&& other)
 {
-    delete (*c);
-    *c = nullptr;
+    m_impl = std::exchange(other.m_impl, nullptr);
+    return *this;
+}
+
+communicator::~communicator()
+{
+    if (m_impl) m_impl->release();
 }
 
 ///////////////////////////////
@@ -122,6 +101,18 @@ message_buffer::operator=(message_buffer&& other)
 
 } // namespace detail
 
+request
+communicator::send(detail::message_buffer const& msg, std::size_t size, rank_type dst, tag_type tag)
+{
+    return m_impl->send(msg.m_heap_ptr->m, size, dst, tag);
+}
+
+request
+communicator::recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag)
+{
+    return m_impl->recv(msg.m_heap_ptr->m, size, src, tag);
+}
+
 ///////////////////////////////
 // make_buffer               //
 ///////////////////////////////
@@ -135,7 +126,27 @@ context::make_buffer_core(std::size_t size)
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size)
 {
-    return {m_context_impl->get_heap().allocate(size, hwmalloc::numa().local_node())};
+    return {m_impl->get_heap().allocate(size, hwmalloc::numa().local_node())};
 }
+
+///////////////////////////////
+// request                   //
+///////////////////////////////
+
+bool
+request::is_ready()
+{
+    return m_impl->is_ready();
+}
+
+void
+request::wait()
+{
+    return m_impl->wait();
+}
+
+request::~request() = default;
+
+request::request(request&&) = default;
 
 } // namespace oomph

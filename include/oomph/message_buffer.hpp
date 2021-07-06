@@ -5,25 +5,27 @@
 
 namespace oomph
 {
-class context;
-class communicator;
-
-template<typename T>
-class message_buffer;
+//class context;
+//class communicator;
+//
+//template<typename T>
+//class message_buffer;
 
 namespace detail
 {
 class message_buffer
 {
   private:
-    template<typename T>
-    friend class ::oomph::message_buffer;
+    //template<typename T>
+    //friend class ::oomph::message_buffer;
+    //friend class communicator;
 
   public:
     class heap_ptr_impl;
     using pimpl = util::pimpl<heap_ptr_impl, 64, 8>;
 
-  private:
+  //private:
+  public:
     void* m_ptr = nullptr;
     pimpl m_heap_ptr;
 
@@ -34,6 +36,8 @@ class message_buffer
     message_buffer(message_buffer&&);
     ~message_buffer();
     message_buffer& operator=(message_buffer&&);
+    
+    operator bool() const noexcept { return m_ptr; }
 };
 
 } // namespace detail
@@ -62,6 +66,8 @@ class message_buffer
     message_buffer& operator=(message_buffer&&) = default;
 
   public:
+    operator bool() const noexcept { return m; }
+
     std::size_t size() const noexcept { return m_size; }
 
     T*       data() noexcept { return (T*)m.m_ptr; }
