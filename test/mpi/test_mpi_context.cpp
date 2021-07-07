@@ -1,5 +1,6 @@
 #include <oomph/context.hpp>
 #include <oomph/message_buffer.hpp>
+#include <oomph/channel.hpp>
 
 #include <gtest/gtest.h>
 #include "./mpi_test_fixture.hpp"
@@ -50,7 +51,7 @@ TEST_F(mpi_test_fixture, sendrecv)
     const auto send_tag = world_rank;
     const auto recv_rank = (world_rank + world_size - 1) % world_size;
     const auto recv_tag = recv_rank;
-    
+
     auto recv_buffer = c.make_buffer<int>(10);
     for (auto& x : recv_buffer) x = -1;
     auto send_buffer = c.make_buffer<int>(10);
@@ -65,7 +66,7 @@ TEST_F(mpi_test_fixture, sendrecv)
     recv_req.wait();
 }
 
-TEST_F(mpi_test_fixture, sendrecv2)
+TEST_F(mpi_test_fixture, channel)
 {
     auto c = oomph::context(MPI_COMM_WORLD);
 
@@ -73,18 +74,12 @@ TEST_F(mpi_test_fixture, sendrecv2)
     const auto send_tag = world_rank;
     const auto recv_rank = (world_rank + world_size - 1) % world_size;
     const auto recv_tag = recv_rank;
-    
-    auto recv_buffer = c.make_buffer<int>(10);
-    for (auto& x : recv_buffer) x = -1;
-    auto send_buffer = c.make_buffer<int>(10);
-    for (auto& x : send_buffer) x = world_rank;
 
     auto comm = c.get_communicator();
-    
-    std::cout << "send buffer address: " << (void*)send_buffer.data() << std::endl;
-    auto send_req = comm.send(send_buffer, send_rank, send_tag);
-    auto recv_req = comm.recv(recv_buffer, recv_rank, recv_tag);
 
-    send_req.wait();
-    recv_req.wait();
+    oomph::send_channel<int> s_channel(comm, 10, send_rank, send_tag, 1);
+    oomph::recv_channel<int> r_channel(comm, 10, recv_rank, recv_tag, 1);
+
+    s_channel.connect();
+    r_channel.connect();
 }

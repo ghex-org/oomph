@@ -16,6 +16,8 @@ class communicator::impl
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
+    auto get_comm() const noexcept { return m_context->get_comm(); }
+
     request send(
         context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)
     {

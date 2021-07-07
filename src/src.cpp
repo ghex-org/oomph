@@ -149,4 +149,27 @@ request::~request() = default;
 
 request::request(request&&) = default;
 
+///////////////////////////////
+// send_channel_base         //
+///////////////////////////////
+
+send_channel_base::~send_channel_base() = default;
+
+void
+send_channel_base::connect()
+{
+    m_impl->connect();
+}
+
+///////////////////////////////
+// recv_channel_base         //
+///////////////////////////////
+
+recv_channel_base::~recv_channel_base() = default;
+
+void
+recv_channel_base::connect()
+{
+    m_impl->connect();
+}
 } // namespace oomph

@@ -8,6 +8,8 @@ namespace oomph
 {
 class context;
 //class context_impl;
+class send_channel_base;
+class recv_channel_base;
 
 class communicator
 {
@@ -18,6 +20,8 @@ class communicator
 
   private:
     friend class context;
+    friend class send_channel_base;
+    friend class recv_channel_base;
 
   private:
     impl* m_impl;

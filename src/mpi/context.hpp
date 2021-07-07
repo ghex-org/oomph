@@ -3,6 +3,7 @@
 #include <oomph/context.hpp>
 #include "../unique_ptr_set.hpp"
 #include "./region.hpp"
+#include "./lock_cache.hpp"
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/heap.hpp>
 
@@ -27,6 +28,7 @@ class context_impl
     mpi_win_holder                     m_win;
     heap_type                          m_heap;
     unique_ptr_set<communicator::impl> m_comms_set;
+    std::unique_ptr<lock_cache>        m_lock_cache;
 
   public:
     context_impl(MPI_Comm comm)
@@ -40,6 +42,7 @@ class context_impl
         MPI_Info_free(&info);
         //MPI_Win_create_dynamic(MPI_INFO_NULL, m_comm, &m_win);
         OOMPH_CHECK_MPI_RESULT(MPI_Win_fence(0, m_win.m));
+        m_lock_cache = std::make_unique<lock_cache>(m_win.m);
     }
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
@@ -53,6 +56,11 @@ class context_impl
     communicator::impl* get_communicator();
 
     void deregister_communicator(communicator::impl* c) { m_comms_set.remove(c); }
+
+    void lock(communicator::rank_type r)
+    {
+        m_lock_cache->lock(r);
+    }
 };
 
 } // namespace oomph
