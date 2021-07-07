@@ -24,12 +24,12 @@ class communicator
     //context_impl* m_context_impl;
 
   private:
-    communicator(impl* impl_/*, context_impl* c_impl_*/);
+    communicator(impl* impl_ /*, context_impl* c_impl_*/);
 
-public:
-    communicator(communicator const &) = delete;
+  public:
+    communicator(communicator const&) = delete;
     communicator(communicator&&);
-    communicator& operator=(communicator const &) = delete;
+    communicator& operator=(communicator const&) = delete;
     communicator& operator=(communicator&&);
     ~communicator();
 

@@ -14,13 +14,13 @@ class request
   public:
     pimpl m_impl;
 
-
     template<typename... Args>
     request(Args... args);
 
     request(request&&);
-    
+
     ~request();
+
   private:
   public:
     bool is_ready();

@@ -1,6 +1,7 @@
 #include "./context.hpp"
 #include "./communicator.hpp"
 #include "./message_buffer.hpp"
+#include "./request.hpp"
 
 namespace oomph
 {
@@ -18,6 +19,23 @@ register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t siz
     return c.make_region(ptr, size, true);
 }
 #endif
+
+template<>
+request::request<>()
+: m_impl()
+{
+}
+
+request::impl::~impl() = default;
+
+communicator::impl*
+context_impl::get_communicator()
+{
+    auto comm = new communicator::impl{this};
+    m_comms_set.insert(comm);
+    return comm;
+}
+
 } // namespace oomph
 
 #include "../src.cpp"

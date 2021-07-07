@@ -8,8 +8,7 @@ namespace oomph
 class request::impl
 {
   public:
-    MPI_Request     m_req;
-    //util::moved_bit m_moved;
+    MPI_Request m_req;
 
     ~impl();
 

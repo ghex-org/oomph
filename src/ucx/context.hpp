@@ -1,8 +1,7 @@
 #pragma once
 
 #include <oomph/context.hpp>
-#include "../util/heap_pimpl_impl.hpp"
-#include "../communicator_holder.hpp"
+#include "../unique_ptr_set.hpp"
 #include "./region.hpp"
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/register_device.hpp>
@@ -18,9 +17,9 @@ class context_impl
     using heap_type = hwmalloc::heap<context_impl>;
 
   private:
-    ucp_context_h m_ucp_context;
-    heap_type     m_heap;
-    tl_comm_holder m_comms;
+    ucp_context_h                      m_ucp_context;
+    heap_type                          m_heap;
+    unique_ptr_set<communicator::impl> m_comms_set;
 
   public:
     context_impl(MPI_Comm)
@@ -37,8 +36,9 @@ class context_impl
 
     auto& get_heap() noexcept { return m_heap; }
 
-    void add_communicator(communicator::impl** c) { m_comms.insert(c); }
-    void remove_communicator(communicator::impl** c) { m_comms.remove(c); }
+    communicator::impl* get_communicator();
+
+    void deregister_communicator(communicator::impl* c) { m_comms_set.remove(c); }
 };
 
 } // namespace oomph
