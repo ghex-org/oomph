@@ -82,4 +82,7 @@ TEST_F(mpi_test_fixture, channel)
 
     s_channel.connect();
     r_channel.connect();
+
+    typename oomph::recv_channel<int>::buffer rb;
+    rb = r_channel.get();
 }

@@ -172,4 +172,23 @@ recv_channel_base::connect()
 {
     m_impl->connect();
 }
+
+std::size_t
+recv_channel_base::capacity()
+{
+    return m_impl->capacity();
+}
+
+void*
+recv_channel_base::get(std::size_t& index)
+{
+    return m_impl->get(index);
+}
+
+recv_channel_impl*
+recv_channel_base::get_impl() noexcept
+{
+    return &(*m_impl);
+}
+
 } // namespace oomph

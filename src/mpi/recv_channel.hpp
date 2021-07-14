@@ -15,6 +15,7 @@ class recv_channel_impl : public channel_base
     using handle_type = typename base::handle_type;
     using key_type = typename base::key_type;
 
+  private:
     communicator::impl* m_comm;
     pointer             m_buffer;
     key_type            m_local_key;
@@ -29,14 +30,37 @@ class recv_channel_impl : public channel_base
     , m_local_key{m_buffer.handle().get_remote_key()}
     {
         m_comm->m_context->lock(src);
-        OOMPH_CHECK_MPI_RESULT(
-                MPI_Isend(&m_local_key, sizeof(key_type), MPI_BYTE, base::m_remote_rank,
-            base::m_tag, m_comm->get_comm(), &(base::m_init_req)));
+        OOMPH_CHECK_MPI_RESULT(MPI_Isend(&m_local_key, sizeof(key_type), MPI_BYTE,
+            base::m_remote_rank, base::m_tag, m_comm->get_comm(), &(base::m_init_req)));
     }
-    recv_channel_impl(recv_channel_impl const &) = delete;
+    recv_channel_impl(recv_channel_impl const&) = delete;
     recv_channel_impl(recv_channel_impl&&) = delete;
 
+    ~recv_channel_impl()
+    {
+    }
+    
     //void connect() {}
+ 
+    std::size_t capacity()
+    {
+        return base::m_capacity;
+    }
+
+    void* get(std::size_t& index)
+    {
+        index = 0;
+        return nullptr;
+    }
+
+    void release(std::size_t index)
+    {
+    }
 };
+
+void release_recv_channel_buffer(recv_channel_impl* rc, std::size_t index)
+{
+    rc->release(index);
+}
 
 } // namespace oomph
