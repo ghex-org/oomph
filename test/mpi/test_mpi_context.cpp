@@ -1,6 +1,6 @@
 #include <oomph/context.hpp>
 #include <oomph/message_buffer.hpp>
-#include <oomph/channel.hpp>
+//#include <oomph/channel.hpp>
 
 #include <gtest/gtest.h>
 #include "./mpi_test_fixture.hpp"
@@ -66,23 +66,23 @@ TEST_F(mpi_test_fixture, sendrecv)
     recv_req.wait();
 }
 
-TEST_F(mpi_test_fixture, channel)
-{
-    auto c = oomph::context(MPI_COMM_WORLD);
-
-    const auto send_rank = (world_rank + 1) % world_size;
-    const auto send_tag = world_rank;
-    const auto recv_rank = (world_rank + world_size - 1) % world_size;
-    const auto recv_tag = recv_rank;
-
-    auto comm = c.get_communicator();
-
-    oomph::send_channel<int> s_channel(comm, 10, send_rank, send_tag, 1);
-    oomph::recv_channel<int> r_channel(comm, 10, recv_rank, recv_tag, 1);
-
-    s_channel.connect();
-    r_channel.connect();
-
-    typename oomph::recv_channel<int>::buffer rb;
-    rb = r_channel.get();
-}
+//TEST_F(mpi_test_fixture, channel)
+//{
+//    auto c = oomph::context(MPI_COMM_WORLD);
+//
+//    const auto send_rank = (world_rank + 1) % world_size;
+//    const auto send_tag = world_rank;
+//    const auto recv_rank = (world_rank + world_size - 1) % world_size;
+//    const auto recv_tag = recv_rank;
+//
+//    auto comm = c.get_communicator();
+//
+//    oomph::send_channel<int> s_channel(comm, 10, send_rank, send_tag, 1);
+//    oomph::recv_channel<int> r_channel(comm, 10, recv_rank, recv_tag, 1);
+//
+//    s_channel.connect();
+//    r_channel.connect();
+//
+//    typename oomph::recv_channel<int>::buffer rb;
+//    rb = r_channel.get();
+//}

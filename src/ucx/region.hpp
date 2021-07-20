@@ -21,7 +21,45 @@ class region
     , m_ptr{ptr}
     , m_size{size}
     {
+        ucp_mem_map_params_t params;
+
+        // enable fields
+        /* clang-format off */
+        params.field_mask = 
+              UCP_MEM_MAP_PARAM_FIELD_ADDRESS     // enable address field
+            | UCP_MEM_MAP_PARAM_FIELD_LENGTH      // enable length field
+        //  | UCP_MEM_MAP_PARAM_FIELD_FLAGS       // enable flags field
+#if (UCP_API_VERSION >= 17432576)                 // version >= 1.10
+            | UCP_MEM_MAP_PARAM_FIELD_MEMORY_TYPE // enable memory type field
+#endif
+        ;
+        /* clang-format on */
+
+        // set fields
+        params.address = ptr;
+        params.length = size;
+#if (UCP_API_VERSION >= 17432576) // version >= 1.10
+        params.memory_type = UCS_MEMORY_TYPE_HOST;
+#endif
+
+        // special treatment for gpu memory
+#if HWMALLOC_ENABLE_DEVICE | !defined(HWMALLOC_DEVICE_EMULATE)
+        if (gpu)
+        {
+#if (UCP_API_VERSION >= 17432576) // version >= 1.10
+#if defined(HWMALLOC_DEVICE_CUDA)
+            params.memory_type = UCS_MEMORY_TYPE_CUDA;
+#elif defined(HWMALLOC_DEVICE_HIP)
+            params.memory_type = UCS_MEMORY_TYPE_ROCM
+#endif
+#endif
+        }
+#endif
+
+        // register memory
+        OOMPH_CHECK_UCX_RESULT(ucp_mem_map(m_ucp_context, &params, &m_memh));
     }
+
     region(region const&) = delete;
     region(region&& r) noexcept
     : m_ucp_context{r.m_ucp_context}
