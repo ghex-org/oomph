@@ -197,14 +197,19 @@ request::wait()
     return m_impl->wait();
 }
 
+request::request() = default;
+
 request::request(request::impl&& r)
 : m_impl{std::move(r)}
 {
 }
 
-request::~request() = default;
 
 request::request(request&&) = default;
+
+request& request::operator=(request&&) = default;
+
+request::~request() = default;
 
 /////////////////////////////////
 //// send_channel_base         //

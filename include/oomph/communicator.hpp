@@ -113,15 +113,17 @@ class communicator
         assert(msg);
         const auto s = msg.size();
         auto       counter = new std::atomic<int>(neighs.size());
+        auto       neighs_ptr = new std::vector<rank_type>(neighs);
         const auto n_neighs = neighs.size();
         auto       cb = std::forward<CallBack>(callback);
 
-        auto multi_cb = [s, counter, neighs, cb](
+        auto multi_cb = [s, counter, neighs_ptr, cb](
                             detail::message_buffer m, rank_type, tag_type tag) mutable {
             if ((--(*counter)) == 0)
             {
-                cb(message_buffer<T>(std::move(m), s), neighs, tag);
+                cb(message_buffer<T>(std::move(m), s), *neighs_ptr, tag);
                 delete counter;
+                delete neighs_ptr;
             }
             else
             {

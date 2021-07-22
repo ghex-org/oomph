@@ -24,12 +24,16 @@ class request
   public:
     pimpl m_impl;
 
+    request();
+
     request(request::impl&& r);
 
     template<typename... Args>
     request(Args... args);
 
     request(request&&);
+
+    request& operator=(request&&);
 
     ~request();
 

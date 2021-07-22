@@ -9,7 +9,18 @@ class request::impl
 {
   public:
     MPI_Request m_req;
-    bool        m_is_ready = false;
+    bool        m_is_ready;
+
+    impl()
+    : m_is_ready(true)
+    {
+    }
+
+    impl(MPI_Request req)
+    : m_req{req}
+    , m_is_ready(false)
+    {
+    }
 
     ~impl();
 

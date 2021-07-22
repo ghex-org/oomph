@@ -5,6 +5,7 @@ add_subdirectory(mpi_runner)
 # ---------------------------------------------------------------------
 # compile tests
 # ---------------------------------------------------------------------
+
 # list of tests to be executed
 set(parallel_tests test_context test_send_recv test_send_multi test_barrier)
 
@@ -26,6 +27,7 @@ endforeach()
 # ---------------------------------------------------------------------
 # link and register tests
 # ---------------------------------------------------------------------
+
 # creates an executable by linking to object file and to selected oomph backend
 function(reg_parallel_test t_ lib n)
     set(t ${t_}_${lib})
@@ -46,7 +48,7 @@ if (OOMPH_WITH_MPI)
 endif()
 
 if (OOMPH_WITH_UCX)
-    reg_parallel_test(test_context ucx 4)
+    #reg_parallel_test(test_context ucx 4)
 endif()
 
 if (OOMPH_WITH_LIBFABRIC)
