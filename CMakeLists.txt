@@ -10,7 +10,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-    set_property(CACHE CMAKE_CXX_FLAGS PROPERTY VALUE "-Wall -Wextra -Wpedantic")
 endif()
 
 set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -20,8 +19,7 @@ list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 # Define main oomph library
 # ---------------------------------------------------------------------
 add_library(oomph INTERFACE)
-#add_library(OOMPH::oomph ALIAS oomph)
-#set_target_properties(oomph PROPERTIES INTERFACE_POSITION_INDEPENDENT_CODE ON)
+add_library(oomph::oomph ALIAS oomph)
 include(oomph_common)
 
 # ---------------------------------------------------------------------
@@ -59,6 +57,11 @@ include(oomph_mpi)
 # oomph UCX variant
 # ---------------------------------------------------------------------
 include(oomph_ucx)
+
+# ---------------------------------------------------------------------
+# oomph LibFabric variant
+# ---------------------------------------------------------------------
+include(oomph_libfabric)
 
 # ---------------------------------------------------------------------
 # main src subdir

@@ -7,9 +7,7 @@ set(OOMPH_WITH_MPI ON CACHE BOOL "Build with MPI backend")
 
 if (OOMPH_WITH_MPI)
     add_library(oomph_mpi SHARED)
-    target_link_libraries(oomph_mpi PUBLIC oomph)
-    target_link_libraries(oomph_mpi PUBLIC oomph_common)
-    #target_compile_definitions(oomph_mpi PUBLIC OOMPH_TRANSPORT=mpi)
-    #target_link_libraries(oomph_mpi PUBLIC MPI::MPI_CXX)
+    add_library(oomph::mpi ALIAS oomph_mpi)
+    oomph_shared_lib_options(oomph_mpi)
 endif()
 
