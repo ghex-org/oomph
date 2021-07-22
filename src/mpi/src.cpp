@@ -23,11 +23,11 @@ register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t siz
 }
 #endif
 
-template<>
-request::request<MPI_Request>(MPI_Request r)
-: m_impl(r)
-{
-}
+//template<>
+//request::request<MPI_Request>(MPI_Request r)
+//: m_impl(r)
+//{
+//}
 
 request::impl::~impl() = default;
 
@@ -54,3 +54,21 @@ context_impl::get_communicator()
 } // namespace oomph
 
 #include "../src.cpp"
+
+namespace oomph
+{
+void
+communicator::impl::send(detail::message_buffer&& msg, std::size_t size, rank_type dst,
+    tag_type tag, std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb)
+{
+    auto req = send(msg.m_heap_ptr->m, size, dst, tag);
+    m_callbacks.enqueue(std::move(msg), dst, tag, std::move(req), std::move(cb));
+}
+void
+communicator::impl::recv(detail::message_buffer&& msg, std::size_t size, rank_type src,
+    tag_type tag, std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb)
+{
+    auto req = recv(msg.m_heap_ptr->m, size, src, tag);
+    m_callbacks.enqueue(std::move(msg), src, tag, std::move(req), std::move(cb));
+}
+} // namespace oomph

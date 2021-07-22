@@ -54,6 +54,30 @@ communicator::~communicator()
     if (m_impl) m_impl->release();
 }
 
+communicator::rank_type
+communicator::rank() const noexcept
+{
+    return m_impl->rank();
+}
+
+communicator::rank_type
+communicator::size() const noexcept
+{
+    return m_impl->size();
+}
+
+MPI_Comm
+communicator::mpi_comm() const noexcept
+{
+    return m_impl->mpi_comm();
+}
+
+void
+communicator::progress()
+{
+    m_impl->progress();
+}
+
 ///////////////////////////////
 // message_buffer            //
 ///////////////////////////////
@@ -99,18 +123,46 @@ message_buffer::operator=(message_buffer&& other)
     return *this;
 }
 
+void
+message_buffer::clear()
+{
+    m_ptr = nullptr;
+    m_heap_ptr = context_impl::heap_type::pointer{nullptr};
+}
+
 } // namespace detail
 
 request
 communicator::send(detail::message_buffer const& msg, std::size_t size, rank_type dst, tag_type tag)
 {
-    return m_impl->send(msg.m_heap_ptr->m, size, dst, tag);
+    return {m_impl->send(msg.m_heap_ptr->m, size, dst, tag)};
 }
 
 request
 communicator::recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag)
 {
-    return m_impl->recv(msg.m_heap_ptr->m, size, src, tag);
+    return {m_impl->recv(msg.m_heap_ptr->m, size, src, tag)};
+}
+
+void
+communicator::send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
+    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb)
+{
+    m_impl->send(std::move(msg), size, dst, tag, std::move(cb));
+}
+
+void
+communicator::recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
+    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb)
+{
+    m_impl->recv(std::move(msg), size, src, tag, std::move(cb));
+}
+
+detail::message_buffer
+communicator::clone_buffer(detail::message_buffer& msg)
+{
+    context_impl::heap_type::pointer ptr = msg.m_heap_ptr->m;
+    return {ptr};
 }
 
 ///////////////////////////////
@@ -120,13 +172,13 @@ communicator::recv(detail::message_buffer& msg, std::size_t size, rank_type src,
 detail::message_buffer
 context::make_buffer_core(std::size_t size)
 {
-    return {m->get_heap().allocate(size, hwmalloc::numa().local_node())};
+    return m->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size)
 {
-    return {m_impl->get_heap().allocate(size, hwmalloc::numa().local_node())};
+    return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
 ///////////////////////////////
@@ -143,6 +195,11 @@ void
 request::wait()
 {
     return m_impl->wait();
+}
+
+request::request(request::impl&& r)
+: m_impl{std::move(r)}
+{
 }
 
 request::~request() = default;

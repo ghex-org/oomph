@@ -1,3 +1,12 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #pragma once
 
 #include <oomph/util/pimpl.hpp>
@@ -24,7 +33,7 @@ class message_buffer
     class heap_ptr_impl;
     using pimpl = util::pimpl<heap_ptr_impl, 64, 8>;
 
-  //private:
+    //private:
   public:
     void* m_ptr = nullptr;
     pimpl m_heap_ptr;
@@ -36,8 +45,11 @@ class message_buffer
     message_buffer(message_buffer&&);
     ~message_buffer();
     message_buffer& operator=(message_buffer&&);
-    
+
     operator bool() const noexcept { return m_ptr; }
+
+    //private:
+    void clear();
 };
 
 } // namespace detail
@@ -78,6 +90,9 @@ class message_buffer
     T const* end() const noexcept { return data() + size(); }
     T const* cbegin() const noexcept { return data(); }
     T const* cend() const noexcept { return data() + size(); }
+
+    T&       operator[](std::size_t i) noexcept { return *(data() + i); }
+    T const& operator[](std::size_t i) const noexcept { return *(data() + i); }
 };
 
 } // namespace oomph

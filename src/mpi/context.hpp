@@ -1,6 +1,7 @@
 #pragma once
 
 #include <oomph/context.hpp>
+#include "../mpi_comm.hpp"
 #include "../unique_ptr_set.hpp"
 #include "./region.hpp"
 #include "./lock_cache.hpp"
@@ -15,6 +16,8 @@ class context_impl
     using region_type = region;
     using device_region_type = region;
     using heap_type = hwmalloc::heap<context_impl>;
+    using rank_type = communicator::rank_type;
+    using tag_type = communicator::tag_type;
 
   private:
     struct mpi_win_holder
@@ -24,7 +27,7 @@ class context_impl
     };
 
   private:
-    MPI_Comm                           m_comm;
+    mpi_comm                           m_comm;
     mpi_win_holder                     m_win;
     heap_type                          m_heap;
     unique_ptr_set<communicator::impl> m_comms_set;
@@ -47,20 +50,23 @@ class context_impl
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
-    region make_region(void* ptr, std::size_t size) const { return {m_comm, m_win.m, ptr, size}; }
+    rank_type rank() const noexcept { return m_comm.rank(); }
+    rank_type size() const noexcept { return m_comm.size(); }
 
-    auto  get_window() const noexcept { return m_win.m; }
-    auto  get_comm() const noexcept { return m_comm; }
-    auto& get_heap() noexcept { return m_heap; }
+    region make_region(void* ptr, std::size_t size) const
+    {
+        return {m_comm.get(), m_win.m, ptr, size};
+    }
+
+    auto     get_window() const noexcept { return m_win.m; }
+    MPI_Comm get_comm() const noexcept { return m_comm; }
+    auto&    get_heap() noexcept { return m_heap; }
 
     communicator::impl* get_communicator();
 
     void deregister_communicator(communicator::impl* c) { m_comms_set.remove(c); }
 
-    void lock(communicator::rank_type r)
-    {
-        m_lock_cache->lock(r);
-    }
+    void lock(communicator::rank_type r) { m_lock_cache->lock(r); }
 };
 
 } // namespace oomph

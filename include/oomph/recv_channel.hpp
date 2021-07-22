@@ -1,3 +1,12 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #pragma once
 
 #include <oomph/util/heap_pimpl.hpp>
@@ -137,9 +146,9 @@ class recv_channel : public recv_channel_base
         do
         {
             ptr = (T*)base::get(index);
-        } 
+        }
         //while (!ptr);
-        while(false);
+        while (false);
         return {ptr, m_size, index, base::get_impl()};
     }
 

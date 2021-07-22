@@ -10,6 +10,7 @@ if (OOMPH_WITH_LIBFABRIC)
     add_library(oomph_libfabric SHARED)
     target_link_libraries(oomph_libfabric PUBLIC oomph)
     target_link_libraries(oomph_libfabric PUBLIC libfabric::libfabric)
+    target_link_libraries(oomph_libfabric PUBLIC oomph_common)
 endif()
 
 

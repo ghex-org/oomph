@@ -10,5 +10,6 @@ if (OOMPH_WITH_UCX)
     add_library(oomph_ucx SHARED)
     target_link_libraries(oomph_ucx PUBLIC oomph)
     target_link_libraries(oomph_ucx PUBLIC UCP::libucp)
+    target_link_libraries(oomph_ucx PUBLIC oomph_common)
 endif()
 

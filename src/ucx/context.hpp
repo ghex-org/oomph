@@ -11,6 +11,7 @@
 #pragma once
 
 #include <oomph/context.hpp>
+#include "../mpi_comm.hpp"
 #include "../unique_ptr_set.hpp"
 #include "./region.hpp"
 #include <hwmalloc/register.hpp>
@@ -59,7 +60,7 @@ class context_impl
     using worker_vector = std::vector<std::unique_ptr<worker_type>>;
 
   private: // members
-    MPI_Comm m_mpi_comm;
+    mpi_comm m_mpi_comm;
     //const mpi::rank_topology&    m_rank_topology;
     type_erased_address_db_t           m_db;
     ucp_context_h_holder               m_context;
@@ -75,17 +76,13 @@ class context_impl
 
   public: // ctors
     context_impl(MPI_Comm mpi_c)
-    : m_mpi_comm
-    {
-        mpi_c
-    }
+    : m_mpi_comm(mpi_c)
 #if defined OOMPH_USE_PMI
     , m_db(address_db_pmi(mpi_c))
 #else
     , m_db(address_db_mpi(mpi_c))
 #endif
-          ,
-        m_heap{this}
+    , m_heap{this}
     {
         // read run-time context
         ucp_config_t* config_ptr;
@@ -143,7 +140,7 @@ class context_impl
         // use single-threaded UCX mode, as per developer advice
         // https://github.com/openucx/ucx/issues/4609
         m_worker.reset(new worker_type{
-            get(), m_db/*, m_mutex*/, UCS_THREAD_MODE_SINGLE /*, m_rank_topology*/});
+            get(), m_db /*, m_mutex*/, UCS_THREAD_MODE_SINGLE /*, m_rank_topology*/});
 
         // intialize database
         m_db.init(m_worker->address());
@@ -174,6 +171,10 @@ class context_impl
     context_impl(context_impl&&) = delete;
     context_impl& operator=(context_impl&&) = delete;
 
+    rank_type rank() const noexcept { return m_mpi_comm.rank(); }
+    rank_type size() const noexcept { return m_mpi_comm.size(); }
+    MPI_Comm  get_comm() const noexcept { return m_mpi_comm; }
+
     //public: // ctors
     //  template<typename DB>
     //  transport_context(const mpi::rank_topology& t, DB&& db)
@@ -199,7 +200,7 @@ class context_impl
 
     //rank_type     rank() const { return m_db.rank(); }
     //rank_type     size() const { return m_db.size(); }
-    
+
     ucp_context_h get() const noexcept { return m_context.m_context; }
 
     region make_region(void* ptr, std::size_t size, bool gpu = false)
