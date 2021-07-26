@@ -43,7 +43,7 @@ target_link_libraries(oomph INTERFACE Boost::boost)
 # ---------------------------------------------------------------------
 # include paths
 # ---------------------------------------------------------------------
-target_include_directories(hwmalloc INTERFACE
+target_include_directories(oomph INTERFACE
     $<INSTALL_INTERFACE:include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>)
@@ -93,17 +93,17 @@ install(EXPORT oomph-targets
   NAMESPACE oomph::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 
-configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/OomphConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/OomphConfig.cmake
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/oomphConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 
-write_basic_package_version_file(OomphConfigVersion.cmake
+write_basic_package_version_file(oomphConfigVersion.cmake
     VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 
 install(
     FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/OomphConfig.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/OomphConfigVersion.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/oomphConfigVersion.cmake
         #${CMAKE_CURRENT_LIST_DIR}/cmake/FindNUMA.cmake
         #${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibfabric.cmake
         #${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
