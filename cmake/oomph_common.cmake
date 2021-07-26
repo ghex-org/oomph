@@ -3,9 +3,6 @@
 # ---------------------------------------------------------------------
 set(OOMPH_USE_FAST_PIMPL OFF CACHE BOOL "store private implementations on stack")
 mark_as_advanced(OOMPH_USE_FAST_PIMPL)
-if (OOMPH_USE_FAST_PIMPL)
-    target_compile_definitions(oomph INTERFACE OOMPH_USE_FAST_PIMPL)
-endif()
 
 # ---------------------------------------------------------------------
 # compiler and linker flags
@@ -31,3 +28,18 @@ endfunction()
 add_library(oomph_common STATIC)
 oomph_target_compile_options(oomph_common)
 target_link_libraries(oomph_common PUBLIC oomph)
+
+# ---------------------------------------------------------------------
+# install rules
+# ---------------------------------------------------------------------
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+install(TARGETS oomph oomph_common
+    EXPORT oomph-targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+

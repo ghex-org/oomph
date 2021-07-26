@@ -69,6 +69,14 @@ include(oomph_libfabric)
 add_subdirectory(src)
 
 # ---------------------------------------------------------------------
+# generate config file
+# ---------------------------------------------------------------------
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/oomph/config.hpp @ONLY)
+install(FILES ${PROJECT_BINARY_DIR}/include/oomph/config.hpp
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/oomph)
+
+# ---------------------------------------------------------------------
 # testing
 # ---------------------------------------------------------------------
 set(OOMPH_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
@@ -77,4 +85,30 @@ if (OOMPH_WITH_TESTING)
     add_subdirectory(test)
 endif()
 
+# ---------------------------------------------------------------------
+# install rules
+# ---------------------------------------------------------------------
+install(EXPORT oomph-targets
+  FILE oomph-targets.cmake
+  NAMESPACE oomph::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/OomphConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/OomphConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+
+write_basic_package_version_file(OomphConfigVersion.cmake
+    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/OomphConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/OomphConfigVersion.cmake
+        #${CMAKE_CURRENT_LIST_DIR}/cmake/FindNUMA.cmake
+        #${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibfabric.cmake
+        #${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
+    DESTINATION
+        ${CMAKE_INSTALL_LIBDIR}/cmake)
+
+export(EXPORT oomph-targets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/oomph-targets.cmake")

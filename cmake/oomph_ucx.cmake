@@ -11,5 +11,9 @@ if (OOMPH_WITH_UCX)
     add_library(oomph::ucx ALIAS oomph_ucx)
     oomph_shared_lib_options(oomph_ucx)
     target_link_libraries(oomph_ucx PUBLIC UCP::libucp)
+    install(TARGETS oomph_ucx
+        EXPORT oomph-targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
