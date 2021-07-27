@@ -48,7 +48,10 @@ if (OOMPH_WITH_MPI)
 endif()
 
 if (OOMPH_WITH_UCX)
-    #reg_parallel_test(test_context ucx 4)
+    #reg_parallel_test(test_send_recv ucx 4)
+    foreach(t ${parallel_tests})
+        reg_parallel_test(${t} ucx 4)
+    endforeach()
 endif()
 
 if (OOMPH_WITH_LIBFABRIC)

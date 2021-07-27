@@ -31,6 +31,10 @@ class communicator
     using rank_type = int;
     using tag_type = int;
 
+  public:
+    static constexpr rank_type any_source = -1;
+    static constexpr tag_type  any_tag = -1;
+
   private:
     friend class context;
     friend class send_channel_base;

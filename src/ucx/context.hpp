@@ -23,6 +23,7 @@
 //#include "../communicator.hpp"
 //#include "../util/pthread_spin_mutex.hpp"
 #include "./worker.hpp"
+#include "./request.hpp"
 
 #ifdef OOMPH_USE_PMI
 // use the PMI interface ...
@@ -48,9 +49,11 @@ class context_impl
     using worker_type = worker_t;
     //using communicator_type = tl::communicator<communicator>;
 
-  private: // member types
+  //private: // member types
     //using mutex_t = pthread_spin::recursive_mutex;
+    using mutex_t = std::mutex;
 
+  private: // member types
     struct ucp_context_h_holder
     {
         ucp_context_h m_context;
@@ -70,7 +73,7 @@ class context_impl
     std::size_t                  m_req_size;
     std::unique_ptr<worker_type> m_worker; // shared, serialized - per rank
     //worker_vector                m_workers; // per thread
-    //mutex_t                      m_mutex;
+    mutex_t                      m_mutex;
 
     friend class worker_t;
 
@@ -97,7 +100,7 @@ class context_impl
             | UCP_PARAM_FIELD_TAG_SENDER_MASK   // mask which gets sender endpoint from a tag
             | UCP_PARAM_FIELD_MT_WORKERS_SHARED // multi-threaded context: thread safety
             | UCP_PARAM_FIELD_ESTIMATED_NUM_EPS // estimated number of endpoints for this context
-            //| UCP_PARAM_FIELD_REQUEST_INIT      // initialize request memory
+            | UCP_PARAM_FIELD_REQUEST_INIT      // initialize request memory
             ;
 
         // features
@@ -105,7 +108,7 @@ class context_impl
                                   | UCP_FEATURE_RMA // RMA access support
             ;
         // additional usable request size
-        context_params.request_size = 128; //request_data_size::value;
+        context_params.request_size = request_data_size::value;
         // thread safety
         // this should be true if we have per-thread workers,
         // otherwise, if one worker is shared by all thread, it should be false
@@ -121,7 +124,7 @@ class context_impl
         context_params.tag_sender_mask = 0xfffffffffffffffful;
         // needed to zero the memory region. Otherwise segfaults occured
         // when a std::function destructor was called on an invalid object
-        //context_params.request_init = &request_init;
+        context_params.request_init = &request_init;
 
         // initialize UCP
         OOMPH_CHECK_UCX_RESULT(ucp_init(&context_params, config_ptr, &m_context.m_context));

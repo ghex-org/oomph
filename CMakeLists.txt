@@ -89,9 +89,9 @@ endif()
 # install rules
 # ---------------------------------------------------------------------
 install(EXPORT oomph-targets
-  FILE oomph-targets.cmake
-  NAMESPACE oomph::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+    FILE oomph-targets.cmake
+    NAMESPACE oomph::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/oomphConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
