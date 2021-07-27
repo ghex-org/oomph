@@ -53,5 +53,15 @@ heap_pimpl<T>::operator*() const
     return *m.get();
 }
 
+template<typename T>
+T
+heap_pimpl<T>::release()
+{
+    auto ptr = m.release();
+    T t{std::move(*ptr)};
+    delete ptr;
+    return std::move(t);
+}
+
 } // namespace util
 } // namespace oomph

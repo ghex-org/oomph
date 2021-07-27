@@ -10,7 +10,6 @@
 #pragma once
 
 #include <oomph/util/mpi_error.hpp>
-#include <mpi.h>
 
 struct mpi_test_fixture : public ::testing::Test
 {

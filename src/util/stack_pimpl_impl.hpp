@@ -55,5 +55,12 @@ stack_pimpl<T, BufferSize, Alignment>::operator*() const
     return *m.get();
 }
 
+template<typename T, std::size_t BufferSize, std::size_t Alignment>
+T
+stack_pimpl<T, BufferSize, Alignment>::release()
+{
+    return m.release();
+}
+
 } // namespace util
 } // namespace oomph

@@ -1,3 +1,12 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #pragma once
 
 #include <oomph/util/placement_new.hpp>
@@ -98,6 +107,14 @@ class stack_storage
     {
         assert(!m_empty);
         return reinterpret_cast<T const*>(&m_impl);
+    }
+
+    T release()
+    {
+        T t{std::move(*get())};
+        placement_delete<T>(&m_impl);
+        m_empty = true;
+        return std::move(t);
     }
 };
 

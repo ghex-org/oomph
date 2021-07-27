@@ -9,7 +9,7 @@
  */
 #include <fstream>
 #include <gtest/gtest.h>
-#include "mpi_listener.hpp"
+#include "./mpi_listener.hpp"
 
 GTEST_API_ int
 main(int argc, char** argv)

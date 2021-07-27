@@ -1,3 +1,4 @@
+target_sources(oomph_common PRIVATE barrier.cpp)
 
 if (OOMPH_WITH_MPI)
     add_subdirectory(mpi)
