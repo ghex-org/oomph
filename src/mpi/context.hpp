@@ -39,7 +39,6 @@ class context_impl : public context_base
         OOMPH_CHECK_MPI_RESULT(MPI_Info_set(info, "no_locks", "false"));
         OOMPH_CHECK_MPI_RESULT(MPI_Win_create_dynamic(info, m_mpi_comm, &(m_win.m)));
         MPI_Info_free(&info);
-        //MPI_Win_create_dynamic(MPI_INFO_NULL, m_mpi_comm, &m_win);
         OOMPH_CHECK_MPI_RESULT(MPI_Win_fence(0, m_win.m));
         m_lock_cache = std::make_unique<lock_cache>(m_win.m);
     }

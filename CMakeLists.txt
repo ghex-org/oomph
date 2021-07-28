@@ -105,8 +105,8 @@ install(
         ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/oomphConfigVersion.cmake
         #${CMAKE_CURRENT_LIST_DIR}/cmake/FindNUMA.cmake
-        #${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibfabric.cmake
-        #${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibfabric.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)
 
