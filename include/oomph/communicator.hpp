@@ -58,6 +58,7 @@ class communicator
     rank_type rank() const noexcept;
     rank_type size() const noexcept;
     MPI_Comm  mpi_comm() const noexcept;
+    bool      is_local(rank_type rank) const noexcept;
 
     template<typename T>
     message_buffer<T> make_buffer(std::size_t size)

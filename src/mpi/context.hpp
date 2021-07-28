@@ -1,8 +1,6 @@
 #pragma once
 
-#include <oomph/context.hpp>
-#include "../mpi_comm.hpp"
-#include "../unique_ptr_set.hpp"
+#include "../context_base.hpp"
 #include "./region.hpp"
 #include "./lock_cache.hpp"
 #include <hwmalloc/register.hpp>
@@ -10,7 +8,7 @@
 
 namespace oomph
 {
-class context_impl
+class context_impl : public context_base
 {
   public:
     using region_type = region;
@@ -27,44 +25,36 @@ class context_impl
     };
 
   private:
-    mpi_comm                           m_comm;
-    mpi_win_holder                     m_win;
-    heap_type                          m_heap;
-    unique_ptr_set<communicator::impl> m_comms_set;
-    std::unique_ptr<lock_cache>        m_lock_cache;
+    mpi_win_holder              m_win;
+    heap_type                   m_heap;
+    std::unique_ptr<lock_cache> m_lock_cache;
 
   public:
     context_impl(MPI_Comm comm)
-    : m_comm{comm}
+    : context_base(comm)
     , m_heap{this}
     {
         MPI_Info info;
         OOMPH_CHECK_MPI_RESULT(MPI_Info_create(&info));
         OOMPH_CHECK_MPI_RESULT(MPI_Info_set(info, "no_locks", "false"));
-        OOMPH_CHECK_MPI_RESULT(MPI_Win_create_dynamic(info, m_comm, &(m_win.m)));
+        OOMPH_CHECK_MPI_RESULT(MPI_Win_create_dynamic(info, m_mpi_comm, &(m_win.m)));
         MPI_Info_free(&info);
-        //MPI_Win_create_dynamic(MPI_INFO_NULL, m_comm, &m_win);
+        //MPI_Win_create_dynamic(MPI_INFO_NULL, m_mpi_comm, &m_win);
         OOMPH_CHECK_MPI_RESULT(MPI_Win_fence(0, m_win.m));
         m_lock_cache = std::make_unique<lock_cache>(m_win.m);
     }
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
-    rank_type rank() const noexcept { return m_comm.rank(); }
-    rank_type size() const noexcept { return m_comm.size(); }
-
     region make_region(void* ptr, std::size_t size) const
     {
-        return {m_comm.get(), m_win.m, ptr, size};
+        return {m_mpi_comm.get(), m_win.m, ptr, size};
     }
 
-    auto     get_window() const noexcept { return m_win.m; }
-    MPI_Comm get_comm() const noexcept { return m_comm; }
-    auto&    get_heap() noexcept { return m_heap; }
+    auto  get_window() const noexcept { return m_win.m; }
+    auto& get_heap() noexcept { return m_heap; }
 
     communicator::impl* get_communicator();
-
-    void deregister_communicator(communicator::impl* c) { m_comms_set.remove(c); }
 
     void lock(communicator::rank_type r) { m_lock_cache->lock(r); }
 };

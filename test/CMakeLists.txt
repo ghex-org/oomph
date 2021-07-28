@@ -7,7 +7,7 @@ add_subdirectory(mpi_runner)
 # ---------------------------------------------------------------------
 
 # list of tests to be executed
-set(parallel_tests test_context test_send_recv test_send_multi test_barrier)
+set(parallel_tests test_context test_send_recv test_send_multi test_barrier test_locality)
 
 # creates an object library (i.e. *.o file)
 function(compile_test t_)
