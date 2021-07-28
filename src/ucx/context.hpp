@@ -10,9 +10,7 @@
  */
 #pragma once
 
-#include <oomph/context.hpp>
-#include "../mpi_comm.hpp"
-#include "../unique_ptr_set.hpp"
+#include "../context_base.hpp"
 #include "./region.hpp"
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/register_device.hpp>
@@ -39,7 +37,7 @@
 
 namespace oomph
 {
-class context_impl
+class context_impl : public context_base
 {
   public: // member types
     using region_type = region;
@@ -49,7 +47,7 @@ class context_impl
     using worker_type = worker_t;
     //using communicator_type = tl::communicator<communicator>;
 
-  //private: // member types
+    //private: // member types
     //using mutex_t = pthread_spin::recursive_mutex;
     using mutex_t = std::mutex;
 
@@ -63,27 +61,24 @@ class context_impl
     using worker_vector = std::vector<std::unique_ptr<worker_type>>;
 
   private: // members
-    mpi_comm m_mpi_comm;
-    //const mpi::rank_topology&    m_rank_topology;
-    type_erased_address_db_t           m_db;
-    ucp_context_h_holder               m_context;
-    heap_type                          m_heap;
-    unique_ptr_set<communicator::impl> m_comms_set;
+    type_erased_address_db_t m_db;
+    ucp_context_h_holder     m_context;
+    heap_type                m_heap;
 
     std::size_t                  m_req_size;
     std::unique_ptr<worker_type> m_worker; // shared, serialized - per rank
     //worker_vector                m_workers; // per thread
-    mutex_t                      m_mutex;
+    mutex_t m_mutex;
 
     friend class worker_t;
 
   public: // ctors
     context_impl(MPI_Comm mpi_c)
-    : m_mpi_comm(mpi_c)
+    : context_base(mpi_c)
 #if defined OOMPH_USE_PMI
-    , m_db(address_db_pmi(mpi_c))
+    , m_db(address_db_pmi(context_base::m_mpi_comm))
 #else
-    , m_db(address_db_mpi(mpi_c))
+    , m_db(address_db_mpi(context_base::m_mpi_comm))
 #endif
     , m_heap{this}
     {
@@ -174,36 +169,6 @@ class context_impl
     context_impl(context_impl&&) = delete;
     context_impl& operator=(context_impl&&) = delete;
 
-    rank_type rank() const noexcept { return m_mpi_comm.rank(); }
-    rank_type size() const noexcept { return m_mpi_comm.size(); }
-    MPI_Comm  get_comm() const noexcept { return m_mpi_comm; }
-
-    //public: // ctors
-    //  template<typename DB>
-    //  transport_context(const mpi::rank_topology& t, DB&& db)
-    //  : m_mpi_comm{t.mpi_comm()}
-    //  , m_rank_topology{t}
-    //  , m_db{std::forward<DB>(db)}
-    //  {
-    //  }
-
-    //MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
-
-    //communicator_type get_serial_communicator() { return {m_worker.get(), m_worker.get()}; }
-
-    //communicator_type get_communicator()
-    //{
-    //    std::lock_guard<mutex_t> lock(
-    //        m_mutex); // we need to guard only the insertion in the vector,
-    //                  // but this is not a performance critical section
-    //    m_workers.push_back(std::make_unique<worker_type>(
-    //        get(), m_db, m_mutex, UCS_THREAD_MODE_SERIALIZED, m_rank_topology));
-    //    return {m_worker.get(), m_workers[m_workers.size() - 1].get()};
-    //}
-
-    //rank_type     rank() const { return m_db.rank(); }
-    //rank_type     size() const { return m_db.size(); }
-
     ucp_context_h get() const noexcept { return m_context.m_context; }
 
     region make_region(void* ptr, std::size_t size, bool gpu = false)
@@ -214,8 +179,15 @@ class context_impl
     auto& get_heap() noexcept { return m_heap; }
 
     communicator::impl* get_communicator();
-
-    void deregister_communicator(communicator::impl* c) { m_comms_set.remove(c); }
+    //communicator_type get_communicator()
+    //{
+    //    std::lock_guard<mutex_t> lock(
+    //        m_mutex); // we need to guard only the insertion in the vector,
+    //                  // but this is not a performance critical section
+    //    m_workers.push_back(std::make_unique<worker_type>(
+    //        get(), m_db, m_mutex, UCS_THREAD_MODE_SERIALIZED, m_rank_topology));
+    //    return {m_worker.get(), m_workers[m_workers.size() - 1].get()};
+    //}
 };
 
 } // namespace oomph

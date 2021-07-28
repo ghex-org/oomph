@@ -1,33 +1,37 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ */
 #pragma once
 
-#include <oomph/communicator.hpp>
 #include <oomph/context.hpp>
-#include "./context.hpp"
+#include <oomph/communicator.hpp>
 #include "./request.hpp"
+#include "./context.hpp"
+#include "../communicator_base.hpp"
 #include "../callback_utils.hpp"
 
 namespace oomph
 {
-class communicator::impl
+class communicator::impl : public communicator_base<communicator::impl>
 {
   public:
-    context_impl* m_context;
-
+    context_impl*                 m_context;
     callback_queue<request::impl> m_callbacks;
 
     impl(context_impl* ctxt)
-    : m_context(ctxt)
+    : communicator_base(ctxt)
+    , m_context(ctxt)
     {
     }
 
-    auto rank() const noexcept { return m_context->rank(); }
-    auto size() const noexcept { return m_context->size(); }
-
-    void release() { m_context->deregister_communicator(this); }
-
     auto& get_heap() noexcept { return m_context->get_heap(); }
-
-    auto mpi_comm() const noexcept { return m_context->get_comm(); }
 
     request::impl send(
         context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)

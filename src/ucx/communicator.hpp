@@ -10,9 +10,11 @@
  */
 #pragma once
 
+#include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
 #include "./request.hpp"
 #include "./context.hpp"
+#include "../communicator_base.hpp"
 #include "../callback_utils.hpp"
 //#include <atomic>
 //#include <mutex>
@@ -28,7 +30,7 @@ namespace oomph
 #define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
 
-class communicator::impl
+class communicator::impl : public communicator_base<communicator::impl>
 {
     using worker_type = worker_t;
     //    using rank_type = endpoint_t::rank_type;
@@ -60,7 +62,8 @@ class communicator::impl
   public:
     impl(context_impl* ctxt, worker_type* recv_worker, std::unique_ptr<worker_type>&& send_worker,
         context_impl::mutex_t& mtx)
-    : m_context(ctxt)
+    : communicator_base(ctxt)
+    , m_context(ctxt)
     , m_recv_worker{recv_worker}
     , m_send_worker{std::move(send_worker)}
     , m_mutex{mtx}
@@ -96,14 +99,7 @@ class communicator::impl
     //    rank_type local_rank() const noexcept { return m_recv_worker->rank_topology().local_rank(); }
     //    auto      mpi_comm() const noexcept { return m_recv_worker->rank_topology().mpi_comm(); }
 
-    auto rank() const noexcept { return m_context->rank(); }
-    auto size() const noexcept { return m_context->size(); }
-
-    void release() { m_context->deregister_communicator(this); }
-
     auto& get_heap() noexcept { return m_context->get_heap(); }
-
-    auto mpi_comm() const noexcept { return m_context->get_comm(); }
 
     request::impl send(
         context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)

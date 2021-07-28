@@ -66,6 +66,12 @@ communicator::size() const noexcept
     return m_impl->size();
 }
 
+bool
+communicator::is_local(rank_type rank) const noexcept
+{
+    return m_impl->is_local(rank);
+}
+
 MPI_Comm
 communicator::mpi_comm() const noexcept
 {
@@ -203,7 +209,6 @@ request::request(request::impl&& r)
 : m_impl{std::move(r)}
 {
 }
-
 
 request::request(request&&) = default;
 
