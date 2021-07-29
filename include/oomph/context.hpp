@@ -14,6 +14,7 @@
 #include <oomph/message_buffer.hpp>
 #include <oomph/communicator.hpp>
 #include <hwmalloc/config.hpp>
+#include <hwmalloc/device.hpp>
 
 namespace oomph
 {
@@ -21,7 +22,6 @@ class context_impl;
 class context
 {
   public:
-    //class impl;
     using pimpl = util::heap_pimpl<context_impl>;
 
   private:
@@ -45,10 +45,21 @@ class context
         return {make_buffer_core(size * sizeof(T)), size};
     }
 
+#if HWMALLOC_ENABLE_DEVICE
+    template<typename T>
+    message_buffer<T> make_device_buffer(std::size_t size, int id = hwmalloc::get_device_id())
+    {
+        return {make_buffer_core(size * sizeof(T)), size, id};
+    }
+#endif
+
     communicator get_communicator();
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
+#if HWMALLOC_ENABLE_DEVICE
+    detail::message_buffer make_buffer_core(std::size_t size, int device_id);
+#endif
 };
 
 template<typename Context>

@@ -16,6 +16,7 @@
 #include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../callback_utils.hpp"
+#include "../device_guard.hpp"
 
 namespace oomph
 {
@@ -37,15 +38,17 @@ class communicator::impl : public communicator_base<communicator::impl>
         context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)
     {
         MPI_Request r;
-        OOMPH_CHECK_MPI_RESULT(MPI_Isend(ptr.get(), size, MPI_BYTE, dst, tag, mpi_comm(), &r));
+        const_device_guard dg(ptr);
+        OOMPH_CHECK_MPI_RESULT(MPI_Isend(dg.data(), size, MPI_BYTE, dst, tag, mpi_comm(), &r));
         return {r};
     }
 
     request::impl recv(
         context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag)
     {
-        MPI_Request r;
-        OOMPH_CHECK_MPI_RESULT(MPI_Irecv(ptr.get(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
+        MPI_Request  r;
+        device_guard dg(ptr);
+        OOMPH_CHECK_MPI_RESULT(MPI_Irecv(dg.data(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
         return {r};
     }
 

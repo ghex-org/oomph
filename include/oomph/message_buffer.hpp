@@ -10,30 +10,20 @@
 #pragma once
 
 #include <oomph/util/pimpl.hpp>
+#include <hwmalloc/config.hpp>
 #include <cstddef>
 
 namespace oomph
 {
-//class context;
-//class communicator;
-//
-//template<typename T>
-//class message_buffer;
 
 namespace detail
 {
 class message_buffer
 {
-  private:
-    //template<typename T>
-    //friend class ::oomph::message_buffer;
-    //friend class communicator;
-
   public:
     class heap_ptr_impl;
     using pimpl = util::pimpl<heap_ptr_impl, 64, 8>;
 
-    //private:
   public:
     void* m_ptr = nullptr;
     pimpl m_heap_ptr;
@@ -48,7 +38,15 @@ class message_buffer
 
     operator bool() const noexcept { return m_ptr; }
 
-    //private:
+    bool on_device() const noexcept;
+
+#if HWMALLOC_ENABLE_DEVICE
+    void*       device_data() noexcept;
+    void const* device_data() const noexcept;
+
+    int device_id() const noexcept;
+#endif
+
     void clear();
 };
 
@@ -93,6 +91,15 @@ class message_buffer
 
     T&       operator[](std::size_t i) noexcept { return *(data() + i); }
     T const& operator[](std::size_t i) const noexcept { return *(data() + i); }
+
+    bool on_device() const noexcept { return m.on_device(); }
+
+#if HWMALLOC_ENABLE_DEVICE
+    T*       device_data() noexcept { return (T*)m.device_data(); }
+    T const* device_data() const noexcept { return (T*)m.device_data(); }
+
+    int device_id() const noexcept { return m.device_id(); }
+#endif
 };
 
 } // namespace oomph

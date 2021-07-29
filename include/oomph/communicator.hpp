@@ -12,6 +12,7 @@
 #include <oomph/message_buffer.hpp>
 #include <oomph/request.hpp>
 #include <oomph/util/mpi_error.hpp>
+#include <hwmalloc/device.hpp>
 #include <functional>
 #include <vector>
 #include <atomic>
@@ -20,7 +21,6 @@
 namespace oomph
 {
 class context;
-//class context_impl;
 class send_channel_base;
 class recv_channel_base;
 
@@ -42,10 +42,9 @@ class communicator
 
   private:
     impl* m_impl;
-    //context_impl* m_context_impl;
 
   private:
-    communicator(impl* impl_ /*, context_impl* c_impl_*/);
+    communicator(impl* impl_);
 
   public:
     communicator(communicator const&) = delete;
@@ -65,6 +64,14 @@ class communicator
     {
         return {make_buffer_core(size * sizeof(T)), size};
     }
+
+#if HWMALLOC_ENABLE_DEVICE
+    template<typename T>
+    message_buffer<T> make_device_buffer(std::size_t size, int id = hwmalloc::get_device_id())
+    {
+        return {make_buffer_core(size * sizeof(T)), size, id};
+    }
+#endif
 
     template<typename T>
     [[nodiscard]] request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
@@ -150,6 +157,9 @@ class communicator
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
+#if HWMALLOC_ENABLE_DEVICE
+    detail::message_buffer make_buffer_core(std::size_t size, int device_id);
+#endif
 
     request send(detail::message_buffer const& msg, std::size_t size, rank_type dst, tag_type tag);
     request recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag);
@@ -161,8 +171,6 @@ class communicator
         std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
     detail::message_buffer clone_buffer(detail::message_buffer& msg);
-
-    //impl* get_impl();
 };
 
 } // namespace oomph

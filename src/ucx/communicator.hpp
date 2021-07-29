@@ -16,6 +16,7 @@
 #include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../callback_utils.hpp"
+#include "../device_guard.hpp"
 //#include <atomic>
 //#include <mutex>
 //#include "../shared_message_buffer.hpp"
@@ -108,8 +109,10 @@ class communicator::impl : public communicator_base<communicator::impl>
         const auto  stag =
             ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(rank());
 
+        const_device_guard dg(ptr);
+
         auto ret = ucp_tag_send_nb(ep.get(), // destination
-            ptr.get(),                       // buffer
+            dg.data(),                       // buffer
             size,                            // buffer size
             ucp_dt_make_contig(1),           // data type
             stag,                            // tag
@@ -141,8 +144,10 @@ class communicator::impl : public communicator_base<communicator::impl>
         //        std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
         std::lock_guard<context_impl::mutex_t> lock(m_mutex);
 
+        device_guard dg(ptr);
+
         auto ret = ucp_tag_recv_nb(m_recv_worker->get(), // worker
-            ptr.get(),                                   // buffer
+            dg.data(),                                   // buffer
             size,                                        // buffer size
             ucp_dt_make_contig(1),                       // data type
             rtag,                                        // tag

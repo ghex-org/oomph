@@ -138,6 +138,32 @@ message_buffer::operator=(message_buffer&& other)
     return *this;
 }
 
+bool
+message_buffer::on_device() const noexcept
+{
+    return m_heap_ptr->m.on_device();
+}
+
+#if HWMALLOC_ENABLE_DEVICE
+void*
+message_buffer::device_data() noexcept
+{
+    return m_heap_ptr->m.device_ptr();
+}
+
+void const*
+message_buffer::device_data() const noexcept
+{
+    return m_heap_ptr->m.device_ptr();
+}
+
+int
+message_buffer::device_id() const noexcept
+{
+    return m_heap_ptr->m.device_id();
+}
+#endif
+
 void
 message_buffer::clear()
 {
@@ -190,11 +216,27 @@ context::make_buffer_core(std::size_t size)
     return m->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
+#if HWMALLOC_ENABLE_DEVICE
+detail::message_buffer
+context::make_buffer_core(std::size_t size, int id)
+{
+    return m->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
+}
+#endif
+
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size)
 {
     return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
+
+#if HWMALLOC_ENABLE_DEVICE
+detail::message_buffer
+communicator::make_buffer_core(std::size_t size, int id)
+{
+    return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
+}
+#endif
 
 ///////////////////////////////
 // request                   //
