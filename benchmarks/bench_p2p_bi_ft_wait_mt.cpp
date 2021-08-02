@@ -12,22 +12,8 @@
 #include "./mpi_environment.hpp"
 #include "./args.hpp"
 #include "./timer.hpp"
-#include <iostream>
+#include "./utils.hpp"
 #include <vector>
-
-#ifdef OOMPH_BENCHMARKS_MT
-#define THREADID omp_get_thread_num()
-#else
-#define THREADID 0
-#endif
-
-int
-exit(char const* executable)
-{
-    std::cerr << "Usage: " << executable << " [niter] [msg_size] [inflight]" << std::endl;
-    std::cerr << "       run with 2 MPI processes: e.g.: mpirun -np 2 ..." << std::endl;
-    return 1;
-}
 
 int
 main(int argc, char** argv)
@@ -46,6 +32,11 @@ main(int argc, char** argv)
     timer   t0;
     timer   t1;
 
+    const auto inflight = cmd_args.inflight;
+    const auto num_threads = cmd_args.num_threads;
+    const auto buff_size = cmd_args.buff_size;
+    const auto niter = cmd_args.n_iter;
+
 #ifdef OOMPH_BENCHMARKS_MT
 #pragma omp parallel
 #endif
@@ -59,14 +50,14 @@ main(int argc, char** argv)
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
-        std::vector<message> smsgs(cmd_args.inflight);
-        std::vector<message> rmsgs(cmd_args.inflight);
-        std::vector<request> sreqs(cmd_args.inflight);
-        std::vector<request> rreqs(cmd_args.inflight);
+        std::vector<message> smsgs(inflight);
+        std::vector<message> rmsgs(inflight);
+        std::vector<request> sreqs(inflight);
+        std::vector<request> rreqs(inflight);
         for (int j = 0; j < cmd_args.inflight; j++)
         {
-            smsgs[j] = comm.make_buffer<char>(cmd_args.buff_size);
-            rmsgs[j] = comm.make_buffer<char>(cmd_args.buff_size);
+            smsgs[j] = comm.make_buffer<char>(buff_size);
+            rmsgs[j] = comm.make_buffer<char>(buff_size);
             for (auto& c : smsgs[j]) c = 0;
             for (auto& c : rmsgs[j]) c = 0;
         }
@@ -74,38 +65,46 @@ main(int argc, char** argv)
         b(comm);
 
         int       dbg = 0;
-        const int max_i = cmd_args.n_iter / cmd_args.num_threads;
-        const int delta_i = max_i / 10;
+        int       sent = 0, received = 0;
+        int       last_received = 0;
+        int       last_sent = 0;
+        const int delta_i = niter / 10;
 
         if (thread_id == 0)
         {
-            if (rank == 0) std::cout << "number of threads: " << cmd_args.num_threads << "\n";
+            if (rank == 0) std::cout << "number of threads: " << num_threads << "\n";
             t0.tic();
             t1.tic();
         }
 
-        for (int i = 0; i < max_i; ++i, ++dbg)
+        while (sent < niter || received < niter)
         {
-            if (thread_id == 0 && dbg == delta_i)
+            if (thread_id == 0 && dbg >= delta_i)
             {
                 dbg = 0;
                 std::cout << rank << " total bwdt MB/s:      "
-                          << ((double)(delta_i * cmd_args.num_threads) * size *
-                                 cmd_args.buff_size) /
+                          << ((double)(received - last_received + sent - last_sent) * size *
+                                 buff_size / 2) /
                                  t0.toc()
                           << "\n";
                 t0.tic();
+                last_received = received;
+                last_sent = sent;
             }
 
             /* submit comm */
-            for (int j = 0; j < cmd_args.inflight; j++)
+            for (int j = 0; j < inflight; j++)
             {
-                rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * cmd_args.inflight + j);
-                sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * cmd_args.inflight + j);
+                dbg += num_threads;
+                sent += num_threads;
+                received += num_threads;
+
+                rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j);
+                sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
             }
 
             /* wait for all */
-            for (int j = 0; j < cmd_args.inflight; j++)
+            for (int j = 0; j < inflight; j++)
             {
                 sreqs[j].wait();
                 rreqs[j].wait();
@@ -116,11 +115,14 @@ main(int argc, char** argv)
         {
             const auto t = t1.toc();
             std::cout << "time:                   " << t / 1000000 << "s\n";
-            std::cout << "final MB/s:             "
-                      << ((double)(max_i * cmd_args.num_threads) * size * cmd_args.buff_size) / t
-                      << "\n";
+            std::cout << "final MB/s:             " << (double)(niter * size * buff_size) / t
+                      << std::endl;
         }
+
+        b(comm);
     }
+
+    // tail loops - not needed in wait benchmarks
 
     return 0;
 }

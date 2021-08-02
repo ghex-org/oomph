@@ -101,6 +101,13 @@ class communicator
     }
 
     template<typename T, typename CallBack>
+    void send(message_buffer<T>&, rank_type, tag_type, CallBack&&)
+    {
+        static_assert(!std::is_lvalue_reference<message_buffer<T>&>::value,
+            "message must be an r-value reference");
+    }
+
+    template<typename T, typename CallBack>
     void recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
@@ -109,6 +116,13 @@ class communicator
         recv(std::move(msg.m), s * sizeof(T), src, tag,
             [s, cb = std::forward<CallBack>(callback)](detail::message_buffer m, rank_type src,
                 tag_type tag) mutable { cb(message_buffer<T>(std::move(m), s), src, tag); });
+    }
+
+    template<typename T, typename CallBack>
+    void recv(message_buffer<T>&, rank_type, tag_type, CallBack&&)
+    {
+        static_assert(!std::is_lvalue_reference<message_buffer<T>&>::value,
+            "message must be an r-value reference");
     }
 
     template<typename T>
@@ -156,6 +170,13 @@ class communicator
                 send(std::move(msg.m), s * sizeof(T), id, tag, multi_cb);
             ++i;
         }
+    }
+
+    template<typename T, typename CallBack>
+    void send_multi(message_buffer<T>&, std::vector<rank_type> const&, tag_type, CallBack&&)
+    {
+        static_assert(!std::is_lvalue_reference<message_buffer<T>&>::value,
+            "message must be an r-value reference");
     }
 
     template<typename CallBack>

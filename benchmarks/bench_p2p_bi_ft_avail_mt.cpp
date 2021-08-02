@@ -12,22 +12,8 @@
 #include "./mpi_environment.hpp"
 #include "./args.hpp"
 #include "./timer.hpp"
-#include <iostream>
+#include "./utils.hpp"
 #include <vector>
-
-#ifdef OOMPH_BENCHMARKS_MT
-#define THREADID omp_get_thread_num()
-#else
-#define THREADID 0
-#endif
-
-int
-exit(char const* executable)
-{
-    std::cerr << "Usage: " << executable << " [niter] [msg_size] [inflight]" << std::endl;
-    std::cerr << "       run with 2 MPI processes: e.g.: mpirun -np 2 ..." << std::endl;
-    return 1;
-}
 
 int
 main(int argc, char** argv)
@@ -41,14 +27,17 @@ main(int argc, char** argv)
     args cmd_args(argc, argv);
     if (!cmd_args) return exit(argv[0]);
 
-    context   ctxt(MPI_COMM_WORLD);
-    barrier   b(cmd_args.num_threads);
-    timer     t0;
-    timer     t1;
-    const int inflight = cmd_args.inflight;
-    const int num_threads = cmd_args.num_threads;
+    context ctxt(MPI_COMM_WORLD);
+    barrier b(cmd_args.num_threads);
+    timer   t0;
+    timer   t1;
 
-#ifdef OOMPH_BENCHMARKS_MT
+    const auto inflight = cmd_args.inflight;
+    const auto num_threads = cmd_args.num_threads;
+    const auto buff_size = cmd_args.buff_size;
+    const auto niter = cmd_args.n_iter;
+
+#ifdef GHEX_USE_OPENMP
     std::atomic<int> sent(0);
     std::atomic<int> received(0);
     std::atomic<int> tail_send(0);
@@ -73,14 +62,14 @@ main(int argc, char** argv)
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
-        std::vector<message> smsgs(cmd_args.inflight);
-        std::vector<message> rmsgs(cmd_args.inflight);
-        std::vector<request> sreqs(cmd_args.inflight);
-        std::vector<request> rreqs(cmd_args.inflight);
+        std::vector<message> smsgs(inflight);
+        std::vector<message> rmsgs(inflight);
+        std::vector<request> sreqs(inflight);
+        std::vector<request> rreqs(inflight);
         for (int j = 0; j < cmd_args.inflight; j++)
         {
-            smsgs[j] = comm.make_buffer<char>(cmd_args.buff_size);
-            rmsgs[j] = comm.make_buffer<char>(cmd_args.buff_size);
+            smsgs[j] = comm.make_buffer<char>(buff_size);
+            rmsgs[j] = comm.make_buffer<char>(buff_size);
             for (auto& c : smsgs[j]) c = 0;
             for (auto& c : rmsgs[j]) c = 0;
         }
@@ -91,25 +80,25 @@ main(int argc, char** argv)
         int       last_received = 0;
         int       last_sent = 0;
         int       lsent = 0, lrecv = 0;
-        const int delta_i = cmd_args.n_iter / 10;
+        const int delta_i = niter / 10;
 
         if (thread_id == 0)
         {
-            if (rank == 0) std::cout << "number of threads: " << cmd_args.num_threads << "\n";
+            if (rank == 0) std::cout << "number of threads: " << num_threads << "\n";
             t0.tic();
             t1.tic();
         }
 
         // pre-post
-        for (int j = 0; j < cmd_args.inflight; j++)
+        for (int j = 0; j < inflight; j++)
         {
-            rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * cmd_args.inflight + j);
-            sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * cmd_args.inflight + j);
+            rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j);
+            sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
         }
 
-        while (sent < cmd_args.n_iter || received < cmd_args.n_iter)
+        while (sent < niter || received < niter)
         {
-            for (int j = 0; j < cmd_args.inflight; j++)
+            for (int j = 0; j < inflight; j++)
             {
                 if (rank == 0 && thread_id == 0 && sdbg >= delta_i)
                 {
@@ -128,7 +117,7 @@ main(int argc, char** argv)
                     dbg = 0;
                     std::cout << rank << " total bwdt MB/s:      "
                               << ((double)(received - last_received + sent - last_sent) * size *
-                                     cmd_args.buff_size / 2) /
+                                     buff_size / 2) /
                                      t0.toc()
                               << "\n";
                     t0.tic();
@@ -140,19 +129,18 @@ main(int argc, char** argv)
                 {
                     received++;
                     lrecv++;
-                    rdbg += cmd_args.num_threads;
-                    dbg += cmd_args.num_threads;
-                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * cmd_args.inflight + j);
+                    rdbg += num_threads;
+                    dbg += num_threads;
+                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j);
                 }
 
-                if (lsent < lrecv + 2 * cmd_args.inflight && sent < cmd_args.n_iter &&
-                    sreqs[j].is_ready())
+                if (lsent < lrecv + 2 * inflight && sent < niter && sreqs[j].is_ready())
                 {
                     sent++;
                     lsent++;
-                    sdbg += cmd_args.num_threads;
-                    dbg += cmd_args.num_threads;
-                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * cmd_args.inflight + j);
+                    sdbg += num_threads;
+                    dbg += num_threads;
+                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
                 }
             }
         }
@@ -162,7 +150,7 @@ main(int argc, char** argv)
             const auto t = t1.toc();
             std::cout << "time:                   " << t / 1000000 << "s\n";
             std::cout << "final MB/s:             "
-                      << (double)(cmd_args.n_iter * size * cmd_args.buff_size) / t << "\n";
+                      << (double)(cmd_args.n_iter * size * cmd_args.buff_size) / t << std::endl;
         }
 
         b(comm);
@@ -237,9 +225,7 @@ main(int argc, char** argv)
             }
         }
         // peer has sent everything, so we can cancel all posted recv requests
-        for(int j=0; j<inflight; j++){
-            rreqs[j].cancel();
-        }
+        for (int j = 0; j < inflight; j++) { rreqs[j].cancel(); }
     }
 
     return 0;
