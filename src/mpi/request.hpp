@@ -14,20 +14,23 @@
 
 namespace oomph
 {
+                
 class request::impl
 {
   public:
     MPI_Request m_req;
     bool        m_is_ready;
+    bool        m_send_req = true;
 
     impl()
     : m_is_ready(true)
     {
     }
 
-    impl(MPI_Request req)
+    impl(MPI_Request req, bool send_req = true)
     : m_req{req}
     , m_is_ready(false)
+    , m_send_req(send_req)
     {
     }
 
@@ -46,6 +49,22 @@ class request::impl
     {
         if (m_is_ready) return;
         OOMPH_CHECK_MPI_RESULT(MPI_Wait(&m_req, MPI_STATUS_IGNORE));
+    }
+
+    bool cancel()
+    {
+        if (m_send_req) return false;
+        OOMPH_CHECK_MPI_RESULT(MPI_Cancel(&m_req));
+        MPI_Status st;
+        OOMPH_CHECK_MPI_RESULT(MPI_Wait(&m_req, &st));
+        int flag = false;
+        OOMPH_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
+        return flag;
+    }
+
+    bool is_recv() const noexcept
+    {
+        return !(m_send_req);
     }
 };
 

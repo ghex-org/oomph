@@ -41,6 +41,7 @@ class request
   public:
     bool is_ready();
     void wait();
+    bool cancel();
 };
 
 } // namespace oomph

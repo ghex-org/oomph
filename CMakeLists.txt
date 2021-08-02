@@ -86,6 +86,14 @@ if (OOMPH_WITH_TESTING)
 endif()
 
 # ---------------------------------------------------------------------
+# benchmarks
+# ---------------------------------------------------------------------
+set(OOMPH_WITH_BENCHMARKS OFF CACHE BOOL "Build benchmarks")
+if (OOMPH_WITH_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+
+# ---------------------------------------------------------------------
 # install rules
 # ---------------------------------------------------------------------
 install(EXPORT oomph-targets

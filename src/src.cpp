@@ -206,6 +206,13 @@ communicator::clone_buffer(detail::message_buffer& msg)
     return {ptr};
 }
 
+bool
+communicator::cancel_recv_cb_(rank_type src, tag_type tag,
+    std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+{
+    return m_impl->cancel_recv_cb(src, tag, std::move(cb));
+}
+
 ///////////////////////////////
 // make_buffer               //
 ///////////////////////////////
@@ -251,7 +258,13 @@ request::is_ready()
 void
 request::wait()
 {
-    return m_impl->wait();
+    m_impl->wait();
+}
+
+bool
+request::cancel()
+{
+    return m_impl->cancel();
 }
 
 request::request() = default;

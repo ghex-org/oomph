@@ -21,13 +21,13 @@
 
 namespace oomph
 {
-/** @brief the type of the communication */
-enum class request_kind : int
-{
-    none = 0,
-    send,
-    recv
-};
+///** @brief the type of the communication */
+//enum class request_kind : int
+//{
+//    none = 0,
+//    send,
+//    recv
+//};
 
 /** @brief data required for future based communication which will be stored in ucx provided storage.
                  */
@@ -38,8 +38,9 @@ struct request_data
     void*        m_ucx_ptr;
     worker_type* m_recv_worker;
     worker_type* m_send_worker;
-    request_kind m_kind;
-    std::mutex*  m_mutex;
+    //request_kind m_kind;
+    bool        m_send_req;
+    std::mutex* m_mutex;
 
     /** @brief construct the struct inplace.
                       * @tparam Args constructor argument types
@@ -194,36 +195,42 @@ class request::impl
         while (!is_ready()) {};
     }
 
-    //    bool cancel()
-    //    {
-    //        if (!m_req) return false;
-    //
-    //        // TODO at this time, send requests cannot be canceled
-    //        // in UCX (1.7.0rc1)
-    //        // https://github.com/openucx/ucx/issues/1162
-    //        //
-    //        // TODO the below is only correct for recv requests,
-    //        // or for send requests under the assumption that
-    //        // the requests cannot be moved between threads.
-    //        //
-    //        // For the send worker we do not use locks, hence
-    //        // if request is canceled on another thread, it might
-    //        // clash with another send being submitted by the owner
-    //        // of ucp_worker
-    //
-    //        if (m_req->m_kind == request_kind::send) return false;
-    //
-    //        {
-    //            std::lock_guard<decltype(m_req->m_send_worker->mutex())> lock(
-    //                m_req->m_send_worker->mutex());
-    //            auto ucx_ptr = m_req->m_ucx_ptr;
-    //            auto worker = m_req->m_recv_worker->get();
-    //            ucp_request_cancel(worker, ucx_ptr);
-    //        }
-    //        // wait for the request to either complete, or be canceled
-    //        wait();
-    //        return true;
-    //    }
+    bool cancel()
+    {
+        if (!m_req) return false;
+
+        // TODO at this time, send requests cannot be canceled
+        // in UCX (1.7.0rc1)
+        // https://github.com/openucx/ucx/issues/1162
+        //
+        // TODO the below is only correct for recv requests,
+        // or for send requests under the assumption that
+        // the requests cannot be moved between threads.
+        //
+        // For the send worker we do not use locks, hence
+        // if request is canceled on another thread, it might
+        // clash with another send being submitted by the owner
+        // of ucp_worker
+
+        if (m_req->m_send_req) return false;
+
+        {
+            //std::lock_guard<decltype(m_req->m_send_worker->mutex())> lock(
+            //    m_req->m_send_worker->mutex());
+            std::lock_guard<std::mutex> lock(*(m_req->m_mutex));
+            auto                        ucx_ptr = m_req->m_ucx_ptr;
+            auto                        worker = m_req->m_recv_worker->get();
+            ucp_request_cancel(worker, ucx_ptr);
+        }
+        // wait for the request to either complete, or be canceled
+        wait();
+        return true;
+    }
+
+    bool is_recv() const noexcept
+    {
+        return (bool)m_req && !(m_req->m_send_req);
+    }
 };
 
 //

@@ -17,6 +17,30 @@
 #include <vector>
 #include <atomic>
 #include <cassert>
+#include <boost/callable_traits.hpp>
+
+#define OOMPH_CHECK_CALLBACK_F(CALLBACK, RANK_TYPE)                                                \
+    {                                                                                              \
+        using args_t = boost::callable_traits::args_t<std::remove_reference_t<CALLBACK>>;          \
+        using arg0_t = std::tuple_element_t<0, args_t>;                                            \
+        using arg1_t = std::tuple_element_t<1, args_t>;                                            \
+        using arg2_t = std::tuple_element_t<2, args_t>;                                            \
+        static_assert(std::tuple_size<args_t>::value == 3, "callback must have 3 arguments");      \
+        static_assert(std::is_same<arg1_t, RANK_TYPE>::value,                                      \
+            "rank_type is not convertible to second callback argument type");                      \
+        static_assert(std::is_same<arg2_t, tag_type>::value,                                       \
+            "tag_type is not convertible to third callback argument type");                        \
+        using TT = typename std::remove_reference_t<arg0_t>::value_type;                           \
+        static_assert(std::is_same<arg0_t, message_buffer<TT>>::value,                             \
+            "first callback argument type is not a message_buffer");                               \
+        static_assert(std::is_same<arg0_t, message_buffer<TT>>::value,                             \
+            "first callback argument type is not a message_buffer");                               \
+    }
+
+#define OOMPH_CHECK_CALLBACK(CALLBACK) OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type)
+
+#define OOMPH_CHECK_CALLBACK_MULTI(CALLBACK)                                                       \
+    OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>)
 
 namespace oomph
 {
@@ -90,6 +114,7 @@ class communicator
     template<typename T, typename CallBack>
     void send(message_buffer<T>&& msg, rank_type dst, tag_type tag, CallBack&& callback)
     {
+        OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
         const auto s = msg.size();
         send(std::move(msg.m), s * sizeof(T), dst, tag,
@@ -100,6 +125,7 @@ class communicator
     template<typename T, typename CallBack>
     void recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
     {
+        OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
         const auto s = msg.size();
         recv(std::move(msg.m), s * sizeof(T), src, tag,
@@ -122,6 +148,7 @@ class communicator
     void send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs, tag_type tag,
         CallBack&& callback)
     {
+        OOMPH_CHECK_CALLBACK_MULTI(CallBack)
         assert(msg);
         const auto s = msg.size();
         auto       counter = new std::atomic<int>(neighs.size());
@@ -153,6 +180,20 @@ class communicator
         }
     }
 
+    template<typename CallBack>
+    bool cancel_recv_cb(rank_type src, tag_type tag, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK(CallBack)
+        using args_t = boost::callable_traits::args_t<std::remove_reference_t<CallBack>>;
+        using msg_t = std::tuple_element_t<0, args_t>;
+        using value_t = typename msg_t::value_type;
+        return cancel_recv_cb_(src, tag,
+            [cb = std::forward<CallBack>(callback)](
+                detail::message_buffer m, std::size_t size, rank_type dst, tag_type tag) mutable {
+                cb(msg_t{std::move(m), size / sizeof(value_t)}, dst, tag);
+            });
+    }
+
     void progress();
 
   private:
@@ -171,6 +212,9 @@ class communicator
         std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
     detail::message_buffer clone_buffer(detail::message_buffer& msg);
+
+    bool cancel_recv_cb_(rank_type src, tag_type tag,
+        std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb);
 };
 
 } // namespace oomph

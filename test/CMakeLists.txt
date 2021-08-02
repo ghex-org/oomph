@@ -7,7 +7,7 @@ add_subdirectory(mpi_runner)
 # ---------------------------------------------------------------------
 
 # list of tests to be executed
-set(parallel_tests test_context test_send_recv test_send_multi test_barrier test_locality)
+set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_barrier test_locality)
 
 # creates an object library (i.e. *.o file)
 function(compile_test t_)
@@ -48,7 +48,6 @@ if (OOMPH_WITH_MPI)
 endif()
 
 if (OOMPH_WITH_UCX)
-    #reg_parallel_test(test_send_recv ucx 4)
     foreach(t ${parallel_tests})
         reg_parallel_test(${t} ucx 4)
     endforeach()

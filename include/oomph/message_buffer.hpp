@@ -15,7 +15,6 @@
 
 namespace oomph
 {
-
 namespace detail
 {
 class message_buffer
@@ -55,6 +54,9 @@ class message_buffer
 template<typename T>
 class message_buffer
 {
+  public:
+    using value_type = T;
+
   private:
     friend class context;
     friend class communicator;

@@ -37,7 +37,7 @@ class communicator::impl : public communicator_base<communicator::impl>
     request::impl send(
         context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)
     {
-        MPI_Request r;
+        MPI_Request        r;
         const_device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Isend(dg.data(), size, MPI_BYTE, dst, tag, mpi_comm(), &r));
         return {r};
@@ -49,7 +49,7 @@ class communicator::impl : public communicator_base<communicator::impl>
         MPI_Request  r;
         device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Irecv(dg.data(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
-        return {r};
+        return {r, false};
     }
 
     void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
@@ -57,6 +57,26 @@ class communicator::impl : public communicator_base<communicator::impl>
 
     void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
         std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+
+    bool cancel_recv_cb(rank_type src, tag_type tag,
+        std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+    {
+        bool done = false;
+        m_callbacks.dequeue(
+            src, tag,
+            [&done, cb = std::move(cb), src, tag](
+                request::impl&& req, detail::message_buffer&& msg, std::size_t size) {
+                if (req.cancel())
+                {
+                    cb(std::move(msg), size, src, tag);
+                    done = true;
+                    return true;
+                }
+                return false;
+            },
+            true);
+        return done;
+    }
 
     void progress() { m_callbacks.progress(); }
 };

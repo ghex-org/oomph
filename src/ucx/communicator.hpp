@@ -123,7 +123,7 @@ class communicator::impl : public communicator_base<communicator::impl>
             return {nullptr};
         else if (!UCS_PTR_IS_ERR(ret))
             return {request::impl::data_type::construct(
-                ret, m_recv_worker, m_send_worker.get(), request_kind::send, &m_mutex)};
+                ret, m_recv_worker, m_send_worker.get(), true, &m_mutex)};
         else
             // an error occurred
             throw std::runtime_error("oomph: ucx error - send operation failed");
@@ -168,7 +168,7 @@ class communicator::impl : public communicator_base<communicator::impl>
             else
             {
                 return {request::impl::data_type::construct(
-                    ret, m_recv_worker, m_send_worker.get(), request_kind::recv, &m_mutex)};
+                    ret, m_recv_worker, m_send_worker.get(), false, &m_mutex)};
             }
         }
         else
@@ -369,6 +369,25 @@ class communicator::impl : public communicator_base<communicator::impl>
     //            throw std::runtime_error("ghex: ucx error - recv message truncated");
     //        }
     //    }
+    bool cancel_recv_cb(rank_type src, tag_type tag,
+        std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+    {
+        bool done = false;
+        m_callbacks.dequeue(
+            src, tag,
+            [&done, cb = std::move(cb), src, tag](
+                request::impl&& req, detail::message_buffer&& msg, std::size_t size) {
+                if (req.cancel())
+                {
+                    cb(std::move(msg), size, src, tag);
+                    done = true;
+                    return true;
+                }
+                return false;
+            },
+            true);
+        return done;
+    }
 };
 
 } // namespace oomph

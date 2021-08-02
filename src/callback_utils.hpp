@@ -179,14 +179,17 @@ class callback_queue
     struct element_type
     {
         message_type m_msg;
+        std::size_t  m_size;
         rank_type    m_rank;
         tag_type     m_tag;
         cb_type      m_cb;
         request_type m_request;
         //request      m_request;
 
-        element_type(message_type&& msg, rank_type r, tag_type t, cb_type&& cb, request_type&& req)
+        element_type(message_type&& msg, std::size_t s, rank_type r, tag_type t, cb_type&& cb,
+            request_type&& req)
         : m_msg{std::move(msg)}
+        , m_size{s}
         , m_rank{r}
         , m_tag{t}
         , m_cb{std::move(cb)}
@@ -226,12 +229,36 @@ class callback_queue
                       * @return returns a completion handle */
     //template<typename Callback>
     //request
-    void enqueue(message_type&& msg, rank_type rank, tag_type tag, request_type&& req, cb_type&& cb)
+    void enqueue(message_type&& msg, std::size_t size, rank_type rank, tag_type tag,
+        request_type&& req, cb_type&& cb)
     {
         //request m_req{std::make_shared<request_state>(false, m_queue.size())};
-        m_queue.push_back(
-            element_type{std::move(msg), rank, tag, std::move(cb), std::move(req) /*, m_req*/});
+        m_queue.push_back(element_type{
+            std::move(msg), size, rank, tag, std::move(cb), std::move(req) /*, m_req*/});
         //return m_req;
+    }
+
+    //using cb_type = std::function<void(request_type, message_type, rank_type, tag_type)>;
+    template<typename CallBack>
+    void dequeue(rank_type rank, tag_type tag, CallBack&& cb, bool recv = true)
+    {
+        auto first =
+            std::find_if(m_queue.begin(), m_queue.end(), [rank, tag, recv](element_type& e) {
+                return ((e.m_request.is_recv() == recv) && (e.m_rank == rank) && (e.m_tag == tag));
+            });
+        if (first == m_queue.end()) return;
+        if (cb(std::move(first->m_request), std::move(first->m_msg), first->m_size))
+        {
+            for (auto it = first + 1; it != m_queue.end(); ++it, ++first) (*first) = std::move(*it);
+            m_queue.erase(first, m_queue.end());
+        }
+
+        //element_type tmp = std::move(*first);
+        //for (auto it=first+1; it!=m_queue.end(); ++it, ++first)
+        //{
+        //    (*first) = std::move(*it);
+        //}
+        //return true;
     }
 
     auto size() const noexcept { return m_queue.size(); }
@@ -244,7 +271,7 @@ class callback_queue
         int completed = 0;
         //while (true)
         //{
-        const auto first = std::partition(m_queue.begin(), m_queue.end(),
+        const auto first = std::stable_partition(m_queue.begin(), m_queue.end(),
             [](auto& x) -> bool { return !(x.m_request.is_ready()); });
         //auto it = future_type::test_any(
         //    m_queue.begin(), m_queue.end(), [](auto& x) -> future_type& { return x.m_future; });
