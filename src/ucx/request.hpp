@@ -317,19 +317,46 @@ class request::impl
 //    }
 //};
 
-template<typename RandomAccessIterator>
-inline RandomAccessIterator
-test_any(RandomAccessIterator first, RandomAccessIterator last)
-{
-    return std::find_if(first, last, [](auto& req) { return req.is_ready(); });
-}
+//template<typename RandomAccessIterator>
+//inline RandomAccessIterator
+//test_any(RandomAccessIterator first, RandomAccessIterator last)
+//{
+//    return std::find_if(first, last, [](auto& req) { return req.is_ready(); });
+//}
+//
+//template<typename RandomAccessIterator, typename Func>
+//inline RandomAccessIterator
+//test_any(RandomAccessIterator first, RandomAccessIterator last, Func&& get)
+//{
+//    return std::find_if(
+//        first, last, [g = std::forward<Func>(get)](auto& req) { return g(req).is_ready(); });
+//}
 
-template<typename RandomAccessIterator, typename Func>
-inline RandomAccessIterator
-test_any(RandomAccessIterator first, RandomAccessIterator last, Func&& get)
+template<typename Element>
+void
+partition(std::vector<Element>& queue, std::vector<Element>& ready_queue)
 {
-    return std::find_if(
-        first, last, [g = std::forward<Func>(get)](auto& req) { return g(req).is_ready(); });
+    ready_queue.clear();
+    const auto qs = queue.size();
+    if (!qs) return;
+    ready_queue.reserve(qs);
+    std::size_t j = 0;
+    for (std::size_t i = 0; i < qs; ++i)
+    {
+        auto& e = queue[i];
+        if (e.m_request.is_ready()) { ready_queue.push_back(std::move(e)); }
+        else if (i > j)
+        {
+            e.m_handle->m_index = j;
+            queue[j] = std::move(e);
+            ++j;
+        }
+        else
+        {
+            ++j;
+        }
+    }
+    queue.erase(queue.end() - ready_queue.size(), queue.end());
 }
 
 } // namespace oomph

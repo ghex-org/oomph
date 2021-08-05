@@ -186,14 +186,14 @@ message_buffer::clear()
 
 void
 communicator::send2(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,
-    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<send_cb_handle::data_type> h)
+    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<send_request::data_type> h)
 {
     m_impl->send2(m_ptr->m, size, dst, tag, std::move(cb), std::move(h));
 }
 
 void
 communicator::recv2(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<recv_cb_handle::data_type> h)
+    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<recv_request::data_type> h)
 {
     m_impl->recv2(m_ptr->m, size, src, tag, std::move(cb), std::move(h));
 }
@@ -301,11 +301,11 @@ communicator::make_buffer_core(std::size_t size, int id)
 //    return m_data->m_ready;
 //}
 
-bool
-recv_cb_handle::cancel()
-{
-    return m_data->m_comm->cancel_recv_cb(m_data->m_index);
-}
+//bool
+//recv_cb_handle::cancel()
+//{
+//    return m_data->m_comm->cancel_recv_cb(m_data->m_index);
+//}
 
 
 bool

@@ -62,10 +62,10 @@ main(int argc, char** argv)
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
-        std::vector<message> smsgs(inflight);
-        std::vector<message> rmsgs(inflight);
-        std::vector<send_cb_handle>    sreqs(inflight);
-        std::vector<recv_cb_handle>    rreqs(inflight);
+        std::vector<message>      smsgs(inflight);
+        std::vector<message>      rmsgs(inflight);
+        std::vector<send_request> sreqs(inflight);
+        std::vector<recv_request> rreqs(inflight);
         for (int j = 0; j < cmd_args.inflight; j++)
         {
             smsgs[j] = comm.make_buffer<char>(buff_size);
@@ -82,7 +82,7 @@ main(int argc, char** argv)
         int       dbg = 0, sdbg = 0, rdbg = 0;
         int       lsent = 0, lrecv = 0;
         const int delta_i = niter / 10;
-        bool first = true;
+        bool      first = true;
 
         if (thread_id == 0)
         {
@@ -217,8 +217,8 @@ main(int argc, char** argv)
                     {
                         //rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
-                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt,
-                                &received](message&, int, int tag) {
+                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
+                                message&, int, int tag) {
                                 int pthr = tag / inflight;
                                 if (pthr != thread_id) nlrecv_cnt++;
                                 //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
@@ -259,8 +259,8 @@ main(int argc, char** argv)
                     {
                         //rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
-                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt,
-                                &received](message&, int, int tag) {
+                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
+                                message&, int, int tag) {
                                 int pthr = tag / inflight;
                                 if (pthr != thread_id) nlrecv_cnt++;
                                 //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);

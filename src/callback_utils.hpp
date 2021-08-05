@@ -440,10 +440,15 @@ class callback_queue2
 
   private: // members
     queue_type m_queue;
+    queue_type m_tmp_queue;
     bool       in_progress = false;
 
   public: // ctors
-    callback_queue2() { m_queue.reserve(256); }
+    callback_queue2()
+    {
+        m_queue.reserve(256);
+        m_tmp_queue.reserve(256);
+    }
 
   public:        // member functions
     void enqueue(/*message_type* msg, std::size_t size, rank_type rank, tag_type tag,*/
@@ -477,26 +482,55 @@ class callback_queue2
     {
         if (in_progress) return 0;
         in_progress = true;
-        int completed = 0;
-        while (true)
-        {
-            auto it = test_any(m_queue.begin(), m_queue.end(),
-                [](auto& e) -> request_type& { return e.m_request; });
-            if (it != m_queue.end())
-            {
-                ++completed;
-                element_type e = std::move(*it);
-                if ((std::size_t)((it - m_queue.begin()) + 1) < m_queue.size())
-                {
-                    *it = std::move(m_queue.back());
-                    it->m_handle->m_index = e.m_handle->m_index;
-                }
-                m_queue.pop_back();
-                e.m_cb(); //*e.m_msg, e.m_rank, e.m_tag);
-            }
-            else
-                break;
-        }
+
+        partition(m_queue, m_tmp_queue);
+
+        //m_tmp_queue.clear();
+        //const auto qs = m_queue.size();
+        //m_tmp_queue.reserve(qs);
+        //std::size_t j = 0;
+        //for (std::size_t i=0; i<qs; ++i)
+        //{
+        //    auto& e = m_queue[i];
+        //    if (e.m_request.is_ready())
+        //    {
+        //        m_tmp_queue.push_back(std::move(e));
+        //    }
+        //    else if (i>j)
+        //    {
+        //        e.m_handle->m_index = j;
+        //        m_queue[j] = std::move(e);
+        //        ++j;
+        //    }
+        //    else
+        //    {
+        //        ++j;
+        //    }
+        //}
+        //m_queue.erase(m_queue.end()-m_tmp_queue.size(),m_queue.end());
+        int completed = m_tmp_queue.size();
+        for (auto& e : m_tmp_queue) e.m_cb();
+
+        //int completed = 0;
+        //while (true)
+        //{
+        //    auto it = test_any(m_queue.begin(), m_queue.end(),
+        //        [](auto& e) -> request_type& { return e.m_request; });
+        //    if (it != m_queue.end())
+        //    {
+        //        ++completed;
+        //        element_type e = std::move(*it);
+        //        if ((std::size_t)((it - m_queue.begin()) + 1) < m_queue.size())
+        //        {
+        //            *it = std::move(m_queue.back());
+        //            it->m_handle->m_index = e.m_handle->m_index;
+        //        }
+        //        m_queue.pop_back();
+        //        e.m_cb(); //*e.m_msg, e.m_rank, e.m_tag);
+        //    }
+        //    else
+        //        break;
+        //}
         in_progress = false;
         return completed;
     }

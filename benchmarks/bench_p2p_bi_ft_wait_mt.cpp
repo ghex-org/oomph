@@ -37,6 +37,10 @@ main(int argc, char** argv)
     const auto buff_size = cmd_args.buff_size;
     const auto niter = cmd_args.n_iter;
 
+    std::cout << "inflight = " << inflight << std::endl;
+    std::cout << "size     = " << buff_size << std::endl;
+    std::cout << "N        = " << niter << std::endl;
+
 #ifdef OOMPH_BENCHMARKS_MT
 #pragma omp parallel
 #endif
@@ -64,12 +68,6 @@ main(int argc, char** argv)
 
         b(comm);
 
-        int       dbg = 0;
-        int       sent = 0, received = 0;
-        int       last_received = 0;
-        int       last_sent = 0;
-        const int delta_i = niter / 10;
-
         if (thread_id == 0)
         {
             if (rank == 0) std::cout << "number of threads: " << num_threads << "\n";
@@ -77,6 +75,11 @@ main(int argc, char** argv)
             t1.tic();
         }
 
+        int       dbg = 0;
+        int       sent = 0, received = 0;
+        int       last_received = 0;
+        int       last_sent = 0;
+        const int delta_i = niter / 10;
         while (sent < niter || received < niter)
         {
             if (thread_id == 0 && dbg >= delta_i)

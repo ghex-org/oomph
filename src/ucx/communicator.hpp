@@ -56,18 +56,18 @@ class communicator_impl : public communicator_base<communicator_impl>
     static void empty_recv_callback(void*, ucs_status_t, ucp_tag_recv_info_t*) {}
 
   public:
-    context_impl*                 m_context;
-    worker_type*                  m_recv_worker;
-    std::unique_ptr<worker_type>  m_send_worker;
-    context_impl::mutex_t&        m_mutex;
+    context_impl*                m_context;
+    worker_type*                 m_recv_worker;
+    std::unique_ptr<worker_type> m_send_worker;
+    context_impl::mutex_t&       m_mutex;
     //callback_queue<request::impl> m_send_callbacks;
     //callback_queue<request::impl> m_recv_callbacks;
-    callback_queue2<request::impl, send_cb_handle::data_type> m_send_callbacks2;
-    callback_queue2<request::impl, recv_cb_handle::data_type> m_recv_callbacks2;
+    callback_queue2<request::impl, send_request::data_type> m_send_callbacks2;
+    callback_queue2<request::impl, recv_request::data_type> m_recv_callbacks2;
 
   public:
-    communicator_impl(context_impl* ctxt, worker_type* recv_worker, std::unique_ptr<worker_type>&& send_worker,
-        context_impl::mutex_t& mtx)
+    communicator_impl(context_impl* ctxt, worker_type* recv_worker,
+        std::unique_ptr<worker_type>&& send_worker, context_impl::mutex_t& mtx)
     : communicator_base(ctxt)
     , m_context(ctxt)
     , m_recv_worker{recv_worker}
@@ -116,12 +116,12 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         const_device_guard dg(ptr);
 
-        auto ret = ucp_tag_send_nb(ep.get(), // destination
-            dg.data(),                       // buffer
-            size,                            // buffer size
-            ucp_dt_make_contig(1),           // data type
-            stag,                            // tag
-            &communicator_impl::empty_send_callback);     // callback function pointer: empty here
+        auto ret = ucp_tag_send_nb(ep.get(),          // destination
+            dg.data(),                                // buffer
+            size,                                     // buffer size
+            ucp_dt_make_contig(1),                    // data type
+            stag,                                     // tag
+            &communicator_impl::empty_send_callback); // callback function pointer: empty here
 
         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
             // send operation is completed immediately and the call-back function is not invoked
@@ -157,7 +157,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             ucp_dt_make_contig(1),                       // data type
             rtag,                                        // tag
             rtag_mask,                                   // tag mask
-            &communicator_impl::empty_recv_callback);                 // callback function pointer: empty here
+            &communicator_impl::empty_recv_callback);    // callback function pointer: empty here
 
         if (!UCS_PTR_IS_ERR(ret))
         {
@@ -213,8 +213,15 @@ class communicator_impl : public communicator_base<communicator_impl>
     //void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
     //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
-    void send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag,
-        util::unique_function<void()>&& cb, std::shared_ptr<send_cb_handle::data_type>&& h);
+    void send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+        tag_type tag, util::unique_function<void()>&& cb,
+        std::shared_ptr<send_request::data_type>&& h)
+    {
+        auto req = send(ptr, size, dst, tag);
+        if (req.is_ready()) cb();
+        else
+            m_send_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
+    }
 
     //    /** @brief send a message and get notified with a callback when the communication has finished.
     //                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
@@ -260,12 +267,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     //        }
     //    }
     //
-    
+
     //void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
     //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
     void recv2(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, std::shared_ptr<recv_cb_handle::data_type>&& h);
+        util::unique_function<void()>&& cb, std::shared_ptr<recv_request::data_type>&& h)
+    {
+        auto req = recv(ptr, size, src, tag);
+        if (req.is_ready()) cb();
+        else
+            m_recv_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
+    }
+
     //    /** @brief receive a message and get notified with a callback when the communication has finished.
     //                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
     //                     * message at the caller's site.
@@ -382,7 +396,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     //            throw std::runtime_error("ghex: ucx error - recv message truncated");
     //        }
     //    }
-    
+
     //bool cancel_recv_cb(rank_type src, tag_type tag,
     //    std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
     //{
@@ -401,10 +415,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     //    return done;
     //}
 
-    bool cancel_recv_cb(std::size_t index)
-    {
-        return m_recv_callbacks2.cancel(index);
-    }
+    bool cancel_recv_cb(std::size_t index) { return m_recv_callbacks2.cancel(index); }
 };
 
 } // namespace oomph

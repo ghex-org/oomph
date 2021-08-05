@@ -14,7 +14,7 @@
 #include <iomanip>
 #include <thread>
 
-#define NITERS   100
+#define NITERS   50
 #define SIZE     64
 #define NTHREADS 4
 
@@ -91,11 +91,32 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
 {
     test_environment env(ctxt, size, tid, num_threads);
 
+    // use is_ready() -> must manually progress the communicator
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
+        auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
+        while (!(rreq.is_ready() && sreq.is_ready())) { env.comm.progress(); };
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+
+    // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
         while (!(rreq.test() && sreq.test())) {};
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+
+    // use wait() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
+        env.comm.send(env.smsg, env.speer_rank, env.tag).wait();
+        rreq.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
@@ -118,14 +139,42 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     volatile int sent = 0;
 
     auto send_callback = [&](message const&, rank_type, tag_type) { ++sent; };
-
     auto recv_callback = [&](message&, rank_type, tag_type) { ++received; };
 
+    // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
         auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+    EXPECT_EQ(received, NITERS);
+    EXPECT_EQ(sent, NITERS);
+
+    received = 0;
+    sent = 0;
+    // use test() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
+        auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        while (!rh.test() || !sh.test()) {}
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+    EXPECT_EQ(received, NITERS);
+    EXPECT_EQ(sent, NITERS);
+
+    received = 0;
+    sent = 0;
+    // use wait() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
+        env.comm.send(env.smsg, env.speer_rank, 1, send_callback).wait();
+        rh.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
@@ -153,17 +202,45 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
         ++sent;
         env.smsg = std::move(msg);
     };
-
     auto recv_callback = [&](message msg, rank_type, tag_type) {
         ++received;
         env.rmsg = std::move(msg);
     };
 
+    // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+    EXPECT_EQ(received, NITERS);
+    EXPECT_EQ(sent, NITERS);
+
+    received = 0;
+    sent = 0;
+    // use test() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        while (!rh.test() || !sh.test()) {}
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+    EXPECT_EQ(received, NITERS);
+    EXPECT_EQ(sent, NITERS);
+
+    received = 0;
+    sent = 0;
+    // use wait() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+        env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
+        rh.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }

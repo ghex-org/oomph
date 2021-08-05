@@ -76,23 +76,23 @@ namespace oomph
 //        m_recv_callbacks.enqueue(std::move(msg), size, src, tag, std::move(req), std::move(cb));
 //}
 
-void
-communicator_impl::send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<send_cb_handle::data_type>&& h)
-{
-    auto req = send(ptr, size, dst, tag);
-    if (req.is_ready()) cb();
-    else
-        m_send_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
-}
+//void
+//communicator_impl::send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+//    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<send_cb_handle::data_type>&& h)
+//{
+//    auto req = send(ptr, size, dst, tag);
+//    if (req.is_ready()) cb();
+//    else
+//        m_send_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
+//}
 
-void
-communicator_impl::recv2(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<recv_cb_handle::data_type>&& h)
-{
-    auto req = recv(ptr, size, src, tag);
-    if (req.is_ready()) cb();
-    else
-        m_recv_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
-}
+//void
+//communicator_impl::recv2(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+//    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<recv_cb_handle::data_type>&& h)
+//{
+//    auto req = recv(ptr, size, src, tag);
+//    if (req.is_ready()) cb();
+//    else
+//        m_recv_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
+//}
 } // namespace oomph

@@ -150,12 +150,12 @@ class communicator
     // =================
 
     template<typename T, typename CallBack>
-    recv_cb_handle recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
+    recv_request recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
 
-        recv_cb_handle h(std::make_shared<recv_cb_handle::data_type>(m_impl, 0u, false));
+        recv_request h(std::make_shared<recv_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m_ptr = msg.m.m_heap_ptr.get();
 
@@ -171,12 +171,12 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    recv_cb_handle recv(message_buffer<T>& msg, rank_type src, tag_type tag, CallBack&& callback)
+    recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
 
-        recv_cb_handle h(std::make_shared<recv_cb_handle::data_type>(m_impl, 0u, false));
+        recv_request h(std::make_shared<recv_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m_ptr = msg.m.m_heap_ptr.get();
         auto           m = &msg;
@@ -192,12 +192,12 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_cb_handle send(message_buffer<T>&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    send_request send(message_buffer<T>&& msg, rank_type dst, tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
 
-        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        send_request h(std::make_shared<send_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m_ptr = msg.m.m_heap_ptr.get();
 
@@ -213,12 +213,12 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_cb_handle send(message_buffer<T>& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    send_request send(message_buffer<T>& msg, rank_type dst, tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
 
-        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        send_request h(std::make_shared<send_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m = &msg;
         auto           m_ptr = msg.m.m_heap_ptr.get();
@@ -234,13 +234,13 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_cb_handle send(
+    send_request send(
         message_buffer<T> const& msg, rank_type dst, tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
         assert(msg);
 
-        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        send_request h(std::make_shared<send_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m = &msg;
         auto           m_ptr = msg.m.m_heap_ptr.get();
@@ -256,7 +256,7 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_cb_handle send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs,
+    send_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs,
         tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
@@ -268,7 +268,7 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        send_request h(std::make_shared<send_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m_ptr = msg.m.m_heap_ptr.get();
         auto           m = new msg_ref_count{std::move(msg), {(int)neighs.size()}, neighs};
@@ -291,7 +291,7 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_cb_handle send_multi(message_buffer<T>& msg, std::vector<rank_type> const& neighs,
+    send_request send_multi(message_buffer<T>& msg, std::vector<rank_type> const& neighs,
         tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
@@ -303,7 +303,7 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        send_request h(std::make_shared<send_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m_ptr = msg.m.m_heap_ptr.get();
         auto           m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
@@ -326,7 +326,7 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_cb_handle send_multi(message_buffer<T> const& msg, std::vector<rank_type> const& neighs,
+    send_request send_multi(message_buffer<T> const& msg, std::vector<rank_type> const& neighs,
         tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CallBack)
@@ -338,7 +338,7 @@ class communicator
             std::vector<rank_type>   neighs;
         };
 
-        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        send_request h(std::make_shared<send_request::data_type>(m_impl, 0u, false));
         const auto     s = msg.size();
         auto           m_ptr = msg.m.m_heap_ptr.get();
         auto           m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
@@ -379,11 +379,11 @@ class communicator
 
     void send2(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,
         tag_type tag, util::unique_function<void()>&& cb,
-        std::shared_ptr<send_cb_handle::data_type> h);
+        std::shared_ptr<send_request::data_type> h);
 
     void recv2(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void()>&& cb,
-        std::shared_ptr<recv_cb_handle::data_type> h);
+        std::shared_ptr<recv_request::data_type> h);
 
     detail::message_buffer clone_buffer(detail::message_buffer& msg);
 
