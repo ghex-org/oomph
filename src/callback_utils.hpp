@@ -174,6 +174,8 @@ class callback_queue
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
     using cb_type = std::function<void(message_type, rank_type, tag_type)>;
+    //using ref_message_type = detail::message_buffer*;
+    //using ref_cb_type = std::function<void(detail::message_buffer&, rank_type, tag_type)>;
 
     // internal element which is stored in the queue
     struct element_type
@@ -206,7 +208,9 @@ class callback_queue
 
   private: // members
     queue_type m_queue;
-    queue_type m_tmp_queue;
+    queue_type m_tmp_queue_1;
+    queue_type m_tmp_queue_2;
+    bool       in_progress = false;
 
   public:
     int m_progressed_cancels = 0;
@@ -215,7 +219,8 @@ class callback_queue
     callback_queue()
     {
         m_queue.reserve(256);
-        m_tmp_queue.reserve(256);
+        m_tmp_queue_1.reserve(256);
+        m_tmp_queue_2.reserve(256);
     }
 
   public: // member functions
@@ -240,12 +245,10 @@ class callback_queue
 
     //using cb_type = std::function<void(request_type, message_type, rank_type, tag_type)>;
     template<typename CallBack>
-    void dequeue(rank_type rank, tag_type tag, CallBack&& cb, bool recv = true)
+    void dequeue(rank_type rank, tag_type tag, CallBack&& cb)
     {
-        auto first =
-            std::find_if(m_queue.begin(), m_queue.end(), [rank, tag, recv](element_type& e) {
-                return ((e.m_request.is_recv() == recv) && (e.m_rank == rank) && (e.m_tag == tag));
-            });
+        auto first = std::find_if(m_queue.begin(), m_queue.end(),
+            [rank, tag](element_type& e) { return ((e.m_rank == rank) && (e.m_tag == tag)); });
         if (first == m_queue.end()) return;
         if (cb(std::move(first->m_request), std::move(first->m_msg), first->m_size))
         {
@@ -268,38 +271,90 @@ class callback_queue
                       * @return number of progressed elements */
     int progress()
     {
-        int completed = 0;
-        //while (true)
-        //{
-        const auto first = std::stable_partition(m_queue.begin(), m_queue.end(),
-            [](auto& x) -> bool { return !(x.m_request.is_ready()); });
-        //auto it = future_type::test_any(
-        //    m_queue.begin(), m_queue.end(), [](auto& x) -> future_type& { return x.m_future; });
-        //if (it != m_queue.end())
+        if (in_progress) return 0;
+        in_progress = true;
 
-        for (auto it = first; it != m_queue.end(); ++it) { m_tmp_queue.push_back(std::move(*it)); }
-        m_queue.erase(first, m_queue.end());
-        //const std::size_t n_pops = m_queue.end()-first;
-        //for (auto it = first; it != m_queue.end(); ++it)
-        for (auto& element : m_tmp_queue)
+        int completed = 0;
+        while (true)
         {
-            //auto& element = *it;
-            //const std::size_t i = it - m_queue.begin();
-            element.m_cb(std::move(element.m_msg), element.m_rank, element.m_tag);
-            ++completed;
-            //element.m_request.m_request_state->m_ready = true;
-            /*if (i + 1 < m_queue.size())
-                {
-                    element = std::move(m_queue.back());
-                    element.m_request.m_request_state->m_index = i;
-                }
-                */
+            auto it = test_any(m_queue.begin(), m_queue.end(),
+                [](auto& e) -> request_type& { return e.m_request; });
+            if (it != m_queue.end())
+            {
+                ++completed;
+                element_type e = std::move(*it);
+                if ((std::size_t)((it - m_queue.begin()) + 1) < m_queue.size())
+                    *it = std::move(m_queue.back());
+                m_queue.pop_back();
+                e.m_cb(std::move(e.m_msg), e.m_rank, e.m_tag);
+            }
+            else
+                break;
         }
-        m_tmp_queue.clear();
-        //else
-        //    break;
-        //}
+        in_progress = false;
         return completed;
+
+        //m_tmp_queue_1.clear();
+        //m_tmp_queue_1.reserve(m_queue.size());
+        //m_tmp_queue_2.clear();
+        //m_tmp_queue_2.reserve(m_queue.size());
+
+        //std::size_t qs;
+        //do
+        //{
+        //    qs = m_queue.size();
+        //    for (auto& e : m_queue)
+        //    {
+        //        if (e.m_request.is_ready()) m_tmp_queue_2.push_back(std::move(e));
+        //        else
+        //            m_tmp_queue_1.push_back(std::move(e));
+        //    }
+        //} while (qs != m_queue.size());
+
+        //{
+        //    using namespace std;
+        //    swap(m_queue, m_tmp_queue_1);
+        //}
+
+        //for (auto& e : m_tmp_queue_2) { e.m_cb(std::move(e.m_msg), e.m_rank, e.m_tag); }
+
+        //in_progress = false;
+
+        //return m_tmp_queue_2.size();
+
+        //int completed = 0;
+        ////while (true)
+        ////{
+        //const auto first = std::stable_partition(m_queue.begin(), m_queue.end(),
+        //    [](auto& x) -> bool { return !(x.m_request.is_ready()); });
+        ////auto it = future_type::test_any(
+        ////    m_queue.begin(), m_queue.end(), [](auto& x) -> future_type& { return x.m_future; });
+        ////if (it != m_queue.end())
+
+        //for (auto it = first; it != m_queue.end(); ++it) { m_tmp_queue.push_back(std::move(*it)); }
+        //m_queue.erase(first, m_queue.end());
+        ////const std::size_t n_pops = m_queue.end()-first;
+        ////for (auto it = first; it != m_queue.end(); ++it)
+        //for (auto& element : m_tmp_queue)
+        //{
+        //    //auto& element = *it;
+        //    //const std::size_t i = it - m_queue.begin();
+        //    element.m_cb(std::move(element.m_msg), element.m_rank, element.m_tag);
+        //    ++completed;
+        //    //element.m_request.m_request_state->m_ready = true;
+        //    /*if (i + 1 < m_queue.size())
+        //        {
+        //            element = std::move(m_queue.back());
+        //            element.m_request.m_request_state->m_index = i;
+        //        }
+        //        */
+        //}
+        //m_tmp_queue.clear();
+        ////else
+        ////    break;
+        ////}
+        //
+        //return completed;
     }
 
     ///** @brief Cancel a callback
@@ -342,5 +397,125 @@ class callback_queue
 //        return *this;
 //    }
 //};
+
+template<class RequestType, class HandleType>
+class callback_queue2
+{
+  public: // member types
+    using request_type = RequestType;
+    using rank_type = communicator::rank_type;
+    using tag_type = communicator::tag_type;
+    using cb_type = util::unique_function<void()>;
+    using handle_type = HandleType;
+    using handle_ptr = std::shared_ptr<handle_type>;
+
+    struct element_type
+    {
+        //message_type* m_msg;
+        //std::size_t  m_size;
+        //rank_type    m_rank;
+        //tag_type     m_tag;
+        cb_type      m_cb;
+        request_type m_request;
+        handle_ptr   m_handle;
+
+        element_type(/*message_type* msg, std::size_t s, rank_type r, tag_type t,*/ cb_type&& cb,
+            request_type&& req, handle_ptr&& h)
+        /*: m_msg{msg}
+        , m_size{s}
+        , m_rank{r}
+        , m_tag{t}*/
+        : m_cb{std::move(cb)}
+        , m_request{std::move(req)}
+        , m_handle{std::move(h)}
+        {
+        }
+        element_type(element_type const&) = delete;
+        element_type(element_type&&) = default;
+        element_type& operator=(element_type const&) = delete;
+        element_type& operator=(element_type&& other) = default;
+    };
+
+    using queue_type = std::vector<element_type>;
+
+  private: // members
+    queue_type m_queue;
+    bool       in_progress = false;
+
+  public: // ctors
+    callback_queue2() { m_queue.reserve(256); }
+
+  public:        // member functions
+    void enqueue(/*message_type* msg, std::size_t size, rank_type rank, tag_type tag,*/
+        request_type&& req, cb_type&& cb, handle_ptr&& h)
+    {
+        m_queue.push_back(
+            element_type{/*msg, size, rank, tag, */ std::move(cb), std::move(req), std::move(h)});
+        m_queue.back().m_handle->m_index = m_queue.size()-1;
+    }
+
+    //template<typename CallBack>
+    //void dequeue(rank_type rank, tag_type tag, CallBack&& cb)
+    //{
+    //    auto first =
+    //        std::find_if(m_queue.begin(), m_queue.end(), [rank, tag](element_type& e) {
+    //            return ((e.m_rank == rank) && (e.m_tag == tag));
+    //        });
+    //    if (first == m_queue.end()) return;
+    //    if (cb(std::move(first->m_request), std::move(first->m_msg), first->m_size))
+    //    {
+    //        for (auto it = first + 1; it != m_queue.end(); ++it, ++first) (*first) = std::move(*it);
+    //        m_queue.erase(first, m_queue.end());
+    //    }
+
+    //}
+
+    auto size() const noexcept { return m_queue.size(); }
+
+    // don't call in a callback!
+    int progress()
+    {
+        if (in_progress) return 0;
+        in_progress = true;
+        int completed = 0;
+        while (true)
+        {
+            auto it = test_any(m_queue.begin(), m_queue.end(),
+                [](auto& e) -> request_type& { return e.m_request; });
+            if (it != m_queue.end())
+            {
+                ++completed;
+                element_type e = std::move(*it);
+                if ((std::size_t)((it - m_queue.begin()) + 1) < m_queue.size())
+                {
+                    *it = std::move(m_queue.back());
+                    it->m_handle->m_index = e.m_handle->m_index;
+                }
+                m_queue.pop_back();
+                e.m_cb(); //*e.m_msg, e.m_rank, e.m_tag);
+            }
+            else
+                break;
+        }
+        in_progress = false;
+        return completed;
+    }
+
+    bool cancel(std::size_t index)
+    {
+        if (m_queue[index].m_request.cancel())
+        {
+            if (index + 1 < m_queue.size())
+            {
+                m_queue[index] = std::move(m_queue.back());
+                m_queue[index].m_handle->m_index = index;
+            }
+            m_queue.pop_back();
+            return true;
+        }
+        else
+            return false;
+    }
+};
 
 } // namespace oomph

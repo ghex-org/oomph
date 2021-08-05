@@ -47,8 +47,7 @@ TEST_F(mpi_test_fixture, send_multi)
         init_msg(msg);
         std::vector<int> dsts(comm.size() - 1);
         for (int i = 1; i < comm.size(); ++i) dsts[i - 1] = i;
-        auto reqs = comm.send_multi(msg, dsts, 42);
-        for (auto& req : reqs) req.wait();
+        comm.send_multi(msg, dsts, 42).wait();
     }
     else
     {

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <oomph/util/pimpl.hpp>
+#include <oomph/util/heap_pimpl.hpp>
 
 namespace oomph
 {
@@ -19,7 +20,8 @@ class message_buffer
 {
   public:
     class heap_ptr_impl;
-    using pimpl = util::pimpl<heap_ptr_impl, 64, 8>;
+    //using pimpl = util::pimpl<heap_ptr_impl, 64, 8>;
+    using pimpl = util::heap_pimpl<heap_ptr_impl>;
 
   public:
     void* m_ptr = nullptr;

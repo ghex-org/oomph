@@ -11,8 +11,10 @@
 
 #include <oomph/message_buffer.hpp>
 #include <oomph/request.hpp>
+#include <oomph/cb_handle.hpp>
 #include <oomph/util/mpi_error.hpp>
 #include <oomph/detail/communicator_helper.hpp>
+#include <oomph/util/unique_function.hpp>
 #include <hwmalloc/device.hpp>
 #include <functional>
 #include <vector>
@@ -26,12 +28,15 @@ class context;
 class send_channel_base;
 class recv_channel_base;
 
+class communicator_impl;
+
 class communicator
 {
   public:
-    class impl;
+    //class impl;
     using rank_type = int;
     using tag_type = int;
+    using impl_type = communicator_impl;
 
   public:
     static constexpr rank_type any_source = -1;
@@ -43,16 +48,30 @@ class communicator
     friend class recv_channel_base;
 
   private:
-    impl* m_impl;
+    impl_type* m_impl;
 
   private:
-    communicator(impl* impl_);
+    communicator(impl_type* impl_) noexcept
+    : m_impl{impl_}
+    {
+    }
 
   public:
     communicator(communicator const&) = delete;
-    communicator(communicator&&);
+
+    communicator(communicator&& other) noexcept
+    : m_impl{std::exchange(other.m_impl, nullptr)}
+    {
+    }
+
     communicator& operator=(communicator const&) = delete;
-    communicator& operator=(communicator&&);
+
+    communicator& operator=(communicator&& other) noexcept
+    {
+        m_impl = std::exchange(other.m_impl, nullptr);
+        return *this;
+    }
+
     ~communicator();
 
   public:
@@ -75,122 +94,270 @@ class communicator
     }
 #endif
 
-    template<typename T>
-    [[nodiscard]] request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
-    {
-        assert(msg);
-        return send(msg.m, msg.size() * sizeof(T), dst, tag);
-    }
+    // no callback versions
+    // ====================
 
     template<typename T>
-    [[nodiscard]] request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
+    [[nodiscard]] recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
     {
         assert(msg);
-        return recv(msg.m, msg.size() * sizeof(T), src, tag);
-    }
-
-    template<typename T, typename CallBack>
-    void send(message_buffer<T>&& msg, rank_type dst, tag_type tag, CallBack&& callback)
-    {
-        OOMPH_CHECK_CALLBACK(CallBack)
-        assert(msg);
-        const auto s = msg.size();
-        send(std::move(msg.m), s * sizeof(T), dst, tag,
-            [s, cb = std::forward<CallBack>(callback)](detail::message_buffer m, rank_type dst,
-                tag_type tag) mutable { cb(message_buffer<T>(std::move(m), s), dst, tag); });
-    }
-
-    template<typename T, typename CallBack>
-    void send(message_buffer<T>&, rank_type, tag_type, CallBack&&)
-    {
-        static_assert(!std::is_lvalue_reference<message_buffer<T>&>::value,
-            "message must be an r-value reference");
-    }
-
-    template<typename T, typename CallBack>
-    void recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
-    {
-        OOMPH_CHECK_CALLBACK(CallBack)
-        assert(msg);
-        const auto s = msg.size();
-        recv(std::move(msg.m), s * sizeof(T), src, tag,
-            [s, cb = std::forward<CallBack>(callback)](detail::message_buffer m, rank_type src,
-                tag_type tag) mutable { cb(message_buffer<T>(std::move(m), s), src, tag); });
-    }
-
-    template<typename T, typename CallBack>
-    void recv(message_buffer<T>&, rank_type, tag_type, CallBack&&)
-    {
-        static_assert(!std::is_lvalue_reference<message_buffer<T>&>::value,
-            "message must be an r-value reference");
+        recv_request r(std::make_shared<recv_request::data_type>(m_impl, 0u, false));
+        recv2(
+            msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), src, tag,
+            [rd = r.m_data]() mutable { rd->m_ready = true; }, r.m_data);
+        return r;
     }
 
     template<typename T>
-    [[nodiscard]] std::vector<request> send_multi(
+    [[nodiscard]] send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
+    {
+        assert(msg);
+        send_request r(std::make_shared<send_request::data_type>(m_impl, 0u, false));
+        send2(
+            msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), dst, tag,
+            [rd = r.m_data]() mutable { rd->m_ready = true; }, r.m_data);
+        return r;
+    }
+
+    template<typename T>
+    [[nodiscard]] send_request send_multi(
         message_buffer<T> const& msg, std::vector<rank_type> const& neighs, tag_type tag)
     {
         assert(msg);
-        std::vector<request> reqs;
-        reqs.reserve(neighs.size());
-        for (auto id : neighs) reqs.push_back(send(msg, id, tag));
-        return reqs;
+        send_request r(std::make_shared<send_request::data_type>(m_impl, 0u, false));
+
+        const auto s = msg.size();
+        auto       m_ptr = msg.m.m_heap_ptr.get();
+        auto       counter = new std::atomic<int>{(int)neighs.size()};
+
+        for (auto id : neighs)
+        {
+            send2(
+                m_ptr, s * sizeof(T), id, tag,
+                [rd = r.m_data, counter]() mutable {
+                    if ((--(*counter)) == 0)
+                    {
+                        delete counter;
+                        rd->m_ready = true;
+                    }
+                },
+                r.m_data);
+        }
+        return r;
+    }
+
+    // callback versions
+    // =================
+
+    template<typename T, typename CallBack>
+    recv_cb_handle recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK(CallBack)
+        assert(msg);
+
+        recv_cb_handle h(std::make_shared<recv_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+
+        recv2(
+            m_ptr, s * sizeof(T), src, tag,
+            [hd = h.m_data, m = std::move(msg), src, tag,
+                cb = std::forward<CallBack>(callback)]() mutable {
+                cb(std::move(m), src, tag);
+                hd->m_ready = true;
+            },
+            h.m_data);
+        return h;
     }
 
     template<typename T, typename CallBack>
-    void send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs, tag_type tag,
-        CallBack&& callback)
+    recv_cb_handle recv(message_buffer<T>& msg, rank_type src, tag_type tag, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK_REF(CallBack)
+        assert(msg);
+
+        recv_cb_handle h(std::make_shared<recv_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+        auto           m = &msg;
+
+        recv2(
+            m_ptr, s * sizeof(T), src, tag,
+            [hd = h.m_data, m, src, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                cb(*m, src, tag);
+                hd->m_ready = true;
+            },
+            h.m_data);
+        return h;
+    }
+
+    template<typename T, typename CallBack>
+    send_cb_handle send(message_buffer<T>&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK(CallBack)
+        assert(msg);
+
+        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+
+        send2(
+            m_ptr, s * sizeof(T), dst, tag,
+            [hd = h.m_data, m = std::move(msg), dst, tag,
+                cb = std::forward<CallBack>(callback)]() mutable {
+                cb(std::move(m), dst, tag);
+                hd->m_ready = true;
+            },
+            h.m_data);
+        return h;
+    }
+
+    template<typename T, typename CallBack>
+    send_cb_handle send(message_buffer<T>& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK_REF(CallBack)
+        assert(msg);
+
+        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m = &msg;
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+
+        send2(
+            m_ptr, s * sizeof(T), dst, tag,
+            [hd = h.m_data, m, dst, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                cb(*m, dst, tag);
+                hd->m_ready = true;
+            },
+            h.m_data);
+        return h;
+    }
+
+    template<typename T, typename CallBack>
+    send_cb_handle send(
+        message_buffer<T> const& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
+        assert(msg);
+
+        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m = &msg;
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+
+        send2(
+            m_ptr, s * sizeof(T), dst, tag,
+            [hd = h.m_data, m, dst, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                cb(*m, dst, tag);
+                hd->m_ready = true;
+            },
+            h.m_data);
+        return h;
+    }
+
+    template<typename T, typename CallBack>
+    send_cb_handle send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs,
+        tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
         assert(msg);
-        const auto s = msg.size();
-        auto       counter = new std::atomic<int>(neighs.size());
-        auto       neighs_ptr = new std::vector<rank_type>(neighs);
-        const auto n_neighs = neighs.size();
-        auto       cb = std::forward<CallBack>(callback);
-
-        auto multi_cb = [s, counter, neighs_ptr, cb](
-                            detail::message_buffer m, rank_type, tag_type tag) mutable {
-            if ((--(*counter)) == 0)
-            {
-                cb(message_buffer<T>(std::move(m), s), *neighs_ptr, tag);
-                delete counter;
-                delete neighs_ptr;
-            }
-            else
-            {
-                m.clear();
-            }
+        struct msg_ref_count
+        {
+            message_buffer<T>      msg;
+            std::atomic<int>       counter;
+            std::vector<rank_type> neighs;
         };
 
-        std::size_t i = 0;
+        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+        auto           m = new msg_ref_count{std::move(msg), {(int)neighs.size()}, neighs};
+
         for (auto id : neighs)
         {
-            if ((i + 1) < n_neighs) send(clone_buffer(msg.m), s * sizeof(T), id, tag, multi_cb);
-            else
-                send(std::move(msg.m), s * sizeof(T), id, tag, multi_cb);
-            ++i;
+            send2(
+                m_ptr, s * sizeof(T), id, tag,
+                [hd = h.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                    if ((--(m->counter)) == 0)
+                    {
+                        cb(std::move(m->msg), std::move(m->neighs), tag);
+                        delete m;
+                        hd->m_ready = true;
+                    }
+                },
+                h.m_data);
         }
+        return h;
     }
 
     template<typename T, typename CallBack>
-    void send_multi(message_buffer<T>&, std::vector<rank_type> const&, tag_type, CallBack&&)
+    send_cb_handle send_multi(message_buffer<T>& msg, std::vector<rank_type> const& neighs,
+        tag_type tag, CallBack&& callback)
     {
-        static_assert(!std::is_lvalue_reference<message_buffer<T>&>::value,
-            "message must be an r-value reference");
+        OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
+        assert(msg);
+        struct msg_ref_count
+        {
+            message_buffer<T>*     msg;
+            std::atomic<int>       counter;
+            std::vector<rank_type> neighs;
+        };
+
+        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+        auto           m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
+
+        for (auto id : neighs)
+        {
+            send2(
+                m_ptr, s * sizeof(T), id, tag,
+                [hd = h.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                    if ((--(m->counter)) == 0)
+                    {
+                        cb(*(m->msg), std::move(m->neighs), tag);
+                        delete m;
+                        hd->m_ready = true;
+                    }
+                },
+                h.m_data);
+        }
+        return h;
     }
 
-    template<typename CallBack>
-    bool cancel_recv_cb(rank_type src, tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack>
+    send_cb_handle send_multi(message_buffer<T> const& msg, std::vector<rank_type> const& neighs,
+        tag_type tag, CallBack&& callback)
     {
-        OOMPH_CHECK_CALLBACK(CallBack)
-        using args_t = boost::callable_traits::args_t<std::remove_reference_t<CallBack>>;
-        using msg_t = std::tuple_element_t<0, args_t>;
-        using value_t = typename msg_t::value_type;
-        return cancel_recv_cb_(src, tag,
-            [cb = std::forward<CallBack>(callback)](
-                detail::message_buffer m, std::size_t size, rank_type dst, tag_type tag) mutable {
-                cb(msg_t{std::move(m), size / sizeof(value_t)}, dst, tag);
-            });
+        OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CallBack)
+        assert(msg);
+        struct msg_ref_count
+        {
+            message_buffer<T> const* msg;
+            std::atomic<int>         counter;
+            std::vector<rank_type>   neighs;
+        };
+
+        send_cb_handle h(std::make_shared<send_cb_handle::data_type>(m_impl, 0u, false));
+        const auto     s = msg.size();
+        auto           m_ptr = msg.m.m_heap_ptr.get();
+        auto           m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
+
+        for (auto id : neighs)
+        {
+            send2(
+                m_ptr, s * sizeof(T), id, tag,
+                [hd = h.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                    if ((--(m->counter)) == 0)
+                    {
+                        cb(*(m->msg), std::move(m->neighs), tag);
+                        delete m;
+                        hd->m_ready = true;
+                    }
+                },
+                h.m_data);
+        }
+        return h;
     }
 
     void progress();
@@ -201,14 +368,22 @@ class communicator
     detail::message_buffer make_buffer_core(std::size_t size, int device_id);
 #endif
 
-    request send(detail::message_buffer const& msg, std::size_t size, rank_type dst, tag_type tag);
-    request recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag);
+    //request send(detail::message_buffer const& msg, std::size_t size, rank_type dst, tag_type tag);
+    //request recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag);
 
-    void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
-        std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+    //void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
+    //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
-    void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
-        std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+    //void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
+    //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+
+    void send2(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,
+        tag_type tag, util::unique_function<void()>&& cb,
+        std::shared_ptr<send_cb_handle::data_type> h);
+
+    void recv2(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
+        tag_type tag, util::unique_function<void()>&& cb,
+        std::shared_ptr<recv_cb_handle::data_type> h);
 
     detail::message_buffer clone_buffer(detail::message_buffer& msg);
 

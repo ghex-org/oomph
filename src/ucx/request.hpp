@@ -227,10 +227,7 @@ class request::impl
         return true;
     }
 
-    bool is_recv() const noexcept
-    {
-        return (bool)m_req && !(m_req->m_send_req);
-    }
+    bool is_recv() const noexcept { return (bool)m_req && !(m_req->m_send_req); }
 };
 
 //
@@ -319,5 +316,20 @@ class request::impl
 //        return true;
 //    }
 //};
+
+template<typename RandomAccessIterator>
+inline RandomAccessIterator
+test_any(RandomAccessIterator first, RandomAccessIterator last)
+{
+    return std::find_if(first, last, [](auto& req) { return req.is_ready(); });
+}
+
+template<typename RandomAccessIterator, typename Func>
+inline RandomAccessIterator
+test_any(RandomAccessIterator first, RandomAccessIterator last, Func&& get)
+{
+    return std::find_if(
+        first, last, [g = std::forward<Func>(get)](auto& req) { return g(req).is_ready(); });
+}
 
 } // namespace oomph

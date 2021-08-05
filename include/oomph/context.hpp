@@ -30,10 +30,15 @@ class context
 
   public:
     context(MPI_Comm comm);
+
     context(context const&) = delete;
-    context(context&&);
+
+    context(context&&) noexcept;
+
     context& operator=(context const&) = delete;
-    context& operator=(context&&);
+
+    context& operator=(context&&) noexcept;
+
     ~context();
 
   public:

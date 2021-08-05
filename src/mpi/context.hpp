@@ -62,7 +62,7 @@ class context_impl : public context_base
     auto  get_window() const noexcept { return m_win.m; }
     auto& get_heap() noexcept { return m_heap; }
 
-    communicator::impl* get_communicator();
+    communicator_impl* get_communicator();
 
     void lock(communicator::rank_type r) { m_lock_cache->lock(r); }
 };

@@ -64,8 +64,8 @@ main(int argc, char** argv)
 
         std::vector<message> smsgs(inflight);
         std::vector<message> rmsgs(inflight);
-        std::vector<bool>    sreqs(inflight, true);
-        std::vector<bool>    rreqs(inflight, true);
+        std::vector<send_cb_handle>    sreqs(inflight);
+        std::vector<recv_cb_handle>    rreqs(inflight);
         for (int j = 0; j < cmd_args.inflight; j++)
         {
             smsgs[j] = comm.make_buffer<char>(buff_size);
@@ -82,6 +82,7 @@ main(int argc, char** argv)
         int       dbg = 0, sdbg = 0, rdbg = 0;
         int       lsent = 0, lrecv = 0;
         const int delta_i = niter / 10;
+        bool first = true;
 
         if (thread_id == 0)
         {
@@ -121,17 +122,14 @@ main(int argc, char** argv)
             for (int j = 0; j < inflight; j++)
             {
                 //if(rmsgs[j].use_count() == 1)
-                if (rreqs[j])
+                if (first || rreqs[j].is_ready())
                 {
-                    rreqs[j] = false;
                     submit_recv_cnt += num_threads;
                     rdbg += num_threads;
                     dbg += num_threads;
-                    comm.recv(std::move(rmsgs[j]), peer_rank, thread_id * inflight + j,
-                        [&rreqs, &rmsgs, j, inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
-                            message m, int, int tag) {
-                            rreqs[j] = true;
-                            rmsgs[j] = std::move(m);
+                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
+                        [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
+                            message&, int, int tag) {
                             int pthr = tag / inflight;
                             if (pthr != thread_id) nlrecv_cnt++;
                             //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
@@ -144,17 +142,14 @@ main(int argc, char** argv)
                     comm.progress();
 
                 // if(lsent < lrecv+2*inflight && sent < niter && smsgs[j].use_count() == 1)
-                if (lsent < lrecv + 2 * inflight && sent < niter && sreqs[j])
+                if (lsent < lrecv + 2 * inflight && sent < niter && (first || sreqs[j].is_ready()))
                 {
-                    sreqs[j] = false;
                     submit_cnt += num_threads;
                     sdbg += num_threads;
                     dbg += num_threads;
-                    comm.send(std::move(smsgs[j]), peer_rank, thread_id * inflight + j,
-                        [&sreqs, &smsgs, j, inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
-                            message m, int, int tag) {
-                            sreqs[j] = true;
-                            smsgs[j] = std::move(m);
+                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j,
+                        [inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
+                            message&, int, int tag) {
                             int pthr = tag / inflight;
                             if (pthr != thread_id) nlsend_cnt++;
                             comm_cnt++;
@@ -165,6 +160,7 @@ main(int argc, char** argv)
                 else
                     comm.progress();
             }
+            first = false;
         }
 
         if (thread_id == 0 && rank == 0)
@@ -205,7 +201,7 @@ main(int argc, char** argv)
                     incomplete_sends = 0;
                     for (int j = 0; j < inflight; j++)
                     {
-                        if (!sreqs[j]) incomplete_sends++;
+                        if (!sreqs[j].is_ready()) incomplete_sends++;
                     }
                     if (incomplete_sends == 0)
                     {
@@ -217,15 +213,12 @@ main(int argc, char** argv)
                 // continue to re-schedule all recvs to allow the peer to complete
                 for (int j = 0; j < inflight; j++)
                 {
-                    if (rreqs[j])
+                    if (rreqs[j].is_ready())
                     {
-                        rreqs[j] = false;
                         //rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
-                        comm.recv(std::move(rmsgs[j]), peer_rank, thread_id * inflight + j,
-                            [&rreqs, &rmsgs, j, inflight, thread_id, &nlrecv_cnt, &comm_cnt,
-                                &received](message m, int, int tag) {
-                                rreqs[j] = true;
-                                rmsgs[j] = std::move(m);
+                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
+                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt,
+                                &received](message&, int, int tag) {
                                 int pthr = tag / inflight;
                                 if (pthr != thread_id) nlrecv_cnt++;
                                 //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
@@ -238,7 +231,9 @@ main(int argc, char** argv)
 
             // We have all completed the sends, but the peer might not have yet.
             // Notify the peer and keep submitting recvs until we get his notification.
-            request sf, rf;
+            //request sf, rf;
+            send_request sf;
+            recv_request rf;
             //MsgType smsg(1), rmsg(1);
             auto smsg = comm.make_buffer<char>(1);
             auto rmsg = comm.make_buffer<char>(1);
@@ -260,15 +255,12 @@ main(int argc, char** argv)
                 // schedule all recvs to allow the peer to complete
                 for (int j = 0; j < inflight; j++)
                 {
-                    if (rreqs[j])
+                    if (rreqs[j].is_ready())
                     {
-                        rreqs[j] = false;
                         //rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
-                        comm.recv(std::move(rmsgs[j]), peer_rank, thread_id * inflight + j,
-                            [&rreqs, &rmsgs, j, inflight, thread_id, &nlrecv_cnt, &comm_cnt,
-                                &received](message m, int, int tag) {
-                                rreqs[j] = true;
-                                rmsgs[j] = std::move(m);
+                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
+                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt,
+                                &received](message&, int, int tag) {
                                 int pthr = tag / inflight;
                                 if (pthr != thread_id) nlrecv_cnt++;
                                 //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
@@ -289,7 +281,8 @@ main(int argc, char** argv)
         // peer has sent everything, so we can cancel all posted recv requests
         for (int j = 0; j < inflight; j++)
         {
-            comm.cancel_recv_cb(peer_rank, thread_id * inflight + j, [](message, int, int) {});
+            rreqs[j].cancel();
+            //comm.cancel_recv_cb(peer_rank, thread_id * inflight + j, [](message, int, int) {});
         }
     }
 

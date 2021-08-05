@@ -14,7 +14,6 @@
 
 namespace oomph
 {
-                
 class request::impl
 {
   public:
@@ -49,6 +48,7 @@ class request::impl
     {
         if (m_is_ready) return;
         OOMPH_CHECK_MPI_RESULT(MPI_Wait(&m_req, MPI_STATUS_IGNORE));
+        m_is_ready = true;
     }
 
     bool cancel()
@@ -62,11 +62,48 @@ class request::impl
         return flag;
     }
 
-    bool is_recv() const noexcept
-    {
-        return !(m_send_req);
-    }
+    bool is_recv() const noexcept { return !(m_send_req); }
 };
+
+template<typename RandomAccessIterator>
+inline RandomAccessIterator
+test_any(RandomAccessIterator first, RandomAccessIterator last)
+{
+    const auto count = last - first;
+    if (count == 0) return last;
+    // should we handle null requests ourselves?
+    //for (auto it = first; it!=last; ++it)
+    //    if (*it==MPI_REQUEST_NULL)
+    //        return it;
+    // maybe static needed to avoid unnecessary allocations
+    static thread_local std::vector<MPI_Request> reqs;
+    reqs.resize(0);
+    reqs.reserve(count);
+    int indx, flag;
+    std::transform(first, last, std::back_inserter(reqs), [](auto& req) { return req.m_req; });
+    OOMPH_CHECK_MPI_RESULT(MPI_Testany(count, reqs.data(), &indx, &flag, MPI_STATUS_IGNORE));
+    if (flag && indx != MPI_UNDEFINED) return first + indx;
+    else
+        return last;
+}
+
+template<typename RandomAccessIterator, typename Func>
+inline RandomAccessIterator
+test_any(RandomAccessIterator first, RandomAccessIterator last, Func&& get)
+{
+    const auto count = last - first;
+    if (count == 0) return last;
+    static thread_local std::vector<MPI_Request> reqs;
+    reqs.resize(0);
+    reqs.reserve(count);
+    int indx, flag;
+    std::transform(first, last, std::back_inserter(reqs),
+        [g = std::forward<Func>(get)](auto& req) { return g(req).m_req; });
+    OOMPH_CHECK_MPI_RESULT(MPI_Testany(count, reqs.data(), &indx, &flag, MPI_STATUS_IGNORE));
+    if (flag && indx != MPI_UNDEFINED) return first + indx;
+    else
+        return last;
+}
 
 //template<>
 //request::request<MPI_Request>(MPI_Request r);

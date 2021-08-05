@@ -20,13 +20,18 @@
 
 namespace oomph
 {
-class communicator::impl : public communicator_base<communicator::impl>
+class communicator_impl : public communicator_base<communicator_impl>
 {
+    using rank_type = communicator::rank_type;
+    using tag_type = communicator::tag_type;
   public:
     context_impl*                 m_context;
-    callback_queue<request::impl> m_callbacks;
+    //callback_queue<request::impl> m_send_callbacks;
+    //callback_queue<request::impl> m_recv_callbacks;
+    callback_queue2<request::impl, send_cb_handle::data_type> m_send_callbacks2;
+    callback_queue2<request::impl, recv_cb_handle::data_type> m_recv_callbacks2;
 
-    impl(context_impl* ctxt)
+    communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
     {
@@ -52,33 +57,49 @@ class communicator::impl : public communicator_base<communicator::impl>
         return {r, false};
     }
 
-    void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
-        std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+    //void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
+    //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
-    void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
-        std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+    //void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
+    //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
-    bool cancel_recv_cb(rank_type src, tag_type tag,
-        std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+    void send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag,
+        util::unique_function<void()>&& cb, std::shared_ptr<send_cb_handle::data_type>&& h);
+
+    void recv2(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+        util::unique_function<void()>&& cb, std::shared_ptr<recv_cb_handle::data_type>&& h);
+
+    //void recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag,
+    //    std::function<void(rank_type, tag_type)>&& cb);
+
+    //bool cancel_recv_cb(rank_type src, tag_type tag,
+    //    std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+    //{
+    //    bool done = false;
+    //    m_recv_callbacks.dequeue(src, tag,
+    //        [&done, cb = std::move(cb), src, tag](
+    //            request::impl&& req, detail::message_buffer&& msg, std::size_t size) {
+    //            if (req.cancel())
+    //            {
+    //                cb(std::move(msg), size, src, tag);
+    //                done = true;
+    //                return true;
+    //            }
+    //            return false;
+    //        });
+    //    return done;
+    //}
+
+    void progress()
     {
-        bool done = false;
-        m_callbacks.dequeue(
-            src, tag,
-            [&done, cb = std::move(cb), src, tag](
-                request::impl&& req, detail::message_buffer&& msg, std::size_t size) {
-                if (req.cancel())
-                {
-                    cb(std::move(msg), size, src, tag);
-                    done = true;
-                    return true;
-                }
-                return false;
-            },
-            true);
-        return done;
+        m_send_callbacks2.progress();
+        m_recv_callbacks2.progress();
     }
 
-    void progress() { m_callbacks.progress(); }
+    bool cancel_recv_cb(std::size_t index)
+    {
+        return m_recv_callbacks2.cancel(index);
+    }
 };
 
 } // namespace oomph

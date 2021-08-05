@@ -22,21 +22,32 @@ class heap_pimpl
     std::unique_ptr<T> m;
 
   public:
-    heap_pimpl();
+    heap_pimpl() = default;
     template<typename... Args>
-    heap_pimpl(Args&&...);
+    heap_pimpl(Args&&... args)
+    : m{new T{std::forward<Args>(args)...}}
+    {
+    }
     heap_pimpl(heap_pimpl const&) = delete;
-    heap_pimpl(heap_pimpl&&);
+    heap_pimpl(heap_pimpl&&) = default;
     heap_pimpl& operator=(heap_pimpl const&) = delete;
-    heap_pimpl& operator=(heap_pimpl&&);
-    ~heap_pimpl();
+    heap_pimpl& operator=(heap_pimpl&&) = default;
 
-    T*       operator->();
-    T const* operator->() const;
-    T&       operator*();
-    T const& operator*() const;
+    T*       operator->() noexcept { return m.get(); }
+    T const* operator->() const noexcept { return m.get(); }
+    T&       operator*() noexcept { return *m.get(); }
+    T const& operator*() const noexcept { return *m.get(); }
 
-    T release();
+    T*       get() noexcept { return m.get(); }
+    T const* get() const noexcept { return m.get(); }
+
+    //T release()
+    //{
+    //    auto ptr = m.release();
+    //    T    t{std::move(*ptr)};
+    //    delete ptr;
+    //    return std::move(t);
+    //}
 };
 
 } // namespace util

@@ -25,8 +25,7 @@ test_1(oomph::communicator& comm, unsigned int size)
     {
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         std::vector<int> dsts = {1, 2, 3};
-        auto             requests = comm.send_multi(msg, dsts, 42 + 42);
-        for (auto& req : requests) req.wait();
+        comm.send_multi(msg, dsts, 42 + 42).wait();
     }
     else
     {
@@ -58,24 +57,18 @@ test_2(oomph::communicator& comm, unsigned int size)
     {
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         std::vector<int> dsts = {1, 2, 3};
-        auto             requests = comm.send_multi(msg, dsts, 42 + 42);
-        for (auto& req : requests) req.wait();
+        comm.send_multi(msg, dsts, 42 + 42).wait();
     }
     else
     {
-        int counter = 0;
-        comm.recv(std::move(msg), 0, 42, [&counter](msg_t, int, int) { ++counter; });
+        int  counter = 0;
+        auto h = comm.recv(msg, 0, 42, [&counter](msg_t&, int, int) { ++counter; });
         comm.progress();
         comm.progress();
         comm.progress();
         comm.progress();
         EXPECT_EQ(counter, 0);
-        EXPECT_TRUE(comm.cancel_recv_cb(0, 42, [&counter, &msg](msg_t m, int, int) {
-            ++counter;
-            msg = std::move(m);
-        }));
-        EXPECT_EQ(counter, 1);
-        EXPECT_EQ(msg.size(), size);
+        EXPECT_TRUE(h.cancel());
         comm.recv(msg, 0, 42 + 42).wait();
         for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
     }

@@ -50,10 +50,10 @@ main(int argc, char** argv)
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
-        std::vector<message> smsgs(inflight);
-        std::vector<message> rmsgs(inflight);
-        std::vector<request> sreqs(inflight);
-        std::vector<request> rreqs(inflight);
+        std::vector<message>      smsgs(inflight);
+        std::vector<message>      rmsgs(inflight);
+        std::vector<send_request> sreqs(inflight);
+        std::vector<recv_request> rreqs(inflight);
         for (int j = 0; j < cmd_args.inflight; j++)
         {
             smsgs[j] = comm.make_buffer<char>(buff_size);
@@ -85,7 +85,7 @@ main(int argc, char** argv)
                 std::cout << rank << " total bwdt MB/s:      "
                           << ((double)(received - last_received + sent - last_sent) * size *
                                  buff_size / 2) /
-                                 t0.toc()
+                                 t0.stoc()
                           << "\n";
                 t0.tic();
                 last_received = received;
@@ -111,6 +111,8 @@ main(int argc, char** argv)
             }
         }
 
+        b(comm);
+
         if (thread_id == 0 && rank == 0)
         {
             const auto t = t1.toc();
@@ -118,8 +120,6 @@ main(int argc, char** argv)
             std::cout << "final MB/s:             " << (double)(niter * size * buff_size) / t
                       << std::endl;
         }
-
-        b(comm);
     }
 
     // tail loops - not needed in wait benchmarks

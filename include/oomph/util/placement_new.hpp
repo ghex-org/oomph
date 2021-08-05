@@ -13,13 +13,19 @@
 #include <cassert>
 #include <memory>
 
+#if defined(NDEBUG)
+#define OOMPH_DEBUG_ARG(TYPE, NAME) TYPE
+#else
+#define OOMPH_DEBUG_ARG(TYPE, NAME) TYPE NAME
+#endif
+
 namespace oomph
 {
 namespace util
 {
 template<typename T, typename... Args>
 inline T*
-placement_new(void* buffer, std::size_t size, Args&&... args)
+placement_new(void* buffer, OOMPH_DEBUG_ARG(std::size_t, size), Args&&... args)
 {
     assert(sizeof(T) <= size);
     assert(std::align(std::alignment_of<T>::value, sizeof(T), buffer, size) == buffer);

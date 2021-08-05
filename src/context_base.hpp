@@ -25,7 +25,7 @@ class context_base
   protected:
     mpi_comm                           m_mpi_comm;
     rank_topology const                m_rank_topology;
-    unique_ptr_set<communicator::impl> m_comms_set;
+    unique_ptr_set<communicator_impl> m_comms_set;
 
   public:
     context_base(MPI_Comm comm)
@@ -40,7 +40,7 @@ class context_base
     rank_topology const& topology() const noexcept { return m_rank_topology; }
     MPI_Comm get_comm() const noexcept { return m_mpi_comm; }
 
-    void deregister_communicator(communicator::impl* c) { m_comms_set.remove(c); }
+    void deregister_communicator(communicator_impl* c) { m_comms_set.remove(c); }
 };
 
 } // namespace oomph

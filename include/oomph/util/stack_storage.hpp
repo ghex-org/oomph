@@ -109,13 +109,13 @@ class stack_storage
         return reinterpret_cast<T const*>(&m_impl);
     }
 
-    T release()
-    {
-        T t{std::move(*get())};
-        placement_delete<T>(&m_impl);
-        m_empty = true;
-        return std::move(t);
-    }
+    //T release()
+    //{
+    //    T t{std::move(*get())};
+    //    placement_delete<T>(&m_impl);
+    //    m_empty = true;
+    //    return std::move(t);
+    //}
 };
 
 } // namespace util

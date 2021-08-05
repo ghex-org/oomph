@@ -178,7 +178,7 @@ class context_impl : public context_base
 
     auto& get_heap() noexcept { return m_heap; }
 
-    communicator::impl* get_communicator();
+    communicator_impl* get_communicator();
     //communicator_type get_communicator()
     //{
     //    std::lock_guard<mutex_t> lock(

@@ -22,21 +22,23 @@ class stack_pimpl
     util::stack_storage<T, BufferSize, Alignment> m;
 
   public:
-    stack_pimpl();
+    stack_pimpl() = default;
     template<typename... Args>
-    stack_pimpl(Args&&... args);
+    stack_pimpl(Args&&... args)
+    : m(std::forward<Args>(args)...)
+    {
+    }
     stack_pimpl(stack_pimpl const&) = delete;
-    stack_pimpl(stack_pimpl&&);
+    stack_pimpl(stack_pimpl&&) = default;
     stack_pimpl& operator=(stack_pimpl const&) = delete;
-    stack_pimpl& operator=(stack_pimpl&&);
-    ~stack_pimpl();
+    stack_pimpl& operator=(stack_pimpl&&) = default;
 
-    T*       operator->();
-    T const* operator->() const;
-    T&       operator*();
-    T const& operator*() const;
+    T*       operator->() noexcept { return m.get(); }
+    T const* operator->() const noexcept { return m.get(); }
+    T&       operator*() noexcept { return *m.get(); }
+    T const& operator*() const noexcept { return *m.get(); }
 
-    T release();
+    //T release() { return m.release(); }
 };
 
 } // namespace util

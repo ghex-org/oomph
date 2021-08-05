@@ -87,8 +87,8 @@ TEST_F(mpi_test_fixture, context_multi)
         auto    msg_2 = comm_2.make_buffer<int>(size);
         bool    sent_1 = false;
         bool    sent_2 = false;
-        request req_1;
-        request req_2;
+        recv_request req_1;
+        recv_request req_2;
 
         if (comm_1.rank() == 0)
         {

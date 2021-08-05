@@ -31,9 +31,11 @@ namespace oomph
 #define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
 
-class communicator::impl : public communicator_base<communicator::impl>
+class communicator_impl : public communicator_base<communicator_impl>
 {
     using worker_type = worker_t;
+    using rank_type = communicator::rank_type;
+    using tag_type = communicator::tag_type;
     //    using rank_type = endpoint_t::rank_type;
     //    using tag_type = typename worker_type::tag_type;
     //    using request = request_ft;
@@ -58,10 +60,13 @@ class communicator::impl : public communicator_base<communicator::impl>
     worker_type*                  m_recv_worker;
     std::unique_ptr<worker_type>  m_send_worker;
     context_impl::mutex_t&        m_mutex;
-    callback_queue<request::impl> m_callbacks;
+    //callback_queue<request::impl> m_send_callbacks;
+    //callback_queue<request::impl> m_recv_callbacks;
+    callback_queue2<request::impl, send_cb_handle::data_type> m_send_callbacks2;
+    callback_queue2<request::impl, recv_cb_handle::data_type> m_recv_callbacks2;
 
   public:
-    impl(context_impl* ctxt, worker_type* recv_worker, std::unique_ptr<worker_type>&& send_worker,
+    communicator_impl(context_impl* ctxt, worker_type* recv_worker, std::unique_ptr<worker_type>&& send_worker,
         context_impl::mutex_t& mtx)
     : communicator_base(ctxt)
     , m_context(ctxt)
@@ -116,7 +121,7 @@ class communicator::impl : public communicator_base<communicator::impl>
             size,                            // buffer size
             ucp_dt_make_contig(1),           // data type
             stag,                            // tag
-            &impl::empty_send_callback);     // callback function pointer: empty here
+            &communicator_impl::empty_send_callback);     // callback function pointer: empty here
 
         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
             // send operation is completed immediately and the call-back function is not invoked
@@ -152,7 +157,7 @@ class communicator::impl : public communicator_base<communicator::impl>
             ucp_dt_make_contig(1),                       // data type
             rtag,                                        // tag
             rtag_mask,                                   // tag mask
-            &impl::empty_recv_callback);                 // callback function pointer: empty here
+            &communicator_impl::empty_recv_callback);                 // callback function pointer: empty here
 
         if (!UCS_PTR_IS_ERR(ret))
         {
@@ -201,11 +206,15 @@ class communicator::impl : public communicator_base<communicator::impl>
         //        }
         //        return status;
         //    }
-        m_callbacks.progress();
+        m_send_callbacks2.progress();
+        m_recv_callbacks2.progress();
     }
 
-    void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
-        std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+    //void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
+    //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+
+    void send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag,
+        util::unique_function<void()>&& cb, std::shared_ptr<send_cb_handle::data_type>&& h);
 
     //    /** @brief send a message and get notified with a callback when the communication has finished.
     //                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
@@ -251,8 +260,12 @@ class communicator::impl : public communicator_base<communicator::impl>
     //        }
     //    }
     //
-    void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
-        std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+    
+    //void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
+    //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
+
+    void recv2(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+        util::unique_function<void()>&& cb, std::shared_ptr<recv_cb_handle::data_type>&& h);
     //    /** @brief receive a message and get notified with a callback when the communication has finished.
     //                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
     //                     * message at the caller's site.
@@ -369,24 +382,28 @@ class communicator::impl : public communicator_base<communicator::impl>
     //            throw std::runtime_error("ghex: ucx error - recv message truncated");
     //        }
     //    }
-    bool cancel_recv_cb(rank_type src, tag_type tag,
-        std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+    
+    //bool cancel_recv_cb(rank_type src, tag_type tag,
+    //    std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
+    //{
+    //    bool done = false;
+    //    m_recv_callbacks.dequeue(src, tag,
+    //        [&done, cb = std::move(cb), src, tag](
+    //            request::impl&& req, detail::message_buffer&& msg, std::size_t size) {
+    //            if (req.cancel())
+    //            {
+    //                cb(std::move(msg), size, src, tag);
+    //                done = true;
+    //                return true;
+    //            }
+    //            return false;
+    //        });
+    //    return done;
+    //}
+
+    bool cancel_recv_cb(std::size_t index)
     {
-        bool done = false;
-        m_callbacks.dequeue(
-            src, tag,
-            [&done, cb = std::move(cb), src, tag](
-                request::impl&& req, detail::message_buffer&& msg, std::size_t size) {
-                if (req.cancel())
-                {
-                    cb(std::move(msg), size, src, tag);
-                    done = true;
-                    return true;
-                }
-                return false;
-            },
-            true);
-        return done;
+        return m_recv_callbacks2.cancel(index);
     }
 };
 
