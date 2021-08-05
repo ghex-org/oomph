@@ -158,44 +158,19 @@ message_buffer::clear()
 // communicator              //
 ///////////////////////////////
 
-//request
-//communicator::send(detail::message_buffer const& msg, std::size_t size, rank_type dst, tag_type tag)
-//{
-//    return {m_impl->send(msg.m_heap_ptr->m, size, dst, tag)};
-//}
-//
-//request
-//communicator::recv(detail::message_buffer& msg, std::size_t size, rank_type src, tag_type tag)
-//{
-//    return {m_impl->recv(msg.m_heap_ptr->m, size, src, tag)};
-//}
-
-//void
-//communicator::send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
-//    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb)
-//{
-//    m_impl->send(std::move(msg), size, dst, tag, std::move(cb));
-//}
-//
-//void
-//communicator::recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
-//    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb)
-//{
-//    m_impl->recv(std::move(msg), size, src, tag, std::move(cb));
-//}
-
 void
-communicator::send2(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,
-    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<send_request::data_type> h)
+communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
+    rank_type dst, tag_type tag, util::unique_function<void()> cb,
+    std::shared_ptr<send_request::data_type> h)
 {
-    m_impl->send2(m_ptr->m, size, dst, tag, std::move(cb), std::move(h));
+    m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), std::move(h));
 }
 
 void
-communicator::recv2(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()>&& cb, std::shared_ptr<recv_request::data_type> h)
+communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
+    tag_type tag, util::unique_function<void()> cb, std::shared_ptr<recv_request::data_type> h)
 {
-    m_impl->recv2(m_ptr->m, size, src, tag, std::move(cb), std::move(h));
+    m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(h));
 }
 
 detail::message_buffer
@@ -204,13 +179,6 @@ communicator::clone_buffer(detail::message_buffer& msg)
     context_impl::heap_type::pointer ptr = msg.m_heap_ptr->m;
     return {ptr};
 }
-
-//bool
-//communicator::cancel_recv_cb_(rank_type src, tag_type tag,
-//    std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb)
-//{
-//    return m_impl->cancel_recv_cb(src, tag, std::move(cb));
-//}
 
 ///////////////////////////////
 // make_buffer               //
@@ -307,7 +275,6 @@ communicator::make_buffer_core(std::size_t size, int id)
 //    return m_data->m_comm->cancel_recv_cb(m_data->m_index);
 //}
 
-
 bool
 send_request::test()
 {
@@ -320,9 +287,8 @@ void
 send_request::wait()
 {
     if (!m_data) return;
-    while(!m_data->m_ready) m_data->m_comm->progress();
+    while (!m_data->m_ready) m_data->m_comm->progress();
 }
-
 
 bool
 recv_request::test()
@@ -336,7 +302,7 @@ void
 recv_request::wait()
 {
     if (!m_data) return;
-    while(!m_data->m_ready) m_data->m_comm->progress();
+    while (!m_data->m_ready) m_data->m_comm->progress();
 }
 
 bool

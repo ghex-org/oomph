@@ -60,8 +60,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     worker_type*                 m_recv_worker;
     std::unique_ptr<worker_type> m_send_worker;
     context_impl::mutex_t&       m_mutex;
-    //callback_queue<request::impl> m_send_callbacks;
-    //callback_queue<request::impl> m_recv_callbacks;
     callback_queue2<request::impl, send_request::data_type> m_send_callbacks2;
     callback_queue2<request::impl, recv_request::data_type> m_recv_callbacks2;
 
@@ -213,7 +211,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     //void send(detail::message_buffer&& msg, std::size_t size, rank_type dst, tag_type tag,
     //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
-    void send2(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag, util::unique_function<void()>&& cb,
         std::shared_ptr<send_request::data_type>&& h)
     {
@@ -271,7 +269,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     //void recv(detail::message_buffer&& msg, std::size_t size, rank_type src, tag_type tag,
     //    std::function<void(detail::message_buffer, rank_type, tag_type)>&& cb);
 
-    void recv2(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
         util::unique_function<void()>&& cb, std::shared_ptr<recv_request::data_type>&& h)
     {
         auto req = recv(ptr, size, src, tag);
