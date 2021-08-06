@@ -406,8 +406,6 @@ class communicator
     void recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void()> cb, std::shared_ptr<recv_request::data_type> h);
 
-    detail::message_buffer clone_buffer(detail::message_buffer& msg);
-
     bool cancel_recv_cb_(rank_type src, tag_type tag,
         std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb);
 };

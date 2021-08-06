@@ -14,37 +14,6 @@
 
 namespace oomph
 {
-class request
-{
-  public:
-    class impl;
-//
-//  private:
-//    using pimpl = util::pimpl<impl, 16, 8>;
-//
-//  public:
-//    pimpl m_impl;
-//
-//    request();
-//
-//    request(request::impl&& r);
-//
-//    template<typename... Args>
-//    request(Args... args);
-//
-//    request(request&&);
-//
-//    request& operator=(request&&);
-//
-//    ~request();
-//
-//  private:
-//  public:
-//    bool is_ready();
-//    void wait();
-//    bool cancel();
-};
-
 class send_request
 {
   private:

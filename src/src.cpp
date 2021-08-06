@@ -173,13 +173,6 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
     m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(h));
 }
 
-detail::message_buffer
-communicator::clone_buffer(detail::message_buffer& msg)
-{
-    context_impl::heap_type::pointer ptr = msg.m_heap_ptr->m;
-    return {ptr};
-}
-
 ///////////////////////////////
 // make_buffer               //
 ///////////////////////////////
