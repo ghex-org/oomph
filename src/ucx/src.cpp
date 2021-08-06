@@ -10,7 +10,6 @@
 #include "./context.hpp"
 #include "./communicator.hpp"
 #include "./message_buffer.hpp"
-#include "./request.hpp"
 
 namespace oomph
 {
@@ -28,11 +27,6 @@ register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t siz
     return c.make_region(ptr, size, true);
 }
 #endif
-
-request::impl::~impl()
-{
-    if (m_req) destroy();
-}
 
 communicator_impl*
 context_impl::get_communicator()

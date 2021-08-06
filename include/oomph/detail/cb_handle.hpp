@@ -18,11 +18,12 @@ class communicator_impl;
 
 namespace detail
 {
-struct cb_handle_data// : std::enable_shared_from_this<cb_handle_data>
+struct cb_handle_data
 {
     communicator_impl* m_comm;
     std::size_t        m_index;
-    /*volatile*/ bool      m_ready;
+    bool               m_ready;
+    void*              m_data = nullptr;
 
     cb_handle_data(communicator_impl* comm) noexcept
     : m_comm{comm}
@@ -37,8 +38,6 @@ struct cb_handle_data// : std::enable_shared_from_this<cb_handle_data>
     , m_ready{r}
     {
     }
-
-    //std::shared_ptr<cb_handle_data> make_shared() { return shared_from_this(); }
 };
 
 } // namespace detail

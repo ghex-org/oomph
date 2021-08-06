@@ -11,7 +11,6 @@
 
 #include <oomph/message_buffer.hpp>
 #include <oomph/request.hpp>
-#include <oomph/cb_handle.hpp>
 #include <oomph/util/mpi_error.hpp>
 #include <oomph/detail/communicator_helper.hpp>
 #include <oomph/util/unique_function.hpp>

@@ -32,8 +32,6 @@ register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t siz
 }
 #endif
 
-request::impl::~impl() = default;
-
 communicator_impl*
 context_impl::get_communicator()
 {

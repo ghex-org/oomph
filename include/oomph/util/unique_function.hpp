@@ -83,6 +83,8 @@ class unique_function<R(Args...)>
 
   public: // member functions
     R operator()(Args... args) const { return impl->invoke(std::forward<Args>(args)...); }
+
+    interface_t* release() noexcept { return impl.release(); }
 };
 
 } // namespace util

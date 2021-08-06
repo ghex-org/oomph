@@ -215,70 +215,12 @@ communicator::make_buffer_core(std::size_t size, int id)
 /////////////////////////////////
 //// request                   //
 /////////////////////////////////
-//
-//bool
-//request::is_ready()
-//{
-//    return m_impl->is_ready();
-//}
-//
-//void
-//request::wait()
-//{
-//    m_impl->wait();
-//}
-//
-//bool
-//request::cancel()
-//{
-//    return m_impl->cancel();
-//}
-//
-//request::request() = default;
-//
-//request::request(request::impl&& r)
-//: m_impl{std::move(r)}
-//{
-//}
-//
-//request::request(request&&) = default;
-//
-//request& request::operator=(request&&) = default;
-//
-//request::~request() = default;
-
-///////////////////////////////
-// send_cb_handle            //
-///////////////////////////////
-
-//bool
-//send_cb_handle::is_ready() const noexcept
-//{
-//    if (!m_data) return false;
-//    return m_data->m_ready;
-//}
-
-///////////////////////////////
-// recv_cb_handle            //
-///////////////////////////////
-
-//bool
-//recv_cb_handle::is_ready() const noexcept
-//{
-//    if (!m_data) return false;
-//    return m_data->m_ready;
-//}
-
-//bool
-//recv_cb_handle::cancel()
-//{
-//    return m_data->m_comm->cancel_recv_cb(m_data->m_index);
-//}
 
 bool
 send_request::test()
 {
-    if (is_ready()) return true;
+    if (!m_data) return false;
+    if (m_data->m_ready) return true;
     m_data->m_comm->progress();
     return is_ready();
 }
@@ -293,7 +235,8 @@ send_request::wait()
 bool
 recv_request::test()
 {
-    if (is_ready()) return true;
+    if (!m_data) return false;
+    if (m_data->m_ready) return true;
     m_data->m_comm->progress();
     return is_ready();
 }
@@ -308,7 +251,9 @@ recv_request::wait()
 bool
 recv_request::cancel()
 {
-    return m_data->m_comm->cancel_recv_cb(m_data->m_index);
+    if (!m_data) return false;
+    if (m_data->m_ready) return false;
+    return m_data->m_comm->cancel_recv_cb(*this);
 }
 
 /////////////////////////////////

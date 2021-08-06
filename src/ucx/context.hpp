@@ -21,7 +21,8 @@
 //#include "../communicator.hpp"
 //#include "../util/pthread_spin_mutex.hpp"
 #include "./worker.hpp"
-#include "./request.hpp"
+#include "./request_data.hpp"
+//#include "./request.hpp"
 
 #ifdef OOMPH_USE_PMI
 // use the PMI interface ...

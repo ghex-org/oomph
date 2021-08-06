@@ -13,9 +13,10 @@
 #include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
 #include "./request.hpp"
+#include "./callback_queue.hpp"
 #include "./context.hpp"
 #include "../communicator_base.hpp"
-#include "../callback_utils.hpp"
+//#include "../callback_utils.hpp"
 #include "../device_guard.hpp"
 
 namespace oomph
@@ -26,9 +27,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     using tag_type = communicator::tag_type;
 
   public:
-    context_impl*                                           m_context;
-    callback_queue2<request::impl, send_request::data_type> m_send_callbacks2;
-    callback_queue2<request::impl, recv_request::data_type> m_recv_callbacks2;
+    context_impl*                                         m_context;
+    callback_queue m_send_callbacks;
+    callback_queue m_recv_callbacks;
 
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
@@ -38,7 +39,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
-    request::impl send(
+    mpi_request send(
         context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)
     {
         MPI_Request        r;
@@ -47,13 +48,13 @@ class communicator_impl : public communicator_base<communicator_impl>
         return {r};
     }
 
-    request::impl recv(
+    mpi_request recv(
         context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag)
     {
         MPI_Request  r;
         device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Irecv(dg.data(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
-        return {r, false};
+        return {r};
     }
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
@@ -63,7 +64,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto req = send(ptr, size, dst, tag);
         if (req.is_ready()) cb();
         else
-            m_send_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
+            m_send_callbacks.enqueue(req, std::move(cb), std::move(h));
     }
 
     void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
@@ -72,16 +73,19 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto req = recv(ptr, size, src, tag);
         if (req.is_ready()) cb();
         else
-            m_recv_callbacks2.enqueue(std::move(req), std::move(cb), std::move(h));
+            m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
     }
 
     void progress()
     {
-        m_send_callbacks2.progress();
-        m_recv_callbacks2.progress();
+        m_send_callbacks.progress();
+        m_recv_callbacks.progress();
     }
 
-    bool cancel_recv_cb(std::size_t index) { return m_recv_callbacks2.cancel(index); }
+    bool cancel_recv_cb(recv_request const& req)
+    {
+        return m_recv_callbacks.cancel(req.m_data->m_index);
+    }
 };
 
 } // namespace oomph
