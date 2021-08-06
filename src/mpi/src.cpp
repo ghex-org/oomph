@@ -9,8 +9,6 @@
  */
 #include "./context.hpp"
 #include "./communicator.hpp"
-#include "./message_buffer.hpp"
-#include "./request.hpp"
 //#include "./send_channel.hpp"
 //#include "./recv_channel.hpp"
 

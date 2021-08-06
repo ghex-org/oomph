@@ -9,7 +9,6 @@
  */
 #include "./context.hpp"
 #include "./communicator.hpp"
-#include "./message_buffer.hpp"
 
 namespace oomph
 {
