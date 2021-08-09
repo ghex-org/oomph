@@ -37,12 +37,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     context_impl*                                  m_context;
     worker_type*                                   m_recv_worker;
     std::unique_ptr<worker_type>                   m_send_worker;
-    context_impl::mutex_t&                         m_mutex;
+    ucx_mutex&                                     m_mutex;
     boost::lockfree::queue<request_data::cb_ptr_t> m_recv_cb_queue;
 
   public:
     communicator_impl(context_impl* ctxt, worker_type* recv_worker,
-        std::unique_ptr<worker_type>&& send_worker, context_impl::mutex_t& mtx)
+        std::unique_ptr<worker_type>&& send_worker, ucx_mutex& mtx)
     : communicator_base(ctxt)
     , m_context(ctxt)
     , m_recv_worker{recv_worker}
@@ -61,7 +61,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         sched_yield();
         {
             // progress recv worker in locked region
-            std::lock_guard<context_impl::mutex_t> lock(m_mutex);
+            ucx_lock lock(m_mutex);
             while (ucp_worker_progress(m_recv_worker->get())) {}
         }
         // work through ready recv callbacks, which were pushed to the queue by other threads
@@ -74,7 +74,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag, util::unique_function<void()>&& cb,
-        std::shared_ptr<send_request::data_type>&& h)
+        std::shared_ptr<detail::request_state>&& req)
     {
         const auto& ep = m_send_worker->connect(dst);
         const auto  stag =
@@ -108,7 +108,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
             req_data.m_comm = this;
             req_data.m_cb = cb.release();
-            h->m_data = &req_data;
+            req->m_data = &req_data;
         }
         else
         {
@@ -118,7 +118,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, std::shared_ptr<recv_request::data_type>&& h)
+        util::unique_function<void()>&& cb, std::shared_ptr<detail::request_state>&& req)
     {
         const auto rtag =
             (communicator::any_source == src)
@@ -133,7 +133,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         request_data::cb_ptr_t cb_ptr = nullptr;
         {
             // locked region
-            std::lock_guard<context_impl::mutex_t> lock(m_mutex);
+            ucx_lock lock(m_mutex);
 
             ucs_status_ptr_t ret;
             {
@@ -168,7 +168,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
                     req_data.m_comm = this;
                     req_data.m_cb = cb.release();
-                    h->m_data = &req_data;
+                    req->m_data = &req_data;
                 }
             }
             else
@@ -246,7 +246,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto& req_data = request_data::get(req.m_data->m_data);
         {
             // locked region
-            std::lock_guard<context_impl::mutex_t> lock(m_mutex);
+            ucx_lock lock(m_mutex);
             ucp_request_cancel(m_recv_worker->get(), req_data.m_ucx_ptr);
         }
         delete req_data.m_cb;

@@ -10,14 +10,14 @@
 #pragma once
 
 #include <oomph/util/pimpl.hpp>
-#include <oomph/detail/cb_handle.hpp>
+#include <oomph/detail/request_state.hpp>
 
 namespace oomph
 {
 class send_request
 {
   private:
-    using data_type = detail::cb_handle_data;
+    using data_type = detail::request_state;
     friend class communicator;
     friend class communicator_impl;
 
@@ -48,7 +48,7 @@ class send_request
 class recv_request
 {
   private:
-    using data_type = detail::cb_handle_data;
+    using data_type = detail::request_state;
     friend class communicator;
     friend class communicator_impl;
 

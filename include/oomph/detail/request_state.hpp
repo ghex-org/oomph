@@ -18,21 +18,19 @@ class communicator_impl;
 
 namespace detail
 {
-struct cb_handle_data
+struct request_state
 {
     communicator_impl* m_comm;
-    std::size_t        m_index;
-    bool               m_ready;
+    std::size_t        m_index = 0;
+    bool               m_ready = false;
     void*              m_data = nullptr;
 
-    cb_handle_data(communicator_impl* comm) noexcept
+    request_state(communicator_impl* comm) noexcept
     : m_comm{comm}
-    , m_index{0}
-    , m_ready{false}
     {
     }
 
-    cb_handle_data(communicator_impl* comm, std::size_t index, bool r) noexcept
+    request_state(communicator_impl* comm, std::size_t index, bool r) noexcept
     : m_comm{comm}
     , m_index{index}
     , m_ready{r}

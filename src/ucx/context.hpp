@@ -10,29 +10,23 @@
  */
 #pragma once
 
-#include "../context_base.hpp"
-#include "./region.hpp"
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/register_device.hpp>
 #include <hwmalloc/heap.hpp>
-
-//#include "../context.hpp"
-//#include "./communicator.hpp"
-//#include "../communicator.hpp"
+#include "../context_base.hpp"
+#include "./config.hpp"
+#include "./region.hpp"
 //#include "../util/pthread_spin_mutex.hpp"
 #include "./worker.hpp"
 #include "./request_data.hpp"
-//#include "./request.hpp"
-
-#ifdef OOMPH_USE_PMI
-// use the PMI interface ...
-#include "./address_db_pmi.hpp"
-#else
-// ... and go to MPI if not available
-#include "./address_db_mpi.hpp"
-#endif
+//#ifdef OOMPH_UCX_USE_PMI
+//// use the PMI interface ...
+//#include "./address_db_pmi.hpp"
+//#else
+//// ... and go to MPI if not available
+//#include "./address_db_mpi.hpp"
+//#endif
 #include "./address_db.hpp"
-
 #include <vector>
 #include <memory>
 
@@ -47,10 +41,6 @@ class context_impl : public context_base
     using rank_type = communicator::rank_type;
     using worker_type = worker_t;
     //using communicator_type = tl::communicator<communicator>;
-
-    //private: // member types
-    //using mutex_t = pthread_spin::recursive_mutex;
-    using mutex_t = std::mutex;
 
   private: // member types
     struct ucp_context_h_holder
@@ -69,14 +59,14 @@ class context_impl : public context_base
     std::size_t                  m_req_size;
     std::unique_ptr<worker_type> m_worker; // shared, serialized - per rank
     //worker_vector                m_workers; // per thread
-    mutex_t m_mutex;
+    ucx_mutex m_mutex;
 
     friend class worker_t;
 
   public: // ctors
     context_impl(MPI_Comm mpi_c)
     : context_base(mpi_c)
-#if defined OOMPH_USE_PMI
+#if defined OOMPH_UCX_USE_PMI
     , m_db(address_db_pmi(context_base::m_mpi_comm))
 #else
     , m_db(address_db_mpi(context_base::m_mpi_comm))
@@ -92,10 +82,10 @@ class context_impl : public context_base
         // define valid fields
         context_params.field_mask =
             UCP_PARAM_FIELD_FEATURES            // features
-            | UCP_PARAM_FIELD_REQUEST_SIZE      // size of reserved space in a non-blocking request
             | UCP_PARAM_FIELD_TAG_SENDER_MASK   // mask which gets sender endpoint from a tag
             | UCP_PARAM_FIELD_MT_WORKERS_SHARED // multi-threaded context: thread safety
             | UCP_PARAM_FIELD_ESTIMATED_NUM_EPS // estimated number of endpoints for this context
+            | UCP_PARAM_FIELD_REQUEST_SIZE      // size of reserved space in a non-blocking request
             | UCP_PARAM_FIELD_REQUEST_INIT      // initialize request memory
             ;
 
@@ -103,8 +93,6 @@ class context_impl : public context_base
         context_params.features = UCP_FEATURE_TAG   // tag matching
                                   | UCP_FEATURE_RMA // RMA access support
             ;
-        // additional usable request size
-        context_params.request_size = request_data_size::value;
         // thread safety
         // this should be true if we have per-thread workers,
         // otherwise, if one worker is shared by all thread, it should be false
@@ -118,9 +106,10 @@ class context_impl : public context_base
         // the sender (UCP endpoint) in tagged operations.
         //context_params.tag_sender_mask  = 0x00000000fffffffful;
         context_params.tag_sender_mask = 0xfffffffffffffffful;
-        // needed to zero the memory region. Otherwise segfaults occured
-        // when a std::function destructor was called on an invalid object
-        context_params.request_init = &request_init;
+        // additional usable request size
+        context_params.request_size = request_data_size::value;
+        // initialize a valid request_data object within the ucx provided memory
+        context_params.request_init = &request_data::init;
 
         // initialize UCP
         OOMPH_CHECK_UCX_RESULT(ucp_init(&context_params, config_ptr, &m_context.m_context));
@@ -138,8 +127,7 @@ class context_impl : public context_base
         // make shared worker
         // use single-threaded UCX mode, as per developer advice
         // https://github.com/openucx/ucx/issues/4609
-        m_worker.reset(new worker_type{
-            get(), m_db /*, m_mutex*/, UCS_THREAD_MODE_SINGLE /*, m_rank_topology*/});
+        m_worker.reset(new worker_type{get(), m_db, UCS_THREAD_MODE_SINGLE});
 
         // intialize database
         m_db.init(m_worker->address());

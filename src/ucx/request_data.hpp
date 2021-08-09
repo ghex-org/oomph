@@ -52,16 +52,12 @@ struct request_data
             (reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data) - 1) &
             mask);
     }
+
+    // initialize request on prestine request data allocated by ucx
+    static void init(void* ptr) { request_data::construct(ptr, nullptr, nullptr); }
 };
 
 using request_data_size =
     std::integral_constant<std::size_t, sizeof(request_data) + alignof(request_data)>;
-
-inline void
-request_init(void* req)
-{
-    //std::cout << "initializing request data" << std::endl;
-    request_data::construct(req, nullptr, nullptr);
-}
 
 } // namespace oomph

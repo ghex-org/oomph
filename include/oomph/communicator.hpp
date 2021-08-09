@@ -49,19 +49,19 @@ class communicator
     impl_type* m_impl;
 
   private:
-    using rd_ptr = std::shared_ptr<detail::cb_handle_data>;
+    using shared_req_ptr = std::shared_ptr<detail::request_state>;
 
     struct cb_none
     {
-        rd_ptr rd;
+        shared_req_ptr req;
 
-        void operator()() noexcept { rd->m_ready = true; }
+        void operator()() noexcept { req->m_ready = true; }
     };
 
     template<typename T, typename CallBack>
     struct cb_rref
     {
-        rd_ptr            rd;
+        shared_req_ptr    req;
         message_buffer<T> m;
         rank_type         r;
         tag_type          t;
@@ -70,14 +70,14 @@ class communicator
         void operator()() noexcept
         {
             cb(std::move(m), r, t);
-            rd->m_ready = true;
+            req->m_ready = true;
         }
     };
 
     template<typename T, typename CallBack>
     struct cb_lref
     {
-        rd_ptr             rd;
+        shared_req_ptr     req;
         message_buffer<T>* m;
         rank_type          r;
         tag_type           t;
@@ -86,14 +86,14 @@ class communicator
         void operator()() noexcept
         {
             cb(*m, r, t);
-            rd->m_ready = true;
+            req->m_ready = true;
         }
     };
 
     template<typename T, typename CallBack>
     struct cb_lref_const
     {
-        rd_ptr                   rd;
+        shared_req_ptr           req;
         message_buffer<T> const* m;
         rank_type                r;
         tag_type                 t;
@@ -102,7 +102,7 @@ class communicator
         void operator()() noexcept
         {
             cb(*m, r, t);
-            rd->m_ready = true;
+            req->m_ready = true;
         }
     };
 
@@ -401,10 +401,10 @@ class communicator
 #endif
 
     void send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()> cb, std::shared_ptr<send_request::data_type> h);
+        tag_type tag, util::unique_function<void()> cb, shared_req_ptr req);
 
     void recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void()> cb, std::shared_ptr<recv_request::data_type> h);
+        tag_type tag, util::unique_function<void()> cb, shared_req_ptr req);
 
     bool cancel_recv_cb_(rank_type src, tag_type tag,
         std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb);

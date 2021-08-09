@@ -21,7 +21,7 @@ class callback_queue
 {
   public: // member types
     using cb_type = util::unique_function<void()>;
-    using handle_type = detail::cb_handle_data;
+    using handle_type = detail::request_state;
     using handle_ptr = std::shared_ptr<handle_type>;
 
     struct element_type
