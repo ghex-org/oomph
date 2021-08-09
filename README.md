@@ -38,13 +38,14 @@ are thread-safe.
 
 ## Message Buffer
 
-Messages must sent through a message buffer which can be created from the context or the communicator (see also below).
+Messages must be sent through a message buffer which can be created from the context or the communicator (see also below).
 ```cpp
 oomph::message_buffer<int> msg = ctxt.make_buffer<int>(100);
 ```
 Device memory can be requested using
 ```cpp
-oomph::message_buffer<int> msg = ctxt.make_device_buffer<int>(100);
+// allocate on device 0
+oomph::message_buffer<int> msg = ctxt.make_device_buffer<int>(100, 0);
 ```
 Note, that the underlying memory manager (hwmalloc) will always allocate on the host, and will mirror
 memory on the host. This does not imply that communications will always go through the host, however.
