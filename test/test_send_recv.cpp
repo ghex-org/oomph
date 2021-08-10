@@ -71,17 +71,21 @@ template<typename Func>
 void
 launch_test(Func f)
 {
-    oomph::context ctxt(MPI_COMM_WORLD);
-
     // single threaded
-    f(ctxt, SIZE, 0, 1);
+    {
+        oomph::context ctxt(MPI_COMM_WORLD, false);
+        f(ctxt, SIZE, 0, 1);
+    }
 
     // multi threaded
-    std::vector<std::thread> threads;
-    threads.reserve(NTHREADS);
-    for (int i = 0; i < NTHREADS; ++i)
-        threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS});
-    for (auto& t : threads) t.join();
+    {
+        oomph::context           ctxt(MPI_COMM_WORLD, true);
+        std::vector<std::thread> threads;
+        threads.reserve(NTHREADS);
+        for (int i = 0; i < NTHREADS; ++i)
+            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS});
+        for (auto& t : threads) t.join();
+    }
 }
 
 // no callback

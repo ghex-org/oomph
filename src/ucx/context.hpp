@@ -16,16 +16,8 @@
 #include "../context_base.hpp"
 #include "./config.hpp"
 #include "./region.hpp"
-//#include "../util/pthread_spin_mutex.hpp"
 #include "./worker.hpp"
 #include "./request_data.hpp"
-//#ifdef OOMPH_UCX_USE_PMI
-//// use the PMI interface ...
-//#include "./address_db_pmi.hpp"
-//#else
-//// ... and go to MPI if not available
-//#include "./address_db_mpi.hpp"
-//#endif
 #include "./address_db.hpp"
 #include <vector>
 #include <memory>
@@ -40,7 +32,6 @@ class context_impl : public context_base
     using heap_type = hwmalloc::heap<context_impl>;
     using rank_type = communicator::rank_type;
     using worker_type = worker_t;
-    //using communicator_type = tl::communicator<communicator>;
 
   private: // member types
     struct ucp_context_h_holder
@@ -64,8 +55,8 @@ class context_impl : public context_base
     friend class worker_t;
 
   public: // ctors
-    context_impl(MPI_Comm mpi_c)
-    : context_base(mpi_c)
+    context_impl(MPI_Comm mpi_c, bool thread_safe)
+    : context_base(mpi_c, thread_safe)
 #if defined OOMPH_UCX_USE_PMI
     , m_db(address_db_pmi(context_base::m_mpi_comm))
 #else
@@ -97,7 +88,16 @@ class context_impl : public context_base
         // this should be true if we have per-thread workers,
         // otherwise, if one worker is shared by all thread, it should be false
         // requires benchmarking.
-        context_params.mt_workers_shared = true;
+        // This flag indicates if this context is shared by multiple workers from different threads.
+        // If so, this context needs thread safety support; otherwise, the context does not need to
+        // provide thread safety. For example, if the context is used by single worker, and that
+        // worker is shared by multiple threads, this context does not need thread safety; if the
+        // context is used by worker 1 and worker 2, and worker 1 is used by thread 1 and worker 2
+        // is used by thread 2, then this context needs thread safety. Note that actual thread mode
+        // may be different from mode passed to ucp_init. To get actual thread mode use
+        // ucp_context_query.
+        //context_params.mt_workers_shared = true;
+        context_params.mt_workers_shared = this->m_thread_safe;
         // estimated number of connections
         // affects transport selection criteria and theresulting performance
         context_params.estimated_num_eps = m_db.est_size();
@@ -121,7 +121,7 @@ class context_impl : public context_base
                           UCP_ATTR_FIELD_THREAD_MODE;   // thread safety
         ucp_context_query(m_context.m_context, &attr);
         m_req_size = attr.request_size;
-        if (attr.thread_mode != UCS_THREAD_MODE_MULTI)
+        if (this->m_thread_safe && attr.thread_mode != UCS_THREAD_MODE_MULTI)
             throw std::runtime_error("ucx cannot be used with multi-threaded context");
 
         // make shared worker
@@ -168,15 +168,6 @@ class context_impl : public context_base
     auto& get_heap() noexcept { return m_heap; }
 
     communicator_impl* get_communicator();
-    //communicator_type get_communicator()
-    //{
-    //    std::lock_guard<mutex_t> lock(
-    //        m_mutex); // we need to guard only the insertion in the vector,
-    //                  // but this is not a performance critical section
-    //    m_workers.push_back(std::make_unique<worker_type>(
-    //        get(), m_db, m_mutex, UCS_THREAD_MODE_SERIALIZED, m_rank_topology));
-    //    return {m_worker.get(), m_workers[m_workers.size() - 1].get()};
-    //}
 };
 
 } // namespace oomph

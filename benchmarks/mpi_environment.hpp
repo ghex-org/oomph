@@ -18,19 +18,22 @@ struct mpi_environment
 {
     int size;
 
-    mpi_environment(int& argc, char**& argv)
+    mpi_environment(bool thread_safe, int& argc, char**& argv)
     {
         int mode;
-#ifdef OOMPH_BENCHMARKS_MT
-        MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
-        if (mode != MPI_THREAD_MULTIPLE)
+        if (thread_safe)
         {
-            std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
-            std::terminate();
+            MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
+            if (mode != MPI_THREAD_MULTIPLE)
+            {
+                std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+                std::terminate();
+            }
         }
-#else
-        MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode);
-#endif
+        else
+        {
+            MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode);
+        }
         MPI_Comm_size(MPI_COMM_WORLD, &size);
     }
 

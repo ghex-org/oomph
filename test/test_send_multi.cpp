@@ -36,7 +36,7 @@ check_msg(M const& msg)
 TEST_F(mpi_test_fixture, send_multi)
 {
     using namespace oomph;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     auto msg = comm.make_buffer<int>(SIZE);
 
@@ -60,7 +60,7 @@ TEST_F(mpi_test_fixture, send_multi)
 TEST_F(mpi_test_fixture, send_multi_cb)
 {
     using namespace oomph;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     auto msg = comm.make_buffer<int>(SIZE);
 

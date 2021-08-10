@@ -19,7 +19,7 @@
 TEST_F(mpi_test_fixture, rank_barrier)
 {
     using namespace oomph;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
 
     barrier b;
@@ -52,7 +52,7 @@ class test_barrier
 TEST_F(mpi_test_fixture, in_barrier_1)
 {
     using namespace oomph;
-    auto        ctxt = context(MPI_COMM_WORLD);
+    auto        ctxt = context(MPI_COMM_WORLD, true);
     std::size_t n_threads = 4;
     barrier     b(n_threads);
 
@@ -64,7 +64,7 @@ TEST_F(mpi_test_fixture, in_barrier_1)
 TEST_F(mpi_test_fixture, in_barrier)
 {
     using namespace oomph;
-    auto        ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, true);
 
     std::size_t n_threads = 4;
     barrier     b(n_threads);
@@ -86,17 +86,14 @@ TEST_F(mpi_test_fixture, in_barrier)
 TEST_F(mpi_test_fixture, full_barrier)
 {
     using namespace oomph;
-    auto        ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, true);
 
     std::size_t n_threads = 4;
     barrier     b(n_threads);
 
     auto work = [&]() {
         auto comm = ctxt.get_communicator();
-        for (int i = 0; i < 10; i++)
-        {
-            b(comm);
-        }
+        for (int i = 0; i < 10; i++) { b(comm); }
     };
 
     std::vector<std::thread> ths;

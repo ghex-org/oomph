@@ -29,7 +29,7 @@ class context
     pimpl                 m;
 
   public:
-    context(MPI_Comm comm);
+    context(MPI_Comm comm, bool thread_safe = true);
 
     context(context const&) = delete;
 

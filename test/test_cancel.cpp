@@ -16,7 +16,7 @@
 #include <thread>
 
 void
-test_1(oomph::communicator& comm, unsigned int size)
+test_1(oomph::communicator& comm, unsigned int size, int thread_id = 0)
 {
     EXPECT_TRUE(comm.size() == 4);
     auto msg = comm.make_buffer<int>(size);
@@ -25,13 +25,13 @@ test_1(oomph::communicator& comm, unsigned int size)
     {
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         std::vector<int> dsts = {1, 2, 3};
-        comm.send_multi(msg, dsts, 42 + 42).wait();
+        comm.send_multi(msg, dsts, 42 + 42 + thread_id).wait();
     }
     else
     {
         auto req = comm.recv(msg, 0, 42);
         EXPECT_TRUE(req.cancel());
-        comm.recv(msg, 0, 42 + 42).wait();
+        comm.recv(msg, 0, 42 + 42 + thread_id).wait();
         for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
     }
 }
@@ -39,15 +39,33 @@ test_1(oomph::communicator& comm, unsigned int size)
 TEST_F(mpi_test_fixture, test_cancel_request)
 {
     using namespace oomph;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     test_1(comm, 1);
     test_1(comm, 32);
     test_1(comm, 4096);
 }
 
+TEST_F(mpi_test_fixture, test_cancel_request_mt)
+{
+    using namespace oomph;
+    auto        ctxt = context(MPI_COMM_WORLD, true);
+    std::size_t n_threads = 4;
+
+    std::vector<std::thread> threads;
+    threads.reserve(n_threads);
+    for (size_t i = 0; i < n_threads; ++i)
+        threads.push_back(std::thread{[&ctxt, i]() {
+            auto comm = ctxt.get_communicator();
+            test_1(comm, 1, i);
+            test_1(comm, 32, i);
+            test_1(comm, 4096, i);
+        }});
+    for (auto& t : threads) t.join();
+}
+
 void
-test_2(oomph::communicator& comm, unsigned int size)
+test_2(oomph::communicator& comm, unsigned int size, int thread_id = 0)
 {
     EXPECT_TRUE(comm.size() == 4);
     auto msg = comm.make_buffer<int>(size);
@@ -57,7 +75,7 @@ test_2(oomph::communicator& comm, unsigned int size)
     {
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         std::vector<int> dsts = {1, 2, 3};
-        comm.send_multi(msg, dsts, 42 + 42).wait();
+        comm.send_multi(msg, dsts, 42 + 42 + thread_id).wait();
     }
     else
     {
@@ -69,7 +87,7 @@ test_2(oomph::communicator& comm, unsigned int size)
         comm.progress();
         EXPECT_EQ(counter, 0);
         EXPECT_TRUE(h.cancel());
-        comm.recv(msg, 0, 42 + 42).wait();
+        comm.recv(msg, 0, 42 + 42 + thread_id).wait();
         for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
     }
 }
@@ -77,9 +95,27 @@ test_2(oomph::communicator& comm, unsigned int size)
 TEST_F(mpi_test_fixture, test_cancel_cb)
 {
     using namespace oomph;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     test_2(comm, 1);
     test_2(comm, 32);
     test_2(comm, 4096);
+}
+
+TEST_F(mpi_test_fixture, test_cancel_cb_mt)
+{
+    using namespace oomph;
+    auto        ctxt = context(MPI_COMM_WORLD, true);
+    std::size_t n_threads = 4;
+
+    std::vector<std::thread> threads;
+    threads.reserve(n_threads);
+    for (size_t i = 0; i < n_threads; ++i)
+        threads.push_back(std::thread{[&ctxt, i]() {
+            auto comm = ctxt.get_communicator();
+            test_2(comm, 1, i);
+            test_2(comm, 32, i);
+            test_2(comm, 4096, i);
+        }});
+    for (auto& t : threads) t.join();
 }

@@ -21,13 +21,14 @@ main(int argc, char** argv)
     using namespace oomph;
     using message = oomph::message_buffer<char>;
 
-    mpi_environment env(argc, argv);
-    if (env.size != 2) return exit(argv[0]);
-
     args cmd_args(argc, argv);
     if (!cmd_args) return exit(argv[0]);
+    bool const multi_threaded = (cmd_args.num_threads > 1);
 
-    context ctxt(MPI_COMM_WORLD);
+    mpi_environment env(multi_threaded, argc, argv);
+    if (env.size != 2) return exit(argv[0]);
+
+    context ctxt(MPI_COMM_WORLD, multi_threaded);
     barrier b(cmd_args.num_threads);
     timer   t0;
     timer   t1;
@@ -37,7 +38,7 @@ main(int argc, char** argv)
     const auto buff_size = cmd_args.buff_size;
     const auto niter = cmd_args.n_iter;
 
-#ifdef GHEX_USE_OPENMP
+#ifdef OOMPH_BENCHMARKS_MT
     std::atomic<int> sent(0);
     std::atomic<int> received(0);
     std::atomic<int> tail_send(0);

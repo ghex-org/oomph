@@ -30,9 +30,9 @@ register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t siz
 communicator_impl*
 context_impl::get_communicator()
 {
-    auto comm = new communicator_impl{this, m_worker.get(),
-        std::make_unique<worker_type>(
-            get(), m_db /*, m_mutex*/, UCS_THREAD_MODE_SERIALIZED /*, m_rank_topology*/),
+    auto comm = new communicator_impl{this, this->m_thread_safe, m_worker.get(),
+        std::make_unique<worker_type>(get(), m_db,
+            (this->m_thread_safe ? UCS_THREAD_MODE_SERIALIZED : UCS_THREAD_MODE_SINGLE)),
         m_mutex};
     m_comms_set.insert(comm);
     return comm;

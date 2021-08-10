@@ -39,8 +39,8 @@ class context_impl : public context_base
     std::unique_ptr<lock_cache> m_lock_cache;
 
   public:
-    context_impl(MPI_Comm comm)
-    : context_base(comm)
+    context_impl(MPI_Comm comm, bool thread_safe)
+    : context_base(comm, thread_safe)
     , m_heap{this}
     {
         MPI_Info info;

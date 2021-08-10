@@ -22,7 +22,7 @@
 TEST_F(mpi_test_fixture, locality_enumerate)
 {
     using namespace oomph;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
 
     // test self

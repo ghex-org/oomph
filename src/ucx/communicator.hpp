@@ -35,16 +35,18 @@ class communicator_impl : public communicator_base<communicator_impl>
 
   public:
     context_impl*                                  m_context;
+    bool const                                     m_thread_safe;
     worker_type*                                   m_recv_worker;
     std::unique_ptr<worker_type>                   m_send_worker;
     ucx_mutex&                                     m_mutex;
     boost::lockfree::queue<request_data::cb_ptr_t> m_recv_cb_queue;
 
   public:
-    communicator_impl(context_impl* ctxt, worker_type* recv_worker,
+    communicator_impl(context_impl* ctxt, bool thread_safe, worker_type* recv_worker,
         std::unique_ptr<worker_type>&& send_worker, ucx_mutex& mtx)
     : communicator_base(ctxt)
     , m_context(ctxt)
+    , m_thread_safe{thread_safe}
     , m_recv_worker{recv_worker}
     , m_send_worker{std::move(send_worker)}
     , m_mutex{mtx}
@@ -57,11 +59,18 @@ class communicator_impl : public communicator_base<communicator_impl>
     void progress()
     {
         while (ucp_worker_progress(m_send_worker->get())) {}
-        // this is really important for large-scale multithreading: check if still is
-        sched_yield();
+        if (m_thread_safe)
         {
-            // progress recv worker in locked region
-            ucx_lock lock(m_mutex);
+            // this is really important for large-scale multithreading: check if still is
+            sched_yield();
+            {
+                // progress recv worker in locked region
+                ucx_lock lock(m_mutex);
+                while (ucp_worker_progress(m_recv_worker->get())) {}
+            }
+        }
+        else
+        {
             while (ucp_worker_progress(m_recv_worker->get())) {}
         }
         // work through ready recv callbacks, which were pushed to the queue by other threads
@@ -132,7 +141,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         request_data::cb_ptr_t cb_ptr = nullptr;
         {
             // locked region
-            ucx_lock lock(m_mutex);
+            if (m_thread_safe) m_mutex.lock();
 
             ucs_status_ptr_t ret;
             {
@@ -175,6 +184,8 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // an error occurred
                 throw std::runtime_error("oomph: ucx error - recv operation failed");
             }
+
+            if (m_thread_safe) m_mutex.unlock();
         }
         // check for early completion
         if (cb_ptr)
@@ -245,8 +256,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto& req_data = request_data::get(req.m_data->m_data);
         {
             // locked region
-            ucx_lock lock(m_mutex);
+            if (m_thread_safe) m_mutex.lock();
             ucp_request_cancel(m_recv_worker->get(), req_data.m_ucx_ptr);
+            if (m_thread_safe) m_mutex.unlock();
         }
         delete req_data.m_cb;
         // The ucx callback will still be executed after the cancel. However, the status argument

@@ -17,9 +17,9 @@ namespace oomph
 // context                   //
 ///////////////////////////////
 
-context::context(MPI_Comm comm)
+context::context(MPI_Comm comm, bool thread_safe)
 : m_mpi_comm{comm}
-, m(m_mpi_comm.get())
+, m(m_mpi_comm.get(), thread_safe)
 {
 }
 

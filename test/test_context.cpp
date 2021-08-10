@@ -22,7 +22,7 @@ TEST_F(mpi_test_fixture, context_ordered)
     using namespace oomph;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    auto ctxt = context(MPI_COMM_WORLD);
+    auto ctxt = context(MPI_COMM_WORLD, true);
 
     auto func = [&ctxt](int tid) {
         auto comm = ctxt.get_communicator();
@@ -77,16 +77,16 @@ TEST_F(mpi_test_fixture, context_multi)
     using namespace oomph;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    auto ctxt_1 = context(MPI_COMM_WORLD);
-    auto ctxt_2 = context(MPI_COMM_WORLD);
+    auto ctxt_1 = context(MPI_COMM_WORLD, true);
+    auto ctxt_2 = context(MPI_COMM_WORLD, true);
 
     auto func = [&ctxt_1, &ctxt_2](int tid_1, int tid_2) {
-        auto    comm_1 = ctxt_1.get_communicator();
-        auto    msg_1 = comm_1.make_buffer<int>(size);
-        auto    comm_2 = ctxt_2.get_communicator();
-        auto    msg_2 = comm_2.make_buffer<int>(size);
-        bool    sent_1 = false;
-        bool    sent_2 = false;
+        auto         comm_1 = ctxt_1.get_communicator();
+        auto         msg_1 = comm_1.make_buffer<int>(size);
+        auto         comm_2 = ctxt_2.get_communicator();
+        auto         msg_2 = comm_2.make_buffer<int>(size);
+        bool         sent_1 = false;
+        bool         sent_2 = false;
         recv_request req_1;
         recv_request req_2;
 
