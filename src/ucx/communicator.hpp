@@ -75,10 +75,11 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         // work through ready recv callbacks, which were pushed to the queue by other threads
         // (including this thread)
-        m_recv_cb_queue.consume_all([](request_data::cb_ptr_t cb) {
-            cb->invoke();
-            delete cb;
-        });
+        if (m_thread_safe)
+            m_recv_cb_queue.consume_all([](request_data::cb_ptr_t cb) {
+                cb->invoke();
+                delete cb;
+            });
     }
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
@@ -229,7 +230,12 @@ class communicator_impl : public communicator_base<communicator_impl>
             // enqueue callback on the issuing communicator
             // this guarantees that only the communicator on which the receive was executed will
             // invoke the callback
-            req_data.m_comm->enqueue_recv(req_data.m_cb);
+            if (req_data.m_comm->m_thread_safe) { req_data.m_comm->enqueue_recv(req_data.m_cb); }
+            else
+            {
+                req_data.m_cb->invoke();
+                delete req_data.m_cb;
+            }
 
             // destroy request
             req_data.clear();
