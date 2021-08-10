@@ -160,14 +160,14 @@ message_buffer::clear()
 
 void
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, tag_type tag, util::unique_function<void()> cb, shared_req_ptr req)
+    rank_type dst, tag_type tag, util::unique_function<void()> cb, shared_request_ptr req)
 {
     m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), std::move(req));
 }
 
 void
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()> cb, shared_req_ptr req)
+    tag_type tag, util::unique_function<void()> cb, shared_request_ptr req)
 {
     m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(req));
 }

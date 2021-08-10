@@ -73,8 +73,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()>&& cb,
-        std::shared_ptr<detail::request_state>&& req)
+        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
     {
         const auto& ep = m_send_worker->connect(dst);
         const auto  stag =
@@ -118,7 +117,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, std::shared_ptr<detail::request_state>&& req)
+        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
     {
         const auto rtag =
             (communicator::any_source == src)

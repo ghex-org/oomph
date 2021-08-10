@@ -35,6 +35,7 @@ class communicator
     using rank_type = int;
     using tag_type = int;
     using impl_type = communicator_impl;
+    using shared_request_ptr = detail::shared_request_ptr;
 
   public:
     static constexpr rank_type any_source = -1;
@@ -46,14 +47,13 @@ class communicator
     friend class recv_channel_base;
 
   private:
-    impl_type* m_impl;
+    impl_type*                     m_impl;
+    std::unique_ptr<boost::pool<>> m_pool;
 
   private:
-    using shared_req_ptr = std::shared_ptr<detail::request_state>;
-
     struct cb_none
     {
-        shared_req_ptr req;
+        shared_request_ptr req;
 
         void operator()() noexcept { req->m_ready = true; }
     };
@@ -61,11 +61,11 @@ class communicator
     template<typename T, typename CallBack>
     struct cb_rref
     {
-        shared_req_ptr    req;
-        message_buffer<T> m;
-        rank_type         r;
-        tag_type          t;
-        CallBack          cb;
+        shared_request_ptr req;
+        message_buffer<T>  m;
+        rank_type          r;
+        tag_type           t;
+        CallBack           cb;
 
         void operator()() noexcept
         {
@@ -77,7 +77,7 @@ class communicator
     template<typename T, typename CallBack>
     struct cb_lref
     {
-        shared_req_ptr     req;
+        shared_request_ptr req;
         message_buffer<T>* m;
         rank_type          r;
         tag_type           t;
@@ -93,7 +93,7 @@ class communicator
     template<typename T, typename CallBack>
     struct cb_lref_const
     {
-        shared_req_ptr           req;
+        shared_request_ptr       req;
         message_buffer<T> const* m;
         rank_type                r;
         tag_type                 t;
@@ -109,6 +109,7 @@ class communicator
   private:
     communicator(impl_type* impl_) noexcept
     : m_impl{impl_}
+    , m_pool{std::make_unique<boost::pool<>>(sizeof(detail::request_state), 128)}
     {
     }
 
@@ -117,6 +118,7 @@ class communicator
 
     communicator(communicator&& other) noexcept
     : m_impl{std::exchange(other.m_impl, nullptr)}
+    , m_pool{std::move(other.m_pool)}
     {
     }
 
@@ -125,6 +127,7 @@ class communicator
     communicator& operator=(communicator&& other) noexcept
     {
         m_impl = std::exchange(other.m_impl, nullptr);
+        m_pool = std::move(other.m_pool);
         return *this;
     }
 
@@ -157,7 +160,7 @@ class communicator
     [[nodiscard]] recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
     {
         assert(msg);
-        recv_request r(std::make_shared<recv_request::data_type>(m_impl));
+        recv_request r(shared_request_ptr(m_pool.get(), m_impl));
         recv(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), src, tag, cb_none{r.m_data}, r.m_data);
         return r;
     }
@@ -166,7 +169,7 @@ class communicator
     [[nodiscard]] send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
     {
         assert(msg);
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), dst, tag, cb_none{r.m_data}, r.m_data);
         return r;
     }
@@ -176,7 +179,7 @@ class communicator
         message_buffer<T> const& msg, std::vector<rank_type> const& neighs, tag_type tag)
     {
         assert(msg);
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
 
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
@@ -207,7 +210,7 @@ class communicator
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
 
-        recv_request r(std::make_shared<recv_request::data_type>(m_impl));
+        recv_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -224,7 +227,7 @@ class communicator
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
 
-        recv_request r(std::make_shared<recv_request::data_type>(m_impl));
+        recv_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -241,7 +244,7 @@ class communicator
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
 
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -258,7 +261,7 @@ class communicator
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
 
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -276,7 +279,7 @@ class communicator
         OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
         assert(msg);
 
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -300,7 +303,7 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{std::move(msg), {(int)neighs.size()}, neighs};
@@ -335,7 +338,7 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
@@ -370,7 +373,7 @@ class communicator
             std::vector<rank_type>   neighs;
         };
 
-        send_request r(std::make_shared<send_request::data_type>(m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
@@ -401,10 +404,10 @@ class communicator
 #endif
 
     void send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()> cb, shared_req_ptr req);
+        tag_type tag, util::unique_function<void()> cb, shared_request_ptr req);
 
     void recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void()> cb, shared_req_ptr req);
+        tag_type tag, util::unique_function<void()> cb, shared_request_ptr req);
 
     bool cancel_recv_cb_(rank_type src, tag_type tag,
         std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb);

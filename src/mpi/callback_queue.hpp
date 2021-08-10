@@ -22,7 +22,7 @@ class callback_queue
   public: // member types
     using cb_type = util::unique_function<void()>;
     using handle_type = detail::request_state;
-    using handle_ptr = std::shared_ptr<handle_type>;
+    using handle_ptr = communicator::shared_request_ptr;
 
     struct element_type
     {

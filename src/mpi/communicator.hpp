@@ -58,8 +58,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()>&& cb,
-        std::shared_ptr<detail::request_state>&& h)
+        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& h)
     {
         auto req = send(ptr, size, dst, tag);
         if (req.is_ready()) cb();
@@ -68,7 +67,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, std::shared_ptr<detail::request_state>&& h)
+        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& h)
     {
         auto req = recv(ptr, size, src, tag);
         if (req.is_ready()) cb();

@@ -18,12 +18,13 @@ class send_request
 {
   private:
     using data_type = detail::request_state;
+    using shared_request_ptr = detail::shared_request_ptr;
     friend class communicator;
     friend class communicator_impl;
 
-    std::shared_ptr<data_type> m_data;
+    shared_request_ptr m_data;
 
-    send_request(std::shared_ptr<data_type>&& data) noexcept
+    send_request(shared_request_ptr&& data) noexcept
     : m_data{std::move(data)}
     {
     }
@@ -49,12 +50,13 @@ class recv_request
 {
   private:
     using data_type = detail::request_state;
+    using shared_request_ptr = detail::shared_request_ptr;
     friend class communicator;
     friend class communicator_impl;
 
-    std::shared_ptr<data_type> m_data;
+    shared_request_ptr m_data;
 
-    recv_request(std::shared_ptr<data_type>&& data) noexcept
+    recv_request(shared_request_ptr&& data) noexcept
     : m_data{std::move(data)}
     {
     }
