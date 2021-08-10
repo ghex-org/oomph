@@ -183,7 +183,7 @@ class communicator
 
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
-        auto       counter = new std::atomic<int>{(int)neighs.size()};
+        auto       counter = new int{(int)neighs.size()};
 
         for (auto id : neighs)
         {
@@ -299,7 +299,7 @@ class communicator
         struct msg_ref_count
         {
             message_buffer<T>      msg;
-            std::atomic<int>       counter;
+            int                    counter;
             std::vector<rank_type> neighs;
         };
 
@@ -334,7 +334,7 @@ class communicator
         struct msg_ref_count
         {
             message_buffer<T>*     msg;
-            std::atomic<int>       counter;
+            int                    counter;
             std::vector<rank_type> neighs;
         };
 
@@ -369,7 +369,7 @@ class communicator
         struct msg_ref_count
         {
             message_buffer<T> const* msg;
-            std::atomic<int>         counter;
+            int                      counter;
             std::vector<rank_type>   neighs;
         };
 
