@@ -38,6 +38,13 @@ main(int argc, char** argv)
     const auto buff_size = cmd_args.buff_size;
     const auto niter = cmd_args.n_iter;
 
+    if (env.rank == 0)
+    {
+        std::cout << "inflight = " << inflight << std::endl;
+        std::cout << "size     = " << buff_size << std::endl;
+        std::cout << "N        = " << niter << std::endl;
+    }
+
 #ifdef OOMPH_BENCHMARKS_MT
     std::atomic<int> sent(0);
     std::atomic<int> received(0);
@@ -60,6 +67,31 @@ main(int argc, char** argv)
         const auto thread_id = THREADID;
         const auto peer_rank = (rank + 1) % size;
 
+        int       comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
+        int       last_received = 0;
+        int       last_sent = 0;
+        int       dbg = 0, sdbg = 0, rdbg = 0;
+        int       lsent = 0, lrecv = 0;
+        const int delta_i = niter / 10;
+        bool      first = true;
+
+        auto send_callback = [inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
+                                 message&, int, int tag) {
+            int pthr = tag / inflight;
+            if (pthr != thread_id) nlsend_cnt++;
+            comm_cnt++;
+            sent++;
+        };
+
+        auto recv_callback = [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
+                                 message&, int, int tag) {
+            int pthr = tag / inflight;
+            if (pthr != thread_id) nlrecv_cnt++;
+            //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
+            comm_cnt++;
+            received++;
+        };
+
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
@@ -67,7 +99,7 @@ main(int argc, char** argv)
         std::vector<message>      rmsgs(inflight);
         std::vector<send_request> sreqs(inflight);
         std::vector<recv_request> rreqs(inflight);
-        for (int j = 0; j < cmd_args.inflight; j++)
+        for (int j = 0; j < inflight; j++)
         {
             smsgs[j] = comm.make_buffer<char>(buff_size);
             rmsgs[j] = comm.make_buffer<char>(buff_size);
@@ -76,14 +108,6 @@ main(int argc, char** argv)
         }
 
         b(comm);
-
-        int       comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
-        int       last_received = 0;
-        int       last_sent = 0;
-        int       dbg = 0, sdbg = 0, rdbg = 0;
-        int       lsent = 0, lrecv = 0;
-        const int delta_i = niter / 10;
-        bool      first = true;
 
         if (thread_id == 0)
         {
@@ -122,21 +146,13 @@ main(int argc, char** argv)
 
             for (int j = 0; j < inflight; j++)
             {
-                //if(rmsgs[j].use_count() == 1)
                 if (first || rreqs[j].is_ready())
                 {
                     submit_recv_cnt += num_threads;
                     rdbg += num_threads;
                     dbg += num_threads;
-                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
-                        [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
-                            message&, int, int tag) {
-                            int pthr = tag / inflight;
-                            if (pthr != thread_id) nlrecv_cnt++;
-                            //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
-                            comm_cnt++;
-                            received++;
-                        });
+                    rreqs[j] =
+                        comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j, recv_callback);
                     lrecv++;
                 }
                 else
@@ -148,21 +164,18 @@ main(int argc, char** argv)
                     submit_cnt += num_threads;
                     sdbg += num_threads;
                     dbg += num_threads;
-                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j,
-                        [inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
-                            message&, int, int tag) {
-                            int pthr = tag / inflight;
-                            if (pthr != thread_id) nlsend_cnt++;
-                            comm_cnt++;
-                            sent++;
-                        });
+                    sreqs[j] =
+                        comm.send(smsgs[j], peer_rank, thread_id * inflight + j, send_callback);
                     lsent++;
                 }
                 else
                     comm.progress();
             }
+            comm.progress();
             first = false;
         }
+
+        b(comm);
 
         if (thread_id == 0 && rank == 0)
         {
@@ -202,7 +215,7 @@ main(int argc, char** argv)
                     incomplete_sends = 0;
                     for (int j = 0; j < inflight; j++)
                     {
-                        if (!sreqs[j].is_ready()) incomplete_sends++;
+                        if (!sreqs[j].test()) incomplete_sends++;
                     }
                     if (incomplete_sends == 0)
                     {
@@ -214,30 +227,20 @@ main(int argc, char** argv)
                 // continue to re-schedule all recvs to allow the peer to complete
                 for (int j = 0; j < inflight; j++)
                 {
-                    if (rreqs[j].is_ready())
+                    if (rreqs[j].test())
                     {
-                        //rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
-                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
-                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
-                                message&, int, int tag) {
-                                int pthr = tag / inflight;
-                                if (pthr != thread_id) nlrecv_cnt++;
-                                //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
-                                comm_cnt++;
-                                received++;
-                            });
+                        rreqs[j] =
+                            comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j, recv_callback);
                     }
                 }
             } while (tail_send != num_threads);
 
             // We have all completed the sends, but the peer might not have yet.
             // Notify the peer and keep submitting recvs until we get his notification.
-            //request sf, rf;
             send_request sf;
             recv_request rf;
-            //MsgType smsg(1), rmsg(1);
-            auto smsg = comm.make_buffer<char>(1);
-            auto rmsg = comm.make_buffer<char>(1);
+            auto         smsg = comm.make_buffer<char>(1);
+            auto         rmsg = comm.make_buffer<char>(1);
 
 #ifdef OOMPH_BENCHMARKS_MT
 #pragma omp master
@@ -256,18 +259,10 @@ main(int argc, char** argv)
                 // schedule all recvs to allow the peer to complete
                 for (int j = 0; j < inflight; j++)
                 {
-                    if (rreqs[j].is_ready())
+                    if (rreqs[j].test())
                     {
-                        //rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
-                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j,
-                            [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
-                                message&, int, int tag) {
-                                int pthr = tag / inflight;
-                                if (pthr != thread_id) nlrecv_cnt++;
-                                //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
-                                comm_cnt++;
-                                received++;
-                            });
+                        rreqs[j] =
+                            comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j, recv_callback);
                     }
                 }
 
@@ -275,16 +270,15 @@ main(int argc, char** argv)
 #pragma omp master
 #endif
                 {
-                    if (rf.is_ready()) tail_recv = 1;
+                    if (rf.test()) tail_recv = 1;
                 }
             }
         }
         // peer has sent everything, so we can cancel all posted recv requests
-        for (int j = 0; j < inflight; j++)
-        {
-            rreqs[j].cancel();
-            //comm.cancel_recv_cb(peer_rank, thread_id * inflight + j, [](message, int, int) {});
-        }
+        for (int j = 0; j < inflight; j++) { rreqs[j].cancel(); }
+        comm.progress();
+        comm.progress();
+        comm.progress();
     }
 
     return 0;

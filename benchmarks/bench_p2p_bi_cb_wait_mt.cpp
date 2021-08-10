@@ -38,6 +38,13 @@ main(int argc, char** argv)
     const auto buff_size = cmd_args.buff_size;
     const auto niter = cmd_args.n_iter;
 
+    if (env.rank == 0)
+    {
+        std::cout << "inflight = " << inflight << std::endl;
+        std::cout << "size     = " << buff_size << std::endl;
+        std::cout << "N        = " << niter << std::endl;
+    }
+
 #ifdef OOMPH_BENCHMARKS_MT
     std::atomic<int> sent(0);
     std::atomic<int> received(0);
@@ -56,14 +63,39 @@ main(int argc, char** argv)
         const auto thread_id = THREADID;
         const auto peer_rank = (rank + 1) % size;
 
-        int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0;
+        int       comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0;
+        int       i = 0, dbg = 0;
+        int       last_i = 0;
+        const int delta_i = niter / 10;
+
+        auto send_callback = [inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
+                                 message&, int, int tag) {
+            // std::cout << "send callback called " << rank << " thread "
+            // << omp_get_thread_num() << " tag " << tag << "\n";
+            int pthr = tag / inflight;
+            if (pthr != thread_id) nlsend_cnt++;
+            comm_cnt++;
+            sent++;
+        };
+
+        auto recv_callback = [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
+                                 message&, int, int tag) {
+            // std::cout << "recv callback called " << rank << " thread "
+            // << omp_get_thread_num() << " tag " << tag << "\n";
+            int pthr = tag / inflight;
+            if (pthr != thread_id) nlrecv_cnt++;
+            comm_cnt++;
+            received++;
+        };
 
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
-        std::vector<message> smsgs(inflight);
-        std::vector<message> rmsgs(inflight);
-        for (int j = 0; j < cmd_args.inflight; j++)
+        std::vector<message>      smsgs(inflight);
+        std::vector<message>      rmsgs(inflight);
+        std::vector<send_request> sreqs(inflight);
+        std::vector<recv_request> rreqs(inflight);
+        for (int j = 0; j < inflight; j++)
         {
             smsgs[j] = comm.make_buffer<char>(buff_size);
             rmsgs[j] = comm.make_buffer<char>(buff_size);
@@ -72,10 +104,6 @@ main(int argc, char** argv)
         }
 
         b(comm);
-
-        int       i = 0, dbg = 0;
-        int       last_i = 0;
-        const int delta_i = niter / 10;
 
         if (thread_id == 0)
         {
@@ -108,31 +136,8 @@ main(int argc, char** argv)
                 dbg += num_threads;
                 i += num_threads;
 
-                comm.recv(std::move(rmsgs[j]), peer_rank, thread_id * inflight + j,
-                    [&rmsgs, j, inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
-                        message m, int, int tag) {
-                        // std::cout << "recv callback called " << rank << " thread "
-                        // << omp_get_thread_num() << " tag " << tag << "\n";
-                        rmsgs[j] = std::move(m);
-                        int pthr = tag / inflight;
-                        if (pthr != thread_id) nlrecv_cnt++;
-                        comm_cnt++;
-                        received++;
-                    }
-
-                );
-
-                comm.send(std::move(smsgs[j]), peer_rank, thread_id * inflight + j,
-                    [&smsgs, j, inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
-                        message m, int, int tag) {
-                        // std::cout << "send callback called " << rank << " thread "
-                        // << omp_get_thread_num() << " tag " << tag << "\n";
-                        smsgs[j] = std::move(m);
-                        int pthr = tag / inflight;
-                        if (pthr != thread_id) nlsend_cnt++;
-                        comm_cnt++;
-                        sent++;
-                    });
+                rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j, recv_callback);
+                sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j, send_callback);
             }
 
             // complete all inflight requests before moving on
@@ -144,14 +149,11 @@ main(int argc, char** argv)
 #ifdef OOMPH_BENCHMARKS_MT
 #pragma omp barrier
 #endif
-            //#ifdef OOMPH_BENCHMARKS_MT
-            //#pragma omp single
-            //#endif
-            {
-                sent = 0;
-                received = 0;
-            }
+            sent = 0;
+            received = 0;
         }
+
+        b(comm);
 
         if (thread_id == 0 && rank == 0)
         {

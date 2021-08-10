@@ -38,6 +38,13 @@ main(int argc, char** argv)
     const auto buff_size = cmd_args.buff_size;
     const auto niter = cmd_args.n_iter;
 
+    if (env.rank == 0)
+    {
+        std::cout << "inflight = " << inflight << std::endl;
+        std::cout << "size     = " << buff_size << std::endl;
+        std::cout << "N        = " << niter << std::endl;
+    }
+
 #ifdef OOMPH_BENCHMARKS_MT
     std::atomic<int> sent(0);
     std::atomic<int> received(0);
@@ -60,6 +67,12 @@ main(int argc, char** argv)
         const auto thread_id = THREADID;
         const auto peer_rank = (rank + 1) % size;
 
+        int       dbg = 0, sdbg = 0, rdbg = 0;
+        int       last_received = 0;
+        int       last_sent = 0;
+        int       lsent = 0, lrecv = 0;
+        const int delta_i = niter / 10;
+
         if (thread_id == 0 && rank == 0)
         { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
 
@@ -67,7 +80,7 @@ main(int argc, char** argv)
         std::vector<message>      rmsgs(inflight);
         std::vector<send_request> sreqs(inflight);
         std::vector<recv_request> rreqs(inflight);
-        for (int j = 0; j < cmd_args.inflight; j++)
+        for (int j = 0; j < inflight; j++)
         {
             smsgs[j] = comm.make_buffer<char>(buff_size);
             rmsgs[j] = comm.make_buffer<char>(buff_size);
@@ -76,12 +89,6 @@ main(int argc, char** argv)
         }
 
         b(comm);
-
-        int       dbg = 0, sdbg = 0, rdbg = 0;
-        int       last_received = 0;
-        int       last_sent = 0;
-        int       lsent = 0, lrecv = 0;
-        const int delta_i = niter / 10;
 
         if (thread_id == 0)
         {
@@ -120,7 +127,7 @@ main(int argc, char** argv)
                     std::cout << rank << " total bwdt MB/s:      "
                               << ((double)(received - last_received + sent - last_sent) * size *
                                      buff_size / 2) /
-                                     t0.toc()
+                                     t0.stoc()
                               << "\n";
                     t0.tic();
                     last_received = received;
@@ -148,12 +155,14 @@ main(int argc, char** argv)
             first = false;
         }
 
+        b(comm);
+
         if (thread_id == 0 && rank == 0)
         {
             const auto t = t1.toc();
             std::cout << "time:                   " << t / 1000000 << "s\n";
-            std::cout << "final MB/s:             "
-                      << (double)(cmd_args.n_iter * size * cmd_args.buff_size) / t << std::endl;
+            std::cout << "final MB/s:             " << (double)(niter * size * buff_size) / t
+                      << std::endl;
         }
 
         b(comm);
@@ -195,12 +204,10 @@ main(int argc, char** argv)
 
             // We have all completed the sends, but the peer might not have yet.
             // Notify the peer and keep submitting recvs until we get his notification.
-            //request sf, rf;
             send_request sf;
             recv_request rf;
-            //MsgType     smsg(1), rmsg(1);
-            auto smsg = comm.make_buffer<char>(1);
-            auto rmsg = comm.make_buffer<char>(1);
+            auto         smsg = comm.make_buffer<char>(1);
+            auto         rmsg = comm.make_buffer<char>(1);
 
 #ifdef OOMPH_BENCHMARKS_MT
 #pragma omp master
@@ -231,6 +238,9 @@ main(int argc, char** argv)
         }
         // peer has sent everything, so we can cancel all posted recv requests
         for (int j = 0; j < inflight; j++) { rreqs[j].cancel(); }
+        comm.progress();
+        comm.progress();
+        comm.progress();
     }
 
     return 0;
