@@ -27,14 +27,17 @@ expects that at least an MPI implementation is available.
 
 ## Context
 In order to use **oomph** a context object needs to be created.  The context object manages the
-lifetime of the transport layer specific infrastructure.
+lifetime of the transport layer specific infrastructure. The context must therefore be created in a serial part of the code.
 
 ```cpp
-oomph::context ctxt{MPI_WORLD};
+oomph::context ctxt{MPI_COMM_WORLD, true};
 
 ```
-The context must therefore be created in a serial part of the code. All of its member functions
-are thread-safe.
+All of its member functions
+are thread-safe if the second argument of the constructor is true (optional, default = true).
+The first argument is the application's MPI communicator, which must be kept alive until the context
+goes out of scope. The MPI communicator is duplicated within **oomph** in order to protect against other calls to MPI
+in the user's code.
 
 ## Message Buffer
 
@@ -90,6 +93,8 @@ oomph::send_request req = comm.send(msg, 1, 42,
     {
         // do something with the message
     });
+// ...
+req.wait();
 ```
 Note, that the signature of the callback depends on the function it is used with. For example, the communicator will
 take over a message's lifetime management when the message is passed by r-value reference:
@@ -102,8 +107,30 @@ oomph::send_request req = comm.send(std::move(msg), 1, 42,
     });
 // At this point we can forget the message or assign some new message to it
 msg = ctxt.make_buffer<int>(10);
+// ...
+req.wait();
 ```
 Here, the callback will need to receive the message argument by value.
 
 Note: recursive calls to the communicator from within a callback are explicitely allowed.
 
+### Progress
+
+Instead of checking the request objects, the underlying transport layer can also be progressed manually
+which may be useful if one is working with callbacks:
+```cpp
+oomph::message_buffer<int> msg = ctxt.make_buffer<int>(100);
+bool completed = false;
+/* no need for request */ comm.send(msg, 1, 42,
+    [&completed](message_buffer<int> & msg, int rank, int tag)
+    {
+        // do something with the message
+        completed = true;
+    });
+// ...
+// progress a number of times
+comm.progress();
+comm.progress();
+// or progress until some event is triggered
+while(!completed) { comm.progress(); }
+```
