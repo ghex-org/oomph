@@ -64,6 +64,9 @@ class message_buffer
     T const* device_data() const noexcept { return (T*)m.device_data(); }
 
     int device_id() const noexcept { return m.device_id(); }
+
+    void clone_to_device() { m.clone_to_device(m_size * sizeof(T)); }
+    void clone_to_host() { m.clone_to_host(m_size * sizeof(T)); }
 #endif
 };
 

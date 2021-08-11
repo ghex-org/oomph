@@ -8,6 +8,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <hwmalloc/numa.hpp>
+#if HWMALLOC_ENABLE_DEVICE
+#include <hwmalloc/device.hpp>
+#endif
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/util/stack_pimpl.hpp>
 
@@ -142,6 +145,18 @@ int
 message_buffer::device_id() const noexcept
 {
     return m_heap_ptr->m.device_id();
+}
+
+void
+message_buffer::clone_to_device(std::size_t count)
+{
+    hwmalloc::memcpy_to_device(m_heap_ptr->m.device_ptr(), m_ptr, count);
+}
+
+void
+message_buffer::clone_to_host(std::size_t count)
+{
+    hwmalloc::memcpy_to_host(m_ptr, m_heap_ptr->m.device_ptr(), count);
 }
 #endif
 

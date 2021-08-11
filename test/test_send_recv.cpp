@@ -18,7 +18,7 @@
 #define SIZE     64
 #define NTHREADS 4
 
-struct test_environment
+struct test_environment_base
 {
     using rank_type = oomph::communicator::rank_type;
     using tag_type = oomph::communicator::tag_type;
@@ -34,7 +34,7 @@ struct test_environment
     int                 num_threads;
     tag_type            tag;
 
-    test_environment(oomph::context& c, std::size_t size, int tid, int num_t)
+    test_environment_base(oomph::context& c, std::size_t size, int tid, int num_t)
     : ctxt(c)
     , comm(ctxt.get_communicator())
     , smsg(comm.make_buffer<rank_type>(size))
@@ -45,6 +45,18 @@ struct test_environment
     , num_threads(num_t)
     , tag(tid)
     {
+    }
+};
+
+struct test_environment : public test_environment_base
+{
+    using base = test_environment_base;
+
+    test_environment(oomph::context& c, std::size_t size, int tid, int num_t)
+    : base(c, size, tid, num_t)
+    {
+        smsg = comm.make_buffer<rank_type>(size);
+        rmsg = comm.make_buffer<rank_type>(size);
         fill_send_buffer();
         fill_recv_buffer();
     }
@@ -66,6 +78,42 @@ struct test_environment
         return true;
     }
 };
+
+#if HWMALLOC_ENABLE_DEVICE
+struct test_environment_device : public test_environment_base
+{
+    using base = test_environment_base;
+
+    test_environment_device(oomph::context& c, std::size_t size, int tid, int num_t)
+    : base(c, size, tid, num_t)
+    {
+        smsg = comm.make_device_buffer<rank_type>(size, 0);
+        rmsg = comm.make_device_buffer<rank_type>(size, 0);
+        fill_send_buffer();
+        fill_recv_buffer();
+    }
+
+    void fill_send_buffer()
+    {
+        for (auto& x : smsg) x = comm.rank();
+        smsg.clone_to_device();
+    }
+
+    void fill_recv_buffer()
+    {
+        for (auto& x : rmsg) x = -1;
+        rmsg.clone_to_device();
+    }
+
+    bool check_recv_buffer()
+    {
+        rmsg.clone_to_host();
+        for (auto const& x : rmsg)
+            if (x != rpeer_rank) return false;
+        return true;
+    }
+};
+#endif
 
 template<typename Func>
 void
@@ -90,10 +138,11 @@ launch_test(Func f)
 
 // no callback
 // ===========
+template<typename Env>
 void
 test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
 {
-    test_environment env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads);
 
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
@@ -126,10 +175,17 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
     }
 }
 
-TEST_F(mpi_test_fixture, send_recv) { launch_test(test_send_recv); }
+TEST_F(mpi_test_fixture, send_recv)
+{
+    launch_test(test_send_recv<test_environment>);
+#if HWMALLOC_ENABLE_DEVICE
+    launch_test(test_send_recv<test_environment_device>);
+#endif
+}
 
 // callback: pass by l-value reference
 // ===================================
+template<typename Env>
 void
 test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
 {
@@ -137,7 +193,7 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    test_environment env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -186,10 +242,17 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     EXPECT_EQ(sent, NITERS);
 }
 
-TEST_F(mpi_test_fixture, send_recv_cb) { launch_test(test_send_recv_cb); }
+TEST_F(mpi_test_fixture, send_recv_cb)
+{
+    launch_test(test_send_recv_cb<test_environment>);
+#if HWMALLOC_ENABLE_DEVICE
+    launch_test(test_send_recv_cb<test_environment_device>);
+#endif
+}
 
 // callback: pass by r-value reference (give up ownership)
 // =======================================================
+template<typename Env>
 void
 test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
 {
@@ -197,7 +260,7 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    test_environment env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -252,10 +315,17 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     EXPECT_EQ(sent, NITERS);
 }
 
-TEST_F(mpi_test_fixture, send_recv_cb_disown) { launch_test(test_send_recv_cb_disown); }
+TEST_F(mpi_test_fixture, send_recv_cb_disown)
+{
+    launch_test(test_send_recv_cb_disown<test_environment>);
+#if HWMALLOC_ENABLE_DEVICE
+    launch_test(test_send_recv_cb_disown<test_environment_device>);
+#endif
+}
 
 // callback: pass by l-value reference, and resubmit
 // =================================================
+template<typename Env>
 void
 test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
 {
@@ -263,15 +333,15 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    test_environment env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads);
 
     volatile int received = 0;
     volatile int sent = 0;
 
     struct recursive_send_callback
     {
-        test_environment& env;
-        volatile int&     sent;
+        Env&          env;
+        volatile int& sent;
 
         void operator()(message& msg, rank_type dst, tag_type tag)
         {
@@ -282,8 +352,8 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
 
     struct recursive_recv_callback
     {
-        test_environment& env;
-        volatile int&     received;
+        Env&          env;
+        volatile int& received;
 
         void operator()(message& msg, rank_type src, tag_type tag)
         {
@@ -300,10 +370,17 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
 
-TEST_F(mpi_test_fixture, send_recv_cb_resubmit) { launch_test(test_send_recv_cb_resubmit); }
+TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
+{
+    launch_test(test_send_recv_cb_resubmit<test_environment>);
+#if HWMALLOC_ENABLE_DEVICE
+    launch_test(test_send_recv_cb_resubmit<test_environment_device>);
+#endif
+}
 
 // callback: pass by r-value reference (give up ownership), and resubmit
 // =====================================================================
+template<typename Env>
 void
 test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
 {
@@ -311,15 +388,15 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    test_environment env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads);
 
     volatile int received = 0;
     volatile int sent = 0;
 
     struct recursive_send_callback
     {
-        test_environment& env;
-        volatile int&     sent;
+        Env&          env;
+        volatile int& sent;
 
         void operator()(message msg, rank_type dst, tag_type tag)
         {
@@ -331,8 +408,8 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
 
     struct recursive_recv_callback
     {
-        test_environment& env;
-        volatile int&     received;
+        Env&          env;
+        volatile int& received;
 
         void operator()(message msg, rank_type src, tag_type tag)
         {
@@ -353,5 +430,8 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
 
 TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
 {
-    launch_test(test_send_recv_cb_resubmit_disown);
+    launch_test(test_send_recv_cb_resubmit_disown<test_environment>);
+#if HWMALLOC_ENABLE_DEVICE
+    launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
+#endif
 }

@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <oomph/config.hpp>
 #include <oomph/util/pimpl.hpp>
 #include <oomph/util/heap_pimpl.hpp>
 
@@ -44,6 +45,9 @@ class message_buffer
     void const* device_data() const noexcept;
 
     int device_id() const noexcept;
+
+    void clone_to_device(std::size_t count);
+    void clone_to_host(std::size_t count);
 #endif
 
     void clear();
