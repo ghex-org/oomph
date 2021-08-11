@@ -111,12 +111,13 @@ main(int argc, char** argv)
                 sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
             }
 
-            /* wait for all */
-            for (int j = 0; j < inflight; j++)
-            {
-                sreqs[j].wait();
-                rreqs[j].wait();
-            }
+            comm.wait_all();
+            ///* wait for all */
+            //for (int j = 0; j < inflight; j++)
+            //{
+            //    sreqs[j].wait();
+            //    rreqs[j].wait();
+            //}
         }
 
         b(comm);

@@ -159,6 +159,11 @@ class communicator
     std::size_t scheduled_recvs() const noexcept { return m_schedule->scheduled_recvs; }
     bool is_ready() const noexcept { return (scheduled_sends() == 0) && (scheduled_recvs() == 0); }
 
+    void wait_all()
+    {
+        while (!is_ready()) { progress(); }
+    }
+
     template<typename T>
     message_buffer<T> make_buffer(std::size_t size)
     {
