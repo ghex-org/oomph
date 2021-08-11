@@ -245,7 +245,13 @@ recv_request::cancel()
 {
     if (!m_data) return false;
     if (m_data->m_ready) return false;
-    return m_data->m_comm->cancel_recv_cb(*this);
+    const auto res = m_data->m_comm->cancel_recv_cb(*this);
+    if (res)
+    {
+        --(*(m_data->m_scheduled));
+        m_data.reset();
+    }
+    return res;
 }
 
 /////////////////////////////////

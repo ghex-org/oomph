@@ -22,13 +22,15 @@ namespace detail
 struct request_state
 {
     communicator_impl* m_comm;
+    std::size_t*       m_scheduled;
     std::size_t        m_index = 0;
     bool               m_ready = false;
     void*              m_data = nullptr;
     std::size_t        m_ref_count = 0;
 
-    request_state(communicator_impl* comm) noexcept
+    request_state(communicator_impl* comm, std::size_t* scheduled) noexcept
     : m_comm{comm}
+    , m_scheduled{scheduled}
     {
     }
 };
@@ -40,10 +42,10 @@ class shared_request_ptr
     boost::pool<>* m_pool = nullptr;
 
   public:
-    shared_request_ptr(boost::pool<>* pool, communicator_impl* comm)
+    shared_request_ptr(boost::pool<>* pool, communicator_impl* comm, std::size_t* scheduled)
     : m_pool{pool}
     {
-        m_ptr = new (m_pool->malloc()) request_state(comm);
+        m_ptr = new (m_pool->malloc()) request_state(comm, scheduled);
         m_ptr->m_ref_count = 1;
     }
 
@@ -88,6 +90,12 @@ class shared_request_ptr
     request_state* operator->() const noexcept { return m_ptr; }
 
     request_state& operator*() const noexcept { return *m_ptr; }
+
+    void reset()
+    {
+        destroy();
+        m_ptr = nullptr;
+    }
 
   private:
     void destroy()

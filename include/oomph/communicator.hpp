@@ -46,16 +46,27 @@ class communicator
     friend class send_channel_base;
     friend class recv_channel_base;
 
+    struct schedule
+    {
+        std::size_t scheduled_sends = 0;
+        std::size_t scheduled_recvs = 0;
+    };
+
   private:
     impl_type*                     m_impl;
     std::unique_ptr<boost::pool<>> m_pool;
+    std::unique_ptr<schedule>      m_schedule;
 
   private:
     struct cb_none
     {
         shared_request_ptr req;
 
-        void operator()() noexcept { req->m_ready = true; }
+        void operator()() noexcept
+        {
+            req->m_ready = true;
+            --(*(req->m_scheduled));
+        }
     };
 
     template<typename T, typename CallBack>
@@ -71,6 +82,7 @@ class communicator
         {
             cb(std::move(m), r, t);
             req->m_ready = true;
+            --(*(req->m_scheduled));
         }
     };
 
@@ -87,6 +99,7 @@ class communicator
         {
             cb(*m, r, t);
             req->m_ready = true;
+            --(*(req->m_scheduled));
         }
     };
 
@@ -103,6 +116,7 @@ class communicator
         {
             cb(*m, r, t);
             req->m_ready = true;
+            --(*(req->m_scheduled));
         }
     };
 
@@ -110,6 +124,7 @@ class communicator
     communicator(impl_type* impl_) noexcept
     : m_impl{impl_}
     , m_pool{std::make_unique<boost::pool<>>(sizeof(detail::request_state), 128)}
+    , m_schedule{std::make_unique<schedule>()}
     {
     }
 
@@ -119,6 +134,7 @@ class communicator
     communicator(communicator&& other) noexcept
     : m_impl{std::exchange(other.m_impl, nullptr)}
     , m_pool{std::move(other.m_pool)}
+    , m_schedule{std::move(other.m_schedule)}
     {
     }
 
@@ -128,16 +144,20 @@ class communicator
     {
         m_impl = std::exchange(other.m_impl, nullptr);
         m_pool = std::move(other.m_pool);
+        m_schedule = std::move(other.m_schedule);
         return *this;
     }
 
     ~communicator();
 
   public:
-    rank_type rank() const noexcept;
-    rank_type size() const noexcept;
-    MPI_Comm  mpi_comm() const noexcept;
-    bool      is_local(rank_type rank) const noexcept;
+    rank_type   rank() const noexcept;
+    rank_type   size() const noexcept;
+    MPI_Comm    mpi_comm() const noexcept;
+    bool        is_local(rank_type rank) const noexcept;
+    std::size_t scheduled_sends() const noexcept { return m_schedule->scheduled_sends; }
+    std::size_t scheduled_recvs() const noexcept { return m_schedule->scheduled_recvs; }
+    bool is_ready() const noexcept { return (scheduled_sends() == 0) && (scheduled_recvs() == 0); }
 
     template<typename T>
     message_buffer<T> make_buffer(std::size_t size)
@@ -160,7 +180,9 @@ class communicator
     [[nodiscard]] recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
     {
         assert(msg);
-        recv_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_recvs;
+        ++scheduled;
+        recv_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         recv(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), src, tag, cb_none{r.m_data}, r.m_data);
         return r;
     }
@@ -169,7 +191,9 @@ class communicator
     [[nodiscard]] send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
     {
         assert(msg);
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_sends;
+        ++scheduled;
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), dst, tag, cb_none{r.m_data}, r.m_data);
         return r;
     }
@@ -179,7 +203,9 @@ class communicator
         message_buffer<T> const& msg, std::vector<rank_type> const& neighs, tag_type tag)
     {
         assert(msg);
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_sends;
+        scheduled += neighs.size();
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
 
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
@@ -195,6 +221,7 @@ class communicator
                         delete counter;
                         rd->m_ready = true;
                     }
+                    --(*(rd->m_scheduled));
                 },
                 r.m_data);
         }
@@ -209,8 +236,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
-
-        recv_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_recvs;
+        ++scheduled;
+        recv_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -226,8 +254,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
-
-        recv_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_recvs;
+        ++scheduled;
+        recv_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -243,8 +272,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
-
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_sends;
+        ++scheduled;
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -260,8 +290,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
-
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_sends;
+        ++scheduled;
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -278,8 +309,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
         assert(msg);
-
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        auto& scheduled = m_schedule->scheduled_sends;
+        ++scheduled;
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
@@ -296,6 +328,8 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
         assert(msg);
+        auto& scheduled = m_schedule->scheduled_sends;
+        scheduled += neighs.size();
         struct msg_ref_count
         {
             message_buffer<T>      msg;
@@ -303,7 +337,7 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{std::move(msg), {(int)neighs.size()}, neighs};
@@ -319,6 +353,7 @@ class communicator
                         delete m;
                         rd->m_ready = true;
                     }
+                    --(*(rd->m_scheduled));
                 },
                 r.m_data);
         }
@@ -331,6 +366,8 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
         assert(msg);
+        auto& scheduled = m_schedule->scheduled_sends;
+        scheduled += neighs.size();
         struct msg_ref_count
         {
             message_buffer<T>*     msg;
@@ -338,7 +375,7 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
@@ -354,6 +391,7 @@ class communicator
                         delete m;
                         rd->m_ready = true;
                     }
+                    --(*(rd->m_scheduled));
                 },
                 r.m_data);
         }
@@ -366,6 +404,8 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CallBack)
         assert(msg);
+        auto& scheduled = m_schedule->scheduled_sends;
+        scheduled += neighs.size();
         struct msg_ref_count
         {
             message_buffer<T> const* msg;
@@ -373,7 +413,7 @@ class communicator
             std::vector<rank_type>   neighs;
         };
 
-        send_request r(shared_request_ptr(m_pool.get(), m_impl));
+        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
@@ -389,6 +429,7 @@ class communicator
                         delete m;
                         rd->m_ready = true;
                     }
+                    --(*(rd->m_scheduled));
                 },
                 r.m_data);
         }
@@ -408,9 +449,6 @@ class communicator
 
     void recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void()> cb, shared_request_ptr req);
-
-    bool cancel_recv_cb_(rank_type src, tag_type tag,
-        std::function<void(detail::message_buffer, std::size_t size, rank_type, tag_type)>&& cb);
 };
 
 } // namespace oomph

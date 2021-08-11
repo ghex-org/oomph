@@ -25,13 +25,35 @@ test_1(oomph::communicator& comm, unsigned int size, int thread_id = 0)
     {
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         std::vector<int> dsts = {1, 2, 3};
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         comm.send_multi(msg, dsts, 42 + 42 + thread_id).wait();
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
     }
     else
     {
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         auto req = comm.recv(msg, 0, 42);
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 1);
+
         EXPECT_TRUE(req.cancel());
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         comm.recv(msg, 0, 42 + 42 + thread_id).wait();
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
     }
 }
@@ -75,19 +97,41 @@ test_2(oomph::communicator& comm, unsigned int size, int thread_id = 0)
     {
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         std::vector<int> dsts = {1, 2, 3};
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         comm.send_multi(msg, dsts, 42 + 42 + thread_id).wait();
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
     }
     else
     {
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         int  counter = 0;
         auto h = comm.recv(msg, 0, 42, [&counter](msg_t&, int, int) { ++counter; });
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 1);
+
         comm.progress();
         comm.progress();
         comm.progress();
         comm.progress();
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 1);
         EXPECT_EQ(counter, 0);
+
         EXPECT_TRUE(h.cancel());
         comm.recv(msg, 0, 42 + 42 + thread_id).wait();
+
+        EXPECT_EQ(comm.scheduled_sends(), 0);
+        EXPECT_EQ(comm.scheduled_recvs(), 0);
+
         for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
     }
 }
