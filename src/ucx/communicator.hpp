@@ -40,6 +40,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     std::unique_ptr<worker_type>                   m_send_worker;
     ucx_mutex&                                     m_mutex;
     boost::lockfree::queue<request_data::cb_ptr_t> m_recv_cb_queue;
+    boost::lockfree::queue<request_data::cb_ptr_t> m_cancel_recv_cb_queue;
+    std::vector<request_data::cb_ptr_t>            m_cancel_recv_cb_vec;
 
   public:
     communicator_impl(context_impl* ctxt, bool thread_safe, worker_type* recv_worker,
@@ -61,8 +63,10 @@ class communicator_impl : public communicator_base<communicator_impl>
         while (ucp_worker_progress(m_send_worker->get())) {}
         if (m_thread_safe)
         {
+#ifdef OOMPH_UCX_USE_SPIN_LOCK
             // this is really important for large-scale multithreading: check if still is
             sched_yield();
+#endif
             {
                 // progress recv worker in locked region
                 ucx_lock lock(m_mutex);
@@ -217,6 +221,11 @@ class communicator_impl : public communicator_base<communicator_impl>
         while (!m_recv_cb_queue.push(cb)) {}
     }
 
+    void enqueue_cancel_recv(request_data::cb_ptr_t cb)
+    {
+        while (!m_cancel_recv_cb_queue.push(cb)) {}
+    }
+
     inline static void recv_callback(
         void* ucx_req, ucs_status_t status, ucp_tag_recv_info_t* /*info*/)
     {
@@ -243,10 +252,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else if (status == UCS_ERR_CANCELED)
         {
-            // receive was cancelled: nothing to do
-            // destroy request
-            req_data.clear();
-            ucp_request_free(ucx_req);
+            // receive was cancelled
+            // enqueue callback on the issuing communicator
+            req_data.m_comm->enqueue_cancel_recv(req_data.m_cb);
         }
         else
         {
@@ -266,13 +274,35 @@ class communicator_impl : public communicator_base<communicator_impl>
             ucp_request_cancel(m_recv_worker->get(), req_data.m_ucx_ptr);
             if (m_thread_safe) m_mutex.unlock();
         }
-        delete req_data.m_cb;
         // The ucx callback will still be executed after the cancel. However, the status argument
-        // will indicate whether the cancel was successful. Destruction/freeing of request is
-        // handled in this callback.
-        // Here return true regardless of whether the request was cancelled or not, since we do not
-        // know at this point.
-        return true;
+        // will indicate whether the cancel was successful.
+        // Progress the receive worker in order to execute the ucx callback
+        if (m_thread_safe) m_mutex.lock();
+        while (ucp_worker_progress(m_recv_worker->get())) {}
+        if (m_thread_safe) m_mutex.unlock();
+        // check whether the cancelled callback was enqueued by consuming all queued cancelled
+        // callbacks and putting them in a temporary vector
+        bool found = false;
+        m_cancel_recv_cb_vec.clear();
+        m_cancel_recv_cb_queue.consume_all(
+            [this, cmp = req_data.m_cb, &found](request_data::cb_ptr_t cb) {
+                if (cb == cmp) found = true;
+                else
+                    m_cancel_recv_cb_vec.push_back(cb);
+            });
+        // re-enqueue all callbacks which were not identical with the current callback
+        for (auto x : m_cancel_recv_cb_vec)
+            while (!m_cancel_recv_cb_queue.push(x)) {}
+
+        // delete callback here if it was actually cancelled
+        if (found)
+        {
+            delete req_data.m_cb;
+            // destroy request
+            req_data.clear();
+            ucp_request_free(req_data.m_ucx_ptr);
+        }
+        return found;
     }
 };
 

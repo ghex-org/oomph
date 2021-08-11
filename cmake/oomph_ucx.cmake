@@ -21,6 +21,8 @@ if (OOMPH_WITH_UCX)
 
     set(OOMPH_UCX_USE_SPIN_LOCK OFF CACHE BOOL "use pthread spin locks")
     if (OOMPH_UCX_USE_SPIN_LOCK)
+        find_package(Threads REQUIRED)
+        target_link_libraries(oomph_ucx PRIVATE Threads::Threads)
         target_compile_definitions(oomph_ucx PRIVATE OOMPH_UCX_USE_SPIN_LOCK)
     endif()
 
