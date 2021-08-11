@@ -146,7 +146,7 @@ main(int argc, char** argv)
 
             for (int j = 0; j < inflight; j++)
             {
-                if (first || rreqs[j].is_ready())
+                if (first || rreqs[j].test())
                 {
                     submit_recv_cnt += num_threads;
                     rdbg += num_threads;
@@ -155,11 +155,11 @@ main(int argc, char** argv)
                         comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j, recv_callback);
                     lrecv++;
                 }
-                else
-                    comm.progress();
+                //else
+                //    comm.progress();
 
                 // if(lsent < lrecv+2*inflight && sent < niter && smsgs[j].use_count() == 1)
-                if (lsent < lrecv + 2 * inflight && sent < niter && (first || sreqs[j].is_ready()))
+                if (lsent < lrecv + 2 * inflight && sent < niter && (first || sreqs[j].test()))
                 {
                     submit_cnt += num_threads;
                     sdbg += num_threads;
@@ -168,10 +168,9 @@ main(int argc, char** argv)
                         comm.send(smsgs[j], peer_rank, thread_id * inflight + j, send_callback);
                     lsent++;
                 }
-                else
-                    comm.progress();
+                //else
+                //    comm.progress();
             }
-            comm.progress();
             first = false;
         }
 

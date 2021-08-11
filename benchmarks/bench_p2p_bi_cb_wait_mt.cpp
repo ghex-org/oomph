@@ -141,8 +141,9 @@ main(int argc, char** argv)
             }
 
             // complete all inflight requests before moving on
-            while (sent < num_threads * inflight || received < num_threads * inflight)
-            { comm.progress(); }
+            //while (sent < num_threads * inflight || received < num_threads * inflight)
+            //{ comm.progress(); }
+            comm.wait_all();
 
             // ghex barrier not needed here (all comm finished), and VERY SLOW
             // barrier.in_node(comm);
