@@ -16,7 +16,6 @@
 #include "./callback_queue.hpp"
 #include "./context.hpp"
 #include "../communicator_base.hpp"
-//#include "../callback_utils.hpp"
 #include "../device_guard.hpp"
 
 namespace oomph
