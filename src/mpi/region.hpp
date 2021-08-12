@@ -29,7 +29,7 @@ class region
     , m_win{win}
     , m_ptr{ptr}
     {
-        OOMPH_CHECK_MPI_RESULT(MPI_Win_attach(m_win, ptr, size));
+        //OOMPH_CHECK_MPI_RESULT(MPI_Win_attach(m_win, ptr, size));
     }
 
     region(region const&) = delete;
@@ -43,7 +43,7 @@ class region
 
     ~region()
     {
-        if (m_ptr) MPI_Win_detach(m_win, m_ptr);
+        //if (m_ptr) MPI_Win_detach(m_win, m_ptr);
     }
 
     // get a handle to some portion of the region
