@@ -10,10 +10,7 @@
 #pragma once
 
 #include "../context_base.hpp"
-#include "./region.hpp"
-#include "./lock_cache.hpp"
-#include <hwmalloc/register.hpp>
-#include <hwmalloc/heap.hpp>
+#include "./rma_context.hpp"
 
 namespace oomph
 {
@@ -27,44 +24,45 @@ class context_impl : public context_base
     using tag_type = communicator::tag_type;
 
   private:
-    struct mpi_win_holder
-    {
-        MPI_Win m;
-        ~mpi_win_holder() { MPI_Win_free(&m); }
-    };
-
-  private:
-    mpi_win_holder              m_win;
-    heap_type                   m_heap;
-    std::unique_ptr<lock_cache> m_lock_cache;
+    heap_type   m_heap;
+    rma_context m_rma_context;
 
   public:
     context_impl(MPI_Comm comm, bool thread_safe)
     : context_base(comm, thread_safe)
     , m_heap{this}
+    , m_rma_context{m_mpi_comm}
     {
-        MPI_Info info;
-        OOMPH_CHECK_MPI_RESULT(MPI_Info_create(&info));
-        OOMPH_CHECK_MPI_RESULT(MPI_Info_set(info, "no_locks", "false"));
-        OOMPH_CHECK_MPI_RESULT(MPI_Win_create_dynamic(info, m_mpi_comm, &(m_win.m)));
-        MPI_Info_free(&info);
-        OOMPH_CHECK_MPI_RESULT(MPI_Win_fence(0, m_win.m));
-        m_lock_cache = std::make_unique<lock_cache>(m_win.m);
     }
+
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
-    region make_region(void* ptr, std::size_t size) const
-    {
-        return {m_mpi_comm.get(), m_win.m, ptr, size};
-    }
+    region make_region(void* ptr) const { return {ptr}; }
 
-    auto  get_window() const noexcept { return m_win.m; }
     auto& get_heap() noexcept { return m_heap; }
 
-    communicator_impl* get_communicator();
+    auto  get_window() const noexcept { return m_rma_context.get_window(); }
+    auto& get_rma_heap() noexcept { return m_rma_context.get_heap(); }
+    void  lock(communicator::rank_type r) { m_rma_context.lock(r); }
 
-    void lock(communicator::rank_type r) { m_lock_cache->lock(r); }
+    communicator_impl* get_communicator();
 };
+
+template<>
+region
+register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+{
+    return c.make_region(ptr);
+}
+
+#if HWMALLOC_ENABLE_DEVICE
+template<>
+region
+register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+{
+    return c.make_region(ptr);
+}
+#endif
 
 } // namespace oomph
