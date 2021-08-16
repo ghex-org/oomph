@@ -39,7 +39,7 @@ class send_request
   public:
     bool is_ready() const noexcept
     {
-        if (!m_data) return false;
+        if (!m_data) return true;
         return m_data->m_ready;
     }
     bool test();
@@ -71,7 +71,7 @@ class recv_request
   public:
     bool is_ready() const noexcept
     {
-        if (!m_data) return false;
+        if (!m_data) return true;
         return m_data->m_ready;
     }
     bool test();

@@ -226,7 +226,7 @@ communicator::make_buffer_core(std::size_t size, int id)
 bool
 send_request::test()
 {
-    if (!m_data) return false;
+    if (!m_data) return true;
     if (m_data->m_ready) return true;
     m_data->m_comm->progress();
     return is_ready();
@@ -242,7 +242,7 @@ send_request::wait()
 bool
 recv_request::test()
 {
-    if (!m_data) return false;
+    if (!m_data) return true;
     if (m_data->m_ready) return true;
     m_data->m_comm->progress();
     return is_ready();

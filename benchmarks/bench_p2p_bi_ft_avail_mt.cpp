@@ -104,7 +104,6 @@ main(int argc, char** argv)
             sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
         }
 
-        bool first = true;
         while (sent < niter || received < niter)
         {
             for (int j = 0; j < inflight; j++)
@@ -134,7 +133,7 @@ main(int argc, char** argv)
                     last_sent = sent;
                 }
 
-                if (first || rreqs[j].test())
+                if (rreqs[j].test())
                 {
                     received++;
                     lrecv++;
@@ -143,7 +142,7 @@ main(int argc, char** argv)
                     rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j);
                 }
 
-                if (lsent < lrecv + 2 * inflight && sent < niter && (first || sreqs[j].test()))
+                if (lsent < lrecv + 2 * inflight && sent < niter && (sreqs[j].test()))
                 {
                     sent++;
                     lsent++;
@@ -152,7 +151,6 @@ main(int argc, char** argv)
                     sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
                 }
             }
-            first = false;
         }
 
         b(comm);

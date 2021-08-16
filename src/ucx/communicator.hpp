@@ -32,16 +32,18 @@ class communicator_impl : public communicator_base<communicator_impl>
     using worker_type = worker_t;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
+    using lockfree_queue = boost::lockfree::queue<request_data::cb_ptr_t,
+        boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
 
   public:
-    context_impl*                                  m_context;
-    bool const                                     m_thread_safe;
-    worker_type*                                   m_recv_worker;
-    std::unique_ptr<worker_type>                   m_send_worker;
-    ucx_mutex&                                     m_mutex;
-    boost::lockfree::queue<request_data::cb_ptr_t> m_recv_cb_queue;
-    boost::lockfree::queue<request_data::cb_ptr_t> m_cancel_recv_cb_queue;
-    std::vector<request_data::cb_ptr_t>            m_cancel_recv_cb_vec;
+    context_impl*                       m_context;
+    bool const                          m_thread_safe;
+    worker_type*                        m_recv_worker;
+    std::unique_ptr<worker_type>        m_send_worker;
+    ucx_mutex&                          m_mutex;
+    lockfree_queue                      m_recv_cb_queue;
+    lockfree_queue                      m_cancel_recv_cb_queue;
+    std::vector<request_data::cb_ptr_t> m_cancel_recv_cb_vec;
 
   public:
     communicator_impl(context_impl* ctxt, bool thread_safe, worker_type* recv_worker,
@@ -53,6 +55,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_send_worker{std::move(send_worker)}
     , m_mutex{mtx}
     , m_recv_cb_queue(128)
+    , m_cancel_recv_cb_queue(128)
     {
     }
 

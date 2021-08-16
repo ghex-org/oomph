@@ -73,7 +73,6 @@ main(int argc, char** argv)
         int       dbg = 0, sdbg = 0, rdbg = 0;
         int       lsent = 0, lrecv = 0;
         const int delta_i = niter / 10;
-        bool      first = true;
 
         auto send_callback = [inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
                                  message&, int, int tag) {
@@ -146,7 +145,7 @@ main(int argc, char** argv)
 
             for (int j = 0; j < inflight; j++)
             {
-                if (first || rreqs[j].test())
+                if (rreqs[j].test())
                 {
                     submit_recv_cnt += num_threads;
                     rdbg += num_threads;
@@ -159,7 +158,7 @@ main(int argc, char** argv)
                 //    comm.progress();
 
                 // if(lsent < lrecv+2*inflight && sent < niter && smsgs[j].use_count() == 1)
-                if (lsent < lrecv + 2 * inflight && sent < niter && (first || sreqs[j].test()))
+                if (lsent < lrecv + 2 * inflight && sent < niter && (sreqs[j].test()))
                 {
                     submit_cnt += num_threads;
                     sdbg += num_threads;
@@ -171,7 +170,6 @@ main(int argc, char** argv)
                 //else
                 //    comm.progress();
             }
-            first = false;
         }
 
         b(comm);
