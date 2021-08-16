@@ -125,7 +125,7 @@ main(int argc, char** argv)
             {
                 dbg = 0;
                 std::cout << rank << " total bwdt MB/s:      "
-                          << ((double)(i - last_i) * size * buff_size) / t0.stoc() << "\n";
+                          << ((i - last_i) * size * (double)buff_size) / t0.stoc() << "\n";
                 t0.tic();
                 last_i = i;
             }
@@ -160,7 +160,7 @@ main(int argc, char** argv)
         {
             const auto t = t1.toc();
             std::cout << "time:                   " << t / 1000000 << "s\n";
-            std::cout << "final MB/s:             " << (double)(niter * size * buff_size) / t
+            std::cout << "final MB/s:             " << (niter * size * (double)buff_size) / t
                       << std::endl;
         }
 
