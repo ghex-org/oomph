@@ -10,11 +10,9 @@
  */
 #pragma once
 
-#include <hwmalloc/register.hpp>
-#include <hwmalloc/register_device.hpp>
-#include <hwmalloc/heap.hpp>
 #include "../context_base.hpp"
 #include "./config.hpp"
+#include "./rma_context.hpp"
 #include "./region.hpp"
 #include "./worker.hpp"
 #include "./request_data.hpp"
@@ -46,6 +44,7 @@ class context_impl : public context_base
     type_erased_address_db_t                  m_db;
     ucp_context_h_holder                      m_context;
     heap_type                                 m_heap;
+    rma_context                               m_rma_context;
     std::size_t                               m_req_size;
     std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
     std::vector<std::unique_ptr<worker_type>> m_workers;
@@ -62,6 +61,7 @@ class context_impl : public context_base
     , m_db(address_db_mpi(context_base::m_mpi_comm))
 #endif
     , m_heap{this}
+    , m_rma_context()
     {
         // read run-time context
         ucp_config_t* config_ptr;
@@ -130,6 +130,8 @@ class context_impl : public context_base
 
         // intialize database
         m_db.init(m_worker->address());
+
+        m_rma_context.set_ucp_context(m_context.m_context);
     }
 
     ~context_impl();
@@ -139,22 +141,27 @@ class context_impl : public context_base
 
     ucp_context_h get() const noexcept { return m_context.m_context; }
 
-    region make_region(void* ptr, std::size_t size, bool gpu = false)
-    {
-        if (m_thread_safe)
-        {
-            ucx_lock l(m_mutex);
-            return {get(), ptr, size, gpu};
-        }
-        else
-        {
-            return {get(), ptr, size, gpu};
-        }
-    }
+    region make_region(void* ptr) { return {ptr}; }
 
     auto& get_heap() noexcept { return m_heap; }
 
     communicator_impl* get_communicator();
 };
+
+template<>
+region
+register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+{
+    return c.make_region(ptr);
+}
+
+#if HWMALLOC_ENABLE_DEVICE
+template<>
+region
+register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+{
+    return c.make_region(ptr);
+}
+#endif
 
 } // namespace oomph
