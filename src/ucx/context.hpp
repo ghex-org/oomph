@@ -43,10 +43,9 @@ class context_impl : public context_base
     using worker_vector = std::vector<std::unique_ptr<worker_type>>;
 
   private: // members
-    type_erased_address_db_t m_db;
-    ucp_context_h_holder     m_context;
-    heap_type                m_heap;
-
+    type_erased_address_db_t                  m_db;
+    ucp_context_h_holder                      m_context;
+    heap_type                                 m_heap;
     std::size_t                               m_req_size;
     std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
     std::vector<std::unique_ptr<worker_type>> m_workers;
@@ -142,7 +141,15 @@ class context_impl : public context_base
 
     region make_region(void* ptr, std::size_t size, bool gpu = false)
     {
-        return {get(), ptr, size, gpu};
+        if (m_thread_safe)
+        {
+            ucx_lock l(m_mutex);
+            return {get(), ptr, size, gpu};
+        }
+        else
+        {
+            return {get(), ptr, size, gpu};
+        }
     }
 
     auto& get_heap() noexcept { return m_heap; }
