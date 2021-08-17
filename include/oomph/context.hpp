@@ -54,7 +54,7 @@ class context
     template<typename T>
     message_buffer<T> make_device_buffer(std::size_t size, int id = hwmalloc::get_device_id())
     {
-        return {make_buffer_core(size * sizeof(T)), size, id};
+        return {make_buffer_core(size * sizeof(T), id), size};
     }
 #endif
 
