@@ -44,7 +44,11 @@ context::get_communicator()
 
 communicator::~communicator()
 {
-    if (m_impl) m_impl->release();
+    if (m_impl) 
+    {
+        wait_all();
+        m_impl->release();
+    }
 }
 
 communicator::rank_type

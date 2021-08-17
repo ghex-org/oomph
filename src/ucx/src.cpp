@@ -36,19 +36,20 @@ context_impl::get_communicator()
 context_impl::~context_impl()
 {
     // ucp_worker_destroy should be called after a barrier
-    // use MPI IBarrier and progress all workers
-    MPI_Request req = MPI_REQUEST_NULL;
-    int         flag;
-    MPI_Ibarrier(m_mpi_comm, &req);
-    while (true)
-    {
-        // make communicators from workers and progress
-        for (auto& w_ptr : m_workers)
-            communicator_impl{this, m_thread_safe, m_worker.get(), w_ptr.get(), m_mutex}.progress();
-        communicator_impl{this, m_thread_safe, m_worker.get(), m_worker.get(), m_mutex}.progress();
-        MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-        if (flag) break;
-    }
+    //// use MPI IBarrier and progress all workers
+    //MPI_Request req = MPI_REQUEST_NULL;
+    //int         flag;
+    //MPI_Ibarrier(m_mpi_comm, &req);
+    //while (true)
+    //{
+    //    // make communicators from workers and progress
+    //    for (auto& w_ptr : m_workers)
+    //        communicator_impl{this, m_thread_safe, m_worker.get(), w_ptr.get(), m_mutex}.progress();
+    //    communicator_impl{this, m_thread_safe, m_worker.get(), m_worker.get(), m_mutex}.progress();
+    //    MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+    //    if (flag) break;
+    //}
+    MPI_Barrier(m_mpi_comm);
     // close endpoints
     for (auto& w_ptr : m_workers) w_ptr->m_endpoint_cache.clear();
     m_worker->m_endpoint_cache.clear();
