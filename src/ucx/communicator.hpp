@@ -303,7 +303,9 @@ class communicator_impl : public communicator_base<communicator_impl>
             delete req_data.m_cb;
             // destroy request
             req_data.clear();
+            if (m_thread_safe) m_mutex.lock();
             ucp_request_free(req_data.m_ucx_ptr);
+            if (m_thread_safe) m_mutex.unlock();
         }
         return found;
     }

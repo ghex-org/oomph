@@ -236,9 +236,6 @@ main(int argc, char** argv)
         }
         // peer has sent everything, so we can cancel all posted recv requests
         for (int j = 0; j < inflight; j++) { rreqs[j].cancel(); }
-        comm.progress();
-        comm.progress();
-        comm.progress();
     }
 
     return 0;
