@@ -47,10 +47,10 @@ class context_impl : public context_base
     ucp_context_h_holder     m_context;
     heap_type                m_heap;
 
-    std::size_t                  m_req_size;
-    std::unique_ptr<worker_type> m_worker; // shared, serialized - per rank
-    //worker_vector                m_workers; // per thread
-    ucx_mutex m_mutex;
+    std::size_t                               m_req_size;
+    std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
+    std::vector<std::unique_ptr<worker_type>> m_workers;
+    ucx_mutex                                 m_mutex;
 
     friend class worker_t;
 
@@ -133,27 +133,7 @@ class context_impl : public context_base
         m_db.init(m_worker->address());
     }
 
-    ~context_impl()
-    {
-        //    // ucp_worker_destroy should be called after a barrier
-        //    // use MPI IBarrier and progress all workers
-        //    MPI_Request req = MPI_REQUEST_NULL;
-        //    int         flag;
-        //    MPI_Ibarrier(m_mpi_comm, &req);
-        //    while (true)
-        //    {
-        //        // make communicators from workers and progress
-        //        for (auto& w_ptr : m_workers) communicator_type{m_worker.get(), w_ptr.get()}.progress();
-        //        communicator_type{m_worker.get(), m_worker.get()}.progress();
-        //        MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-        //        if (flag) break;
-        //    }
-        //    // close endpoints
-        //    for (auto& w_ptr : m_workers) w_ptr->m_endpoint_cache.clear();
-        m_worker->m_endpoint_cache.clear();
-        // another MPI barrier to be sure
-        MPI_Barrier(m_mpi_comm);
-    }
+    ~context_impl();
 
     context_impl(context_impl&&) = delete;
     context_impl& operator=(context_impl&&) = delete;

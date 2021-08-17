@@ -39,7 +39,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     context_impl*                       m_context;
     bool const                          m_thread_safe;
     worker_type*                        m_recv_worker;
-    std::unique_ptr<worker_type>        m_send_worker;
+    worker_type*                        m_send_worker;
     ucx_mutex&                          m_mutex;
     lockfree_queue                      m_recv_cb_queue;
     lockfree_queue                      m_cancel_recv_cb_queue;
@@ -47,12 +47,12 @@ class communicator_impl : public communicator_base<communicator_impl>
 
   public:
     communicator_impl(context_impl* ctxt, bool thread_safe, worker_type* recv_worker,
-        std::unique_ptr<worker_type>&& send_worker, ucx_mutex& mtx)
+        worker_type* send_worker, ucx_mutex& mtx)
     : communicator_base(ctxt)
     , m_context(ctxt)
     , m_thread_safe{thread_safe}
     , m_recv_worker{recv_worker}
-    , m_send_worker{std::move(send_worker)}
+    , m_send_worker{send_worker}
     , m_mutex{mtx}
     , m_recv_cb_queue(128)
     , m_cancel_recv_cb_queue(128)
