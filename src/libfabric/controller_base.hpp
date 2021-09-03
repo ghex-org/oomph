@@ -1,0 +1,1293 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2020, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ */
+#pragma once
+
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <deque>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
+// ??
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <sstream>
+//
+#include <boost/lockfree/queue.hpp>
+//
+#include <rdma/fabric.h>
+#include <rdma/fi_cm.h>
+#include <rdma/fi_domain.h>
+#include <rdma/fi_endpoint.h>
+#include <rdma/fi_eq.h>
+#include <rdma/fi_errno.h>
+#include <rdma/fi_rma.h>
+#include <rdma/fi_tagged.h>
+//
+#include "libfabric_defines.hpp"
+//
+#include "fabric_error.hpp"
+#include "locality.hpp"
+#include "memory_region.hpp"
+#include "operation_context_base.hpp"
+#include "simple_counter.hpp"
+
+// ------------------------------------------------------------------
+// This section exists to make interoperabily/sharing of code
+// between OOMPH/GHEX and HPX easier
+#if __has_include("print.hpp")
+#include "print.hpp"
+#define NS_LIBFABRIC oomph::libfabric
+#define DEBUG        OOMPH_DP_ONLY
+#elif __has_include(<hpx/debugging/print.hpp>)
+#include <hpx/debugging/print.hpp>
+#define NS_LIBFABRIC hpx::parcelset::policies::libfabric
+using namespace NS_LIBFABRIC;
+#endif
+
+#if __has_include("simple_counter.hpp")
+#include "simple_counter.hpp"
+#endif
+
+//#define DISABLE_FI_INJECT
+
+// ------------------------------------------------------------------
+
+// ----------------------------------------
+// auto progress (libfabric thread) or manual
+// ----------------------------------------
+static fi_progress
+libfabric_progress_type()
+{
+#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP)
+    return FI_PROGRESS_AUTO;
+#else
+    if (std::getenv("LIBFABRIC_AUTO_PROGRESS") == nullptr) return FI_PROGRESS_MANUAL;
+    return FI_PROGRESS_AUTO;
+#endif
+}
+
+static const char *
+libfabric_progress_string()
+{
+    if (libfabric_progress_type() == FI_PROGRESS_AUTO) return "auto";
+    return "manual";
+}
+
+// ----------------------------------------
+// endpoint types
+// We assume (to simplify things) that if you want a scalable Rx,
+// you also have a scalable Tx
+//
+// Note that only GNI supports scalable endpoints currently
+// ----------------------------------------
+enum class endpoint_type : int
+{
+    single = 0,
+    multiple = 1,
+    threadlocalTx = 2,
+    scalableTx = 3,
+    scalableTxRx = 4,
+};
+
+// ----------------------------------------
+// shared endpoint or separate for send/recv
+// ----------------------------------------
+static endpoint_type
+libfabric_endpoint_type()
+{
+    auto env_str = std::getenv("LIBFABRIC_ENDPOINT_TYPE");
+    if (env_str == nullptr) return endpoint_type::single;
+    if (std::string(env_str) == std::string("multiple")
+            || std::atoi(env_str) == int(endpoint_type::multiple))
+        return endpoint_type::multiple;
+    if (std::string(env_str) == std::string("threadlocal")
+            || std::atoi(env_str) == int(endpoint_type::threadlocalTx))
+        return endpoint_type::threadlocalTx;
+    if (std::string(env_str) == std::string("scalableTx")
+            || std::atoi(env_str) == int(endpoint_type::scalableTx))
+        return endpoint_type::scalableTx;
+    if (std::string(env_str) == std::string("scalableTxRx")
+            || std::atoi(env_str) == int(endpoint_type::scalableTxRx))
+        return endpoint_type::scalableTxRx;
+    // default is single endpoint type
+    return endpoint_type::single;
+}
+
+static const char*
+libfabric_endpoint_string()
+{
+    auto lf_ep_type = libfabric_endpoint_type();
+    if (lf_ep_type == endpoint_type::multiple)
+        return "multiple";
+    if (lf_ep_type == endpoint_type::threadlocalTx)
+        return "threadlocal";
+    if (lf_ep_type == endpoint_type::scalableTx)
+        return "scalableTx";
+    if (lf_ep_type == endpoint_type::scalableTxRx)
+        return "scalableTxRx";
+    return "single";
+}
+
+// ----------------------------------------
+// number of completions to handle per poll
+// ----------------------------------------
+static int
+libfabric_completions_per_poll()
+{
+    auto env_str = std::getenv("LIBFABRIC_POLL_SIZE");
+    if (env_str == nullptr) return 1;
+    try {
+        return std::atoi(env_str);
+    }
+    catch (...) {}
+    return 1;
+}
+
+// ------------------------------------------------
+// Needed on Cray for GNI extensions
+// ------------------------------------------------
+#ifdef HAVE_LIBFABRIC_GNI
+#include "rdma/fi_ext_gni.h"
+//#define OOMPH_GNI_REG "none"
+//#define OOMPH_GNI_REG "internal"
+#define OOMPH_GNI_REG "udreg"
+#endif
+
+#define LIBFABRIC_FI_VERSION_MAJOR 1
+#define LIBFABRIC_FI_VERSION_MINOR 11
+
+namespace NS_DEBUG
+{
+// cppcheck-suppress ConfigurationNotChecked
+static NS_DEBUG::enable_print<false> cnb_deb("CONBASE");
+static NS_DEBUG::enable_print<true> cnb_err("CONBASE");
+} // namespace NS_DEBUG
+
+/** @brief a class to return the number of progressed callbacks */
+struct progress_status
+{
+    int m_num_sends = 0;
+    int m_num_recvs = 0;
+
+    int num() const noexcept { return m_num_sends + m_num_recvs; }
+    int num_sends() const noexcept { return m_num_sends; }
+    int num_recvs() const noexcept { return m_num_recvs; }
+
+    progress_status& operator+=(const progress_status& other) noexcept
+    {
+        m_num_sends += other.m_num_sends;
+        m_num_recvs += other.m_num_recvs;
+        return *this;
+    }
+};
+
+namespace NS_LIBFABRIC
+{
+
+/// A wrapper around fi_close that reports any error
+/// Because we use so many handles, we must be careful to
+/// delete them all before closing resources that use them
+template<typename Handle>
+void
+fidclose(Handle fid, const char* msg)
+{
+    DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("closing"), msg));
+    int ret = fi_close(fid);
+    if (ret == -FI_EBUSY) { throw NS_LIBFABRIC::fabric_error(ret, "fi_close EBUSY"); }
+    else if (ret == FI_SUCCESS) { return; }
+    throw NS_LIBFABRIC::fabric_error(ret, "fi_close error");
+}
+
+/// when using thread local endpoints, we encapsulate things that
+/// are needed to manage an endpoint
+struct endpoint_wrapper
+{
+  private:
+    friend class controller;
+
+    fid_ep*     ep_ = nullptr;
+    fid_cq*     rq_ = nullptr;
+    fid_cq*     tq_ = nullptr;
+    const char* name_ = nullptr;
+
+  public:
+    endpoint_wrapper() {}
+    endpoint_wrapper(fid_ep* ep, fid_cq* rq, fid_cq* tq, const char* name)
+    : ep_(ep)
+    , rq_(rq)
+    , tq_(tq)
+    , name_(name)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, name_);
+    }
+
+    // to keep boost::lockfree happy, we need these copy operators
+    endpoint_wrapper(const endpoint_wrapper& ep) = default;
+    endpoint_wrapper& operator=(const endpoint_wrapper& ep) = default;
+
+    void cleanup()
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, name_);
+        if (ep_)
+        {
+            fidclose(&ep_->fid, "endpoint");
+            ep_ = nullptr;
+        }
+        if (rq_)
+        {
+            fidclose(&rq_->fid, "rq");
+            rq_ = nullptr;
+        }
+        if (tq_)
+        {
+            fidclose(&tq_->fid, "tq");
+            tq_ = nullptr;
+        }
+    }
+
+    inline fid_ep*     get_ep() { return ep_; }
+    inline fid_cq*     get_rx_cq() { return rq_; }
+    inline fid_cq*     get_tx_cq() { return tq_; }
+    inline const char* get_name() { return name_; }
+};
+
+using region_type = NS_MEMORY::memory_handle;
+using endpoint_context_pool =
+    boost::lockfree::queue<endpoint_wrapper, boost::lockfree::fixed_sized<false>>;
+
+struct stack_endpoint
+{
+    endpoint_wrapper       endpoint_;
+    endpoint_context_pool* pool_;
+    //
+    stack_endpoint()
+    : endpoint_()
+    , pool_(nullptr)
+    {
+    }
+    //
+    stack_endpoint(fid_ep* ep, fid_cq* rq, fid_cq* tq, const char* name,
+        endpoint_context_pool* pool)
+    : endpoint_(ep, rq, tq, name)
+    , pool_(pool)
+    {
+    }
+    //
+    stack_endpoint& operator=(stack_endpoint&& other)
+    {
+        endpoint_ = std::move(other.endpoint_);
+        pool_ = std::exchange(other.pool_, nullptr);
+        return *this;
+    }
+
+    ~stack_endpoint()
+    {
+        if (!pool_) return;
+        DEBUG(NS_DEBUG::cnb_deb,
+            trace(debug::str<>("Scalable Ep"), "used push", "ep", NS_DEBUG::ptr(get_ep()), "tx cq",
+                NS_DEBUG::ptr(get_tx_cq()), "rx cq", NS_DEBUG::ptr(get_rx_cq())));
+        pool_->push(endpoint_);
+    }
+
+    inline fid_ep* get_ep() { return endpoint_.get_ep(); }
+
+    inline fid_cq* get_rx_cq() { return endpoint_.get_rx_cq(); }
+
+    inline fid_cq* get_tx_cq() { return endpoint_.get_tx_cq(); }
+};
+
+struct endpoints_lifetime_manager
+{
+    // threadlocal endpoints
+    static inline thread_local stack_endpoint tl_tx_;
+    static inline thread_local stack_endpoint tl_stx_;
+    static inline thread_local stack_endpoint tl_srx_;
+    // non threadlocal endpoints, tx/rx
+    endpoint_wrapper ep_tx_;
+    endpoint_wrapper ep_rx_;
+};
+
+template<typename Derived>
+class controller_base
+{
+  public:
+    typedef std::mutex                  mutex_type;
+    typedef std::lock_guard<mutex_type> scoped_lock;
+    typedef std::unique_lock<mutex_type> unique_lock;
+
+  protected:
+    // For threadlocal/scalable endpoints,
+    // we use a dedicated threadlocal endpoint wrapper
+    std::unique_ptr<endpoints_lifetime_manager> eps_;
+
+    using endpoint_context_pool =
+        boost::lockfree::queue<endpoint_wrapper, boost::lockfree::fixed_sized<false>>;
+    endpoint_context_pool tx_endpoints_;
+    endpoint_context_pool rx_endpoints_;
+
+    struct fi_info*    fabric_info_;
+    struct fid_fabric* fabric_;
+    struct fid_domain* fabric_domain_;
+    struct fid_pep*    ep_passive_;
+
+    struct fid_av* av_;
+    endpoint_type  endpoint_type_;
+
+    locality here_;
+    locality root_;
+
+    // used during queue creation setup and during polling
+    mutex_type controller_mutex_;
+
+    // used to protect send/recv resources
+    alignas(64) mutex_type send_mutex_;
+    alignas(64) mutex_type recv_mutex_;
+
+    std::size_t tx_inject_size_;
+    std::size_t tx_attr_size_;
+    std::size_t rx_attr_size_;
+
+    int max_completions_per_poll_;
+
+    static inline thread_local std::chrono::steady_clock::time_point send_poll_stamp;
+    static inline thread_local std::chrono::steady_clock::time_point recv_poll_stamp;
+
+  public:
+    NS_LIBFABRIC::simple_counter<int, false> sends_posted_;
+    NS_LIBFABRIC::simple_counter<int, false> recvs_posted_;
+    NS_LIBFABRIC::simple_counter<int, false> sends_readied_;
+    NS_LIBFABRIC::simple_counter<int, false> recvs_readied_;
+    NS_LIBFABRIC::simple_counter<int, false> sends_complete;
+    NS_LIBFABRIC::simple_counter<int, false> recvs_complete;
+
+    void finvoke(const char* msg, const char* err, int ret)
+    {
+        DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>(msg)));
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, err);
+    }
+
+  public:
+    // --------------------------------------------------------------------
+    controller_base()
+    : eps_(nullptr)
+    , tx_endpoints_(1)
+    , rx_endpoints_(1)
+    , fabric_info_(nullptr)
+    , fabric_(nullptr)
+    , fabric_domain_(nullptr)
+    , ep_passive_(nullptr)
+    , av_(nullptr)
+    , tx_inject_size_(0)
+    , tx_attr_size_(0)
+    , rx_attr_size_(0)
+    , max_completions_per_poll_(1)
+    , sends_posted_(0)
+    , recvs_posted_(0)
+    , sends_readied_(0)
+    , recvs_readied_(0)
+    , sends_complete(0)
+    , recvs_complete(0)
+    {
+    }
+
+    // --------------------------------------------------------------------
+    // clean up all resources
+    ~controller_base()
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+        unsigned int          messages_handled_ = 0;
+        unsigned int          rma_reads_ = 0;
+        unsigned int          recv_deletes_ = 0;
+
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("counters"), "Received messages", debug::dec<>(messages_handled_),
+                "Total reads", debug::dec<>(rma_reads_), "Total deletes",
+                debug::dec<>(recv_deletes_), "deletes error",
+                debug::dec<>(messages_handled_ - recv_deletes_)));
+
+        tx_endpoints_.consume_all([](endpoint_wrapper& ep) { ep.cleanup(); });
+
+        rx_endpoints_.consume_all([](endpoint_wrapper& ep) { ep.cleanup(); });
+
+        // No cleanup threadlocals : done by consume_all cleanup above
+        // eps_->tl_tx_.endpoint_.cleanup();
+        // eps_->tl_stx_.endpoint_.cleanup();
+        // eps_->tl_srx_.endpoint_.cleanup();
+
+        // non threadlocal endpoints, tx/rx
+        eps_->ep_tx_.cleanup();
+        eps_->ep_rx_.cleanup();
+
+        // Cleanup endpoints
+        eps_.reset(nullptr);
+
+        // delete adddress vector
+        fidclose(&av_->fid, "Address Vector");
+
+        try
+        {
+            fidclose(&fabric_domain_->fid, "Domain");
+        }
+        catch (fabric_error& e)
+        {
+            std::cout << "fabric domain close failed : Ensure all RMA "
+                         "objects are freed before program termination"
+                      << std::endl;
+        }
+        fidclose(&fabric_->fid, "Fabric");
+
+        // clean up
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("freeing fabric_info")));
+
+        fi_freeinfo(fabric_info_);
+    }
+
+    // --------------------------------------------------------------------
+    // initialize the basic fabric/domain/name
+    template<typename... Args>
+    void initialize(std::string const& provider, bool rootnode, int size, size_t threads,
+        Args&&... args)
+    {
+        DEBUG(NS_DEBUG::cnb_deb, eval([]() { std::cout.setf(std::ios::unitbuf); }));
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        max_completions_per_poll_ = libfabric_completions_per_poll();
+        DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("Poll completions"), debug::dec<3>(max_completions_per_poll_)));
+
+        endpoint_type_ = static_cast<endpoint_type>(libfabric_endpoint_type());
+        DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("Endpoints"), libfabric_endpoint_string()));
+
+        eps_ = std::make_unique<endpoints_lifetime_manager>();
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Threads"), debug::dec<3>(threads)));
+
+        open_fabric(provider, threads, rootnode);
+
+        // if we are using scalable endpoints, then setup tx/rx contexts
+        // we will us a single endpoint for all Tx/Rx contexts
+        if (endpoint_type_ == endpoint_type::scalableTx ||
+            endpoint_type_ == endpoint_type::scalableTxRx)
+        {
+            // create an address vector that will be bound to endpoints
+            av_ = create_address_vector(fabric_info_, size, threads);
+
+            // thread slots might not be same as what we asked for
+            size_t threads_allocated = 0;
+            auto   ep_sx =
+                new_endpoint_scalable(fabric_domain_, fabric_info_, true /*Tx*/, threads, threads_allocated);
+            if (!ep_sx)
+                throw NS_LIBFABRIC::fabric_error(FI_EOTHER, "fi_scalable endpoint creation failed");
+
+            DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("scalable endpoint ok"),
+                                         "Contexts allocated", debug::dec<4>(threads_allocated)));
+
+            // prepare the stack for insertions
+            tx_endpoints_.reserve(threads_allocated);
+            rx_endpoints_.reserve(threads_allocated);
+            //
+            for (unsigned int i = 0; i < threads_allocated; i++)
+            {
+                [[maybe_unused]] auto scp =
+                    NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), "scalable", debug::dec<4>(i));
+
+                // For threadlocal/scalable endpoints, tx/rx resources
+                fid_ep* scalable_ep_tx;
+                fid_cq* scalable_cq_tx;
+                fid_ep* scalable_ep_rx;
+                fid_cq* scalable_cq_rx;
+
+                // Tx context setup
+                finvoke("create tx context", "fi_tx_context",
+                    fi_tx_context(ep_sx, i, NULL, &scalable_ep_tx, NULL));
+
+                scalable_cq_tx = create_completion_queue(fabric_domain_,
+                    fabric_info_->tx_attr->size, "tx scalable");
+
+                bind_queue_to_endpoint(scalable_ep_tx, scalable_cq_tx, FI_TRANSMIT, "tx scalable");
+
+                //enable_endpoint(scalable_ep_tx, "tx scalable");
+
+                endpoint_wrapper tx(scalable_ep_tx, nullptr, scalable_cq_tx, "tx scalable");
+                DEBUG(NS_DEBUG::cnb_deb,
+                    trace(debug::str<>("Scalable Ep"), "initial tx push", "ep",
+                        NS_DEBUG::ptr(tx.get_ep()), "tx cq", NS_DEBUG::ptr(tx.get_tx_cq()), "rx cq",
+                        NS_DEBUG::ptr(tx.get_rx_cq())));
+                tx_endpoints_.push(tx);
+
+                // Rx contexts
+                finvoke("create rx context", "fi_rx_context",
+                    fi_rx_context(ep_sx, i, NULL, &scalable_ep_rx, NULL));
+
+                scalable_cq_rx =
+                    create_completion_queue(fabric_domain_, fabric_info_->rx_attr->size, "rx");
+
+                bind_queue_to_endpoint(scalable_ep_rx, scalable_cq_rx, FI_RECV, "rx scalable");
+
+                //enable_endpoint(scalable_ep_rx, "rx scalable");
+
+                endpoint_wrapper rx(scalable_ep_rx, scalable_cq_rx, nullptr, "rx scalable");
+                DEBUG(NS_DEBUG::cnb_deb,
+                    trace(debug::str<>("Scalable Ep"), "initial rx push", "ep",
+                        NS_DEBUG::ptr(rx.get_ep()), "tx cq", NS_DEBUG::ptr(rx.get_tx_cq()), "rx cq",
+                        NS_DEBUG::ptr(rx.get_rx_cq())));
+                rx_endpoints_.push(rx);
+            }
+
+            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
+                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
+
+            eps_->ep_rx_ = endpoint_wrapper(ep_sx, nullptr, nullptr, "rx scalable");
+
+            // once enabled we can get the address
+            here_ = enable_endpoint(eps_->ep_rx_.get_ep(), "rx here");
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), iplocality(here_)));
+        }
+        else
+        {
+            // create an address vector that will be bound to endpoints
+            av_ = create_address_vector(fabric_info_, size, 0);
+
+            // setup an endpoint for receiving messages
+            // rx endpoint is shared by all threads
+            auto ep_rx = new_endpoint_active(fabric_domain_, fabric_info_, false);
+
+            // bind address vector
+            bind_address_vector_to_endpoint(ep_rx, av_);
+
+            // create a completion queue for the rx endpoint
+            fabric_info_->rx_attr->op_flags |= FI_COMPLETION;
+            auto rx_cq = create_completion_queue(fabric_domain_, fabric_info_->rx_attr->size, "rx");
+
+            // bind CQ to endpoint
+            bind_queue_to_endpoint(ep_rx, rx_cq, FI_RECV, "rx main");
+
+#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP) || defined(HAVE_LIBFABRIC_VERBS)
+            // it appears that the rx endpoint cannot be enabled if it does not
+            // have a Tx CQ (at least when using sockets), so we create a dummy
+            // Tx CQ and bind it just to stop libfabric from triggering an error.
+            // The tx_cq won't actually be used because the call to
+            // get endpoint will return another endpoint with the correct
+            // cq bound to it
+            bool fix_rx_enable_bug = true;
+#else
+            bool fix_rx_enable_bug = false;
+#endif
+            if (endpoint_type_ == endpoint_type::single)
+            {
+                // bind a tx cq to the rx endpoint for single endpoint type
+                // we need this with or without the bug mentioned above
+                auto tx_cq = bind_tx_queue_to_rx_endpoint(ep_rx, true);
+                eps_->ep_rx_ = endpoint_wrapper(ep_rx, rx_cq, tx_cq, "rx single");
+
+                // once enabled we can get the address
+                enable_endpoint(eps_->ep_rx_.get_ep(), "rx here");
+                here_ = get_endpoint_address(&eps_->ep_rx_.get_ep()->fid);
+                DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), iplocality(here_)));
+            }
+            else if (endpoint_type_ == endpoint_type::multiple)
+            {
+                // libfabric sockets bug fix
+                auto a_cq = bind_tx_queue_to_rx_endpoint(ep_rx, fix_rx_enable_bug);
+                eps_->ep_rx_ = endpoint_wrapper(ep_rx, rx_cq, a_cq, "rx multiple");
+
+                // once enabled we can get the address
+                enable_endpoint(eps_->ep_rx_.get_ep(), "rx here");
+                here_ = get_endpoint_address(&eps_->ep_rx_.get_ep()->fid);
+                DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), iplocality(here_)));
+
+                // setup an endpoint for sending messages
+                // note that the CQ needs FI_RECV even though its a Tx cq to keep
+                // some providers happy as they trigger an error if an endpoint
+                // has no Rx cq attached (appears to be a progress related bug)
+                auto ep_tx = new_endpoint_active(fabric_domain_, fabric_info_, true);
+
+                // create a completion queue for tx endpoint
+                fabric_info_->tx_attr->op_flags |= FI_INJECT_COMPLETE | FI_COMPLETION;
+                auto tx_cq = create_completion_queue(fabric_domain_, fabric_info_->tx_attr->size,
+                    "tx multiple");
+
+                bind_queue_to_endpoint(ep_tx, tx_cq, FI_TRANSMIT | FI_RECV, "rx multiple");
+                bind_address_vector_to_endpoint(ep_tx, av_);
+                enable_endpoint(ep_tx, "tx multiple");
+
+                // combine endpoints and CQ into wrapper for convenience
+                eps_->ep_tx_ = endpoint_wrapper(ep_tx, nullptr, tx_cq, "tx multiple");
+            }
+            else if (endpoint_type_ == endpoint_type::threadlocalTx)
+            {
+                // libfabric sockets bug fix
+                auto a_cq = bind_tx_queue_to_rx_endpoint(ep_rx, fix_rx_enable_bug);
+                eps_->ep_rx_ = endpoint_wrapper(ep_rx, rx_cq, a_cq, "rx threadlocal");
+
+                // once enabled we can get the address
+                enable_endpoint(eps_->ep_rx_.get_ep(), "rx here");
+                here_ = get_endpoint_address(&eps_->ep_rx_.get_ep()->fid);
+                DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), iplocality(here_)));
+            }
+        }
+
+        return static_cast<Derived*>(this)->initialize_derived(provider, rootnode, size, threads,
+            std::forward<Args>(args)...);
+    }
+
+    // --------------------------------------------------------------------
+    constexpr uint64_t caps_flags() {
+        return static_cast<Derived*>(this)->caps_flags();
+    }
+
+    // --------------------------------------------------------------------
+    constexpr fi_threading threadlevel_flags() {
+        return static_cast<Derived*>(this)->threadlevel_flags();
+    }
+
+    // --------------------------------------------------------------------
+    // initialize the basic fabric/domain/name
+    void open_fabric(std::string const& provider, int threads, bool rootnode)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        struct fi_info* fabric_hints_ = fi_allocinfo();
+        if (!fabric_hints_)
+        {
+            throw NS_LIBFABRIC::fabric_error(-1, "Failed to allocate fabric hints");
+        }
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Here locality"), iplocality(here_)));
+
+#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP) || defined(HAVE_LIBFABRIC_VERBS)
+        fabric_hints_->addr_format = FI_SOCKADDR_IN;
+#endif
+
+        fabric_hints_->caps = caps_flags();
+
+        fabric_hints_->mode = FI_CONTEXT /*| FI_MR_LOCAL*/;
+        if (provider.c_str() == std::string("tcp"))
+        {
+            fabric_hints_->fabric_attr->prov_name =
+                strdup(std::string(provider + ";ofi_rxm").c_str());
+        }
+        else if (provider.c_str() == std::string("verbs"))
+        {
+            fabric_hints_->fabric_attr->prov_name =
+                strdup(std::string(provider + ";ofi_rxm").c_str());
+        }
+        else { fabric_hints_->fabric_attr->prov_name = strdup(provider.c_str()); }
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("fabric provider"), fabric_hints_->fabric_attr->prov_name));
+
+        // use infiniband type basic registration for now
+#ifdef HAVE_LIBFABRIC_GNI
+        fabric_hints_->domain_attr->mr_mode = FI_MR_BASIC;
+#else
+        fabric_hints_->domain_attr->mr_mode = FI_MR_BASIC;
+//            fabric_hints_->domain_attr->mr_mode = FI_MR_SCALABLE;
+#endif
+        // Enable/Disable the use of progress threads
+        auto progress = libfabric_progress_type();
+        fabric_hints_->domain_attr->control_progress = progress;
+        fabric_hints_->domain_attr->data_progress = progress;
+        DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("progress"), libfabric_progress_string()));
+
+        if (threads > 1)
+        {
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("FI_THREAD_FID")));
+            // Enable thread safe mode (Does not work with psm2 provider)
+            // fabric_hints_->domain_attr->threading = FI_THREAD_SAFE;
+            //fabric_hints_->domain_attr->threading = FI_THREAD_FID;
+            fabric_hints_->domain_attr->threading = threadlevel_flags();
+        }
+        else
+        {
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("FI_THREAD_DOMAIN")));
+            // we serialize everything
+            fabric_hints_->domain_attr->threading = FI_THREAD_DOMAIN;
+        }
+
+        // Enable resource management
+        fabric_hints_->domain_attr->resource_mgmt = FI_RM_ENABLED;
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("fabric endpoint"), "RDM"));
+        fabric_hints_->ep_attr->type = FI_EP_RDM;
+
+        uint64_t flags = 0;
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("get fabric info"), "FI_VERSION",
+                debug::dec(LIBFABRIC_FI_VERSION_MAJOR), debug::dec(LIBFABRIC_FI_VERSION_MINOR)));
+
+        int ret = fi_getinfo(FI_VERSION(LIBFABRIC_FI_VERSION_MAJOR, LIBFABRIC_FI_VERSION_MINOR),
+            nullptr, nullptr, flags, fabric_hints_, &fabric_info_);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "Failed to get fabric info");
+
+        if (rootnode)
+        {
+            DEBUG(NS_DEBUG::cnb_err,
+                trace(debug::str<>("Fabric info"), "\n", fi_tostr(fabric_info_, FI_TYPE_INFO)));
+        }
+
+        bool context = (fabric_hints_->mode & FI_CONTEXT) != 0;
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_CONTEXT"), context));
+
+        bool mrlocal = (fabric_hints_->mode & FI_MR_LOCAL) != 0;
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_LOCAL"), mrlocal));
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Creating fi_fabric")));
+        ret = fi_fabric(fabric_info_->fabric_attr, &fabric_, nullptr);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "Failed to get fi_fabric");
+
+        // Allocate a domain.
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Allocating domain")));
+        ret = fi_domain(fabric_, fabric_info_, &fabric_domain_, nullptr);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_domain");
+
+#if defined(HAVE_LIBFABRIC_GNI)
+        {
+            [[maybe_unused]] auto scp =
+                NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), "GNI memory registration block");
+                // set GNI mem reg to be either none, internal or udreg
+                DEBUG(
+                    NS_DEBUG::cnb_deb, debug(debug::str<>("setting GNI_MR_CACHE ="), OOMPH_GNI_REG));
+                ret = _set_check_domain_op_value<char*>(GNI_MR_CACHE, const_cast<char*>(OOMPH_GNI_REG), "GNI_MR_CACHE");
+                if (ret)
+                    throw NS_LIBFABRIC::fabric_error(ret, std::string("setting GNI_MR_CACHE = ") + OOMPH_GNI_REG);
+
+            // Experiments showed default value of 2048 too high if
+            // launching multiple clients on one node
+            int32_t udreg_limit = 2048;
+            DEBUG(NS_DEBUG::cnb_deb,
+                debug(debug::str<>("setting GNI_MR_UDREG_REG_LIMIT ="), udreg_limit));
+            ret = _set_check_domain_op_value<int32_t>(GNI_MR_UDREG_REG_LIMIT, udreg_limit,
+                "GNI_MR_UDREG_REG_LIMIT");
+            if (ret) throw NS_LIBFABRIC::fabric_error(ret, "setting GNI_MR_UDREG_REG_LIMIT");
+
+            int32_t enable = 1;
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting GNI_MR_CACHE_LAZY_DEREG")));
+            // Enable lazy deregistration in MR cache
+            ret = _set_check_domain_op_value<int32_t>(GNI_MR_CACHE_LAZY_DEREG, enable,
+                "GNI_MR_CACHE_LAZY_DEREG");
+        }
+#endif
+        tx_inject_size_ = fabric_info_->tx_attr->inject_size;
+
+        // the number of preposted receives, and sender queue depth
+        // is set by querying the tx/tx attr sizes
+        tx_attr_size_ = std::min(size_t(512), fabric_info_->tx_attr->size / 2);
+        rx_attr_size_ = std::min(size_t(512), fabric_info_->rx_attr->size / 2);
+        fi_freeinfo(fabric_hints_);
+    }
+
+    // --------------------------------------------------------------------
+    struct fi_info* set_src_dst_addresses(struct fi_info* info, bool tx)
+    {
+        return static_cast<Derived*>(this)->set_src_dst_addresses(info, tx);
+    }
+
+#ifdef HAVE_LIBFABRIC_GNI
+    // --------------------------------------------------------------------
+    // Special GNI extensions to disable memory registration cache
+
+    template<typename T>
+        int _set_check_domain_op_value(int op, T value, const char* info)
+    {
+            [[maybe_unused]] auto scp =
+                NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+        struct fi_gni_ops_domain* gni_domain_ops;
+
+            int ret = fi_open_ops(&fabric_domain_->fid, FI_GNI_DOMAIN_OPS_1, 0,
+                (void**) &gni_domain_ops, nullptr);
+
+            DEBUG(NS_DEBUG::cnb_deb,
+                debug(debug::str<>("gni open ops"), (ret == 0 ? "OK" : "FAIL"),
+                                     NS_DEBUG::ptr(gni_domain_ops)));
+
+        // if open was ok, then set value
+        if (ret == 0)
+        {
+                ret = gni_domain_ops->set_val(&fabric_domain_->fid,
+                    (dom_ops_val_t) (op), reinterpret_cast<void*>(&value));
+
+                DEBUG(NS_DEBUG::cnb_deb,
+                    debug(debug::str<>("gni set ops val"),
+                        (ret == 0 ? "OK" : "FAIL")));
+        }
+
+        // check that the value we set is now returned by get
+        T new_value;
+            ret = gni_domain_ops->get_val(
+                &fabric_domain_->fid, (dom_ops_val_t) (op), &new_value);
+            DEBUG(NS_DEBUG::cnb_deb,
+                debug(debug::str<>("gni op set"), (ret == 0 ? "OK" : "FAIL"), info, new_value));
+        //
+        return ret;
+    }
+#endif
+
+    // --------------------------------------------------------------------
+    struct fid_ep* new_endpoint_active(struct fid_domain* domain, struct fi_info* info, bool tx)
+    {
+        // don't allow multiple threads to call endpoint create at the same time
+        scoped_lock lock(controller_mutex_);
+
+        // make sure src_addr/dst_addr are set accordingly
+        // and we do not create two endpoint with the same src address
+        struct fi_info* hints = set_src_dst_addresses(info, tx);
+
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("Got info mode"), (info->mode & FI_NOTIFY_FLAGS_ONLY)));
+
+        struct fid_ep* ep;
+        int            ret = fi_endpoint(domain, hints, &ep, nullptr);
+        if (ret)
+        {
+            throw NS_LIBFABRIC::fabric_error(ret, "fi_endpoint (too many threadlocal "
+                                                  "endpoints?)");
+        }
+        fi_freeinfo(hints);
+        return ep;
+    }
+
+    // --------------------------------------------------------------------
+    struct fid_ep* new_endpoint_scalable(struct fid_domain* domain, struct fi_info* info,
+        bool tx, size_t threads, size_t& threads_allocated)
+    {
+        // don't allow multiple threads to call endpoint create at the same time
+        scoped_lock lock(controller_mutex_);
+
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("fi_dupinfo")));
+        struct fi_info* hints = fi_dupinfo(info);
+        if (!hints) throw NS_LIBFABRIC::fabric_error(0, "fi_dupinfo");
+
+        int             flags = 0;
+        struct fi_info* new_hints = nullptr;
+        int ret = fi_getinfo(FI_VERSION(LIBFABRIC_FI_VERSION_MAJOR, LIBFABRIC_FI_VERSION_MINOR),
+            nullptr, nullptr, flags, hints, &new_hints);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_getinfo");
+
+        // Check the optimal number of TX/RX contexts supported by the provider
+        size_t context_count = 0;
+        if (tx) {
+            context_count = std::min(new_hints->domain_attr->tx_ctx_cnt, threads);
+        }
+        else {
+            context_count = std::min(new_hints->domain_attr->rx_ctx_cnt, threads);
+        }
+
+        DEBUG(NS_DEBUG::cnb_deb,
+            trace(debug::str<>("scalable endpoint"), "Tx", tx,
+                  "Threads", debug::dec<3>(threads),
+                  "tx_ctx_cnt", debug::dec<3>(new_hints->domain_attr->tx_ctx_cnt),
+                  "rx_ctx_cnt", debug::dec<3>(new_hints->domain_attr->rx_ctx_cnt),
+                  "context_count", debug::dec<3>(context_count)));
+
+        //            if (context_count < threads || context_count <= 1)
+        //            {
+        //                DEBUG(cnb_err,
+        //                    error(debug::str<>("scalable endpoint unsupported")
+        //                          , "Threads", debug::dec<3>(threads)
+        //                          , "tx_ctx_cnt", debug::dec<3>(new_hints->domain_attr->tx_ctx_cnt)
+        //                          , "context_count", debug::dec<3>(context_count)
+        //                          ));
+        //                return nullptr;
+        //            }
+
+        threads_allocated = context_count;
+        new_hints->ep_attr->tx_ctx_cnt = context_count;
+        new_hints->ep_attr->rx_ctx_cnt = context_count;
+
+        struct fid_ep* ep;
+        ret = fi_scalable_ep(domain, new_hints, &ep, nullptr);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_scalable_ep");
+
+        fi_freeinfo(hints);
+        return ep;
+    }
+
+    // --------------------------------------------------------------------
+    endpoint_wrapper& get_rx_endpoint()
+    {
+        static auto rx = NS_DEBUG::cnb_deb.make_timer(1, debug::str<>("get_rx_endpoint"));
+        DEBUG(NS_DEBUG::cnb_deb, timed(rx));
+
+        if (endpoint_type_ == endpoint_type::scalableTxRx)
+        {
+            if (eps_->tl_srx_.get_ep() == nullptr)
+            {
+                endpoint_wrapper ep;
+                bool             ok = rx_endpoints_.pop(ep);
+                if (!ok)
+                {
+                    DEBUG(NS_DEBUG::cnb_deb,
+                        error(debug::str<>("Scalable Ep"), "pop rx", "ep",
+                            NS_DEBUG::ptr(ep.get_ep()), "tx cq", NS_DEBUG::ptr(ep.get_tx_cq()),
+                            "rx cq", NS_DEBUG::ptr(ep.get_rx_cq())));
+                    throw std::runtime_error("rx endpoint wrapper pop fail");
+                }
+                eps_->tl_srx_ = stack_endpoint(ep.get_ep(), ep.get_rx_cq(), ep.get_tx_cq(),
+                    ep.get_name(), &rx_endpoints_);
+                DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("Scalable Ep"), "pop rx", "ep",
+                                             NS_DEBUG::ptr(eps_->tl_srx_.get_ep()), "tx cq",
+                                             NS_DEBUG::ptr(eps_->tl_srx_.get_tx_cq()), "rx cq",
+                                             NS_DEBUG::ptr(eps_->tl_srx_.get_rx_cq())));
+            }
+            return eps_->tl_srx_.endpoint_;
+        }
+        // otherwise just return the normal Rx endpoint
+        return eps_->ep_rx_;
+    }
+
+    // --------------------------------------------------------------------
+    endpoint_wrapper& get_tx_endpoint()
+    {
+        if (endpoint_type_ == endpoint_type::threadlocalTx)
+        {
+            if (eps_->tl_tx_.get_ep() == nullptr)
+            {
+                [[maybe_unused]] auto scp =
+                    NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, "threadlocal");
+
+                // create a completion queue for tx endpoint
+                fabric_info_->tx_attr->op_flags |= FI_INJECT_COMPLETE | FI_COMPLETION;
+                auto tx_cq = create_completion_queue(fabric_domain_, fabric_info_->tx_attr->size,
+                    "tx threadlocal");
+
+                // setup an endpoint for sending messages
+                // note that the CQ needs FI_RECV even though its a Tx cq to keep
+                // some providers happy as they trigger an error if an endpoint
+                // has no Rx cq attached (progress bug)
+                auto ep_tx = new_endpoint_active(fabric_domain_, fabric_info_, true);
+                bind_queue_to_endpoint(ep_tx, tx_cq, FI_TRANSMIT | FI_RECV, "tx threadlocal");
+                bind_address_vector_to_endpoint(ep_tx, av_);
+                enable_endpoint(ep_tx, "tx threadlocal");
+
+                // set threadlocal endpoint wrapper
+                DEBUG(NS_DEBUG::cnb_deb,
+                    trace(debug::str<>("Threadlocal Ep"), "create Tx", "ep", NS_DEBUG::ptr(ep_tx),
+                        "tx cq", NS_DEBUG::ptr(tx_cq), "rx cq", NS_DEBUG::ptr(nullptr)));
+                // for cleaning up at termination
+                endpoint_wrapper ep(ep_tx, nullptr, tx_cq, "tx threadlocal");
+                tx_endpoints_.push(ep);
+                eps_->tl_tx_ = stack_endpoint(ep_tx, nullptr, tx_cq, "threadlocal", nullptr);
+            }
+            return eps_->tl_tx_.endpoint_;
+        }
+        else if (endpoint_type_ == endpoint_type::scalableTx ||
+                endpoint_type_ == endpoint_type::scalableTxRx)
+        {
+            if (eps_->tl_stx_.get_ep() == nullptr)
+            {
+                endpoint_wrapper ep;
+                bool             ok = tx_endpoints_.pop(ep);
+                if (!ok)
+                {
+                    DEBUG(NS_DEBUG::cnb_deb,
+                        error(debug::str<>("Scalable Ep"), "pop tx", "ep",
+                            NS_DEBUG::ptr(ep.get_ep()), "tx cq", NS_DEBUG::ptr(ep.get_tx_cq()),
+                            "rx cq", NS_DEBUG::ptr(ep.get_rx_cq())));
+                    throw std::runtime_error("tx endpoint wrapper pop fail");
+                }
+                eps_->tl_stx_ = stack_endpoint(ep.get_ep(), ep.get_rx_cq(), ep.get_tx_cq(),
+                    ep.get_name(), &tx_endpoints_);
+                DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("Scalable Ep"), "pop tx", "ep",
+                                             NS_DEBUG::ptr(eps_->tl_stx_.get_ep()), "tx cq",
+                                             NS_DEBUG::ptr(eps_->tl_stx_.get_tx_cq()), "rx cq",
+                                             NS_DEBUG::ptr(eps_->tl_stx_.get_rx_cq())));
+            }
+            return eps_->tl_stx_.endpoint_;
+        }
+        else if (endpoint_type_ == endpoint_type::multiple) {
+            return eps_->ep_tx_;
+        }
+        else if (endpoint_type_ == endpoint_type::single)
+        {
+            // shared tx/rx endpoint
+            return eps_->ep_rx_;
+        }
+        // shared tx/rx endpoint
+        return eps_->ep_rx_;
+    }
+
+    // --------------------------------------------------------------------
+    void bind_address_vector_to_endpoint(struct fid_ep* endpoint, struct fid_av* av)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding AV")));
+        int ret = fi_ep_bind(endpoint, &av->fid, 0);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "bind address_vector");
+    }
+
+    // --------------------------------------------------------------------
+    void bind_queue_to_endpoint(struct fid_ep* endpoint, struct fid_cq*& cq, uint32_t cqtype,
+        const char* type)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, type);
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding CQ")));
+        int ret = fi_ep_bind(endpoint, &cq->fid, cqtype);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "bind cq");
+    }
+
+    // --------------------------------------------------------------------
+    fid_cq* bind_tx_queue_to_rx_endpoint(struct fid_ep* ep, bool needed)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+        if (needed)
+        {
+            fabric_info_->tx_attr->op_flags |= FI_INJECT_COMPLETE | FI_COMPLETION;
+            fid_cq* tx_cq = create_completion_queue(fabric_domain_, fabric_info_->tx_attr->size,
+                "tx->rx bug fix");
+            // shared send/recv endpoint - bind send cq to the recv endpoint
+            bind_queue_to_endpoint(ep, tx_cq, FI_TRANSMIT, "tx->rx bug fix");
+            return tx_cq;
+        }
+        return nullptr;
+    }
+
+    // --------------------------------------------------------------------
+    locality enable_endpoint(struct fid_ep* endpoint, const char* type)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, type);
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Enabling endpoint"), NS_DEBUG::ptr(endpoint)));
+        int ret = fi_enable(endpoint);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_enable");
+
+        locality temp = get_endpoint_address(&endpoint->fid);
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("endpoint_address"), iplocality(temp)));
+        return temp;
+    }
+
+    // --------------------------------------------------------------------
+    locality get_endpoint_address(struct fid* id)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        locality::locality_data local_addr;
+        std::size_t             addrlen = locality_defs::array_size;
+        int                     ret = fi_getname(id, local_addr.data(), &addrlen);
+        if (ret || (addrlen > locality_defs::array_size))
+        {
+            std::string err = std::to_string(addrlen) + "=" + std::to_string(locality_defs::array_size);
+            NS_LIBFABRIC::fabric_error(ret, "fi_getname - size error or other problem " + err);
+        }
+
+        // optimized out when debug logging is false
+        if constexpr (NS_DEBUG::cnb_deb.is_enabled())
+        {
+            std::stringstream temp1;
+            for (std::size_t i = 0; i < locality_defs::array_length; ++i)
+            {
+                temp1 << debug::ipaddr(&local_addr[i]) << " - ";
+            }
+
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("raw address data"), "size",
+                                         debug::dec<>(addrlen), " : ", temp1.str().c_str()));
+            std::stringstream temp2;
+            for (std::size_t i = 0; i < locality_defs::array_length; ++i)
+            {
+                temp2 << debug::hex<8>(local_addr[i]) << " - ";
+            }
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("raw address data"), temp2.str().c_str()));
+        }
+        return locality(local_addr);
+    }
+
+    // --------------------------------------------------------------------
+    fid_pep* create_passive_endpoint(struct fid_fabric* fabric, struct fi_info* info)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        struct fid_pep* ep;
+        int             ret = fi_passive_ep(fabric, info, &ep, nullptr);
+        if (ret) { throw NS_LIBFABRIC::fabric_error(ret, "Failed to create fi_passive_ep"); }
+        return ep;
+    }
+
+    // --------------------------------------------------------------------
+    inline const locality& here() const { return here_; }
+
+    // --------------------------------------------------------------------
+    inline void setHere(const locality& val) { here_ = val; }
+
+    // --------------------------------------------------------------------
+    inline const locality& root() const { return root_; }
+
+    // --------------------------------------------------------------------
+    inline struct fid_domain* get_domain() const { return fabric_domain_; }
+
+    // --------------------------------------------------------------------
+    inline std::size_t get_rma_protocol_size() { return 65536; }
+#ifdef DISABLE_FI_INJECT
+    // --------------------------------------------------------------------
+    inline std::size_t get_tx_inject_size() { return 0; }
+#else
+    // --------------------------------------------------------------------
+    inline std::size_t get_tx_inject_size() { return tx_inject_size_; }
+#endif
+
+    // --------------------------------------------------------------------
+    inline std::size_t get_tx_size() { return tx_attr_size_; }
+
+    // --------------------------------------------------------------------
+    inline std::size_t get_rx_size() { return rx_attr_size_; }
+
+    // --------------------------------------------------------------------
+    // returns true when all connections have been disconnected and none are active
+    inline bool isTerminated()
+    {
+        return false;
+        //return (qp_endpoint_map_.size() == 0);
+    }
+
+    // --------------------------------------------------------------------
+    void debug_print_av_vector(std::size_t N)
+    {
+        locality    addr;
+        std::size_t addrlen = locality_defs::array_size;
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            int ret = fi_av_lookup(av_, fi_addr_t(i), addr.fabric_data_writable(), &addrlen);
+            addr.set_fi_address(fi_addr_t(i));
+            if ((ret == 0) && (addrlen == locality_defs::array_size))
+            {
+                DEBUG(NS_DEBUG::cnb_deb,
+                    debug(debug::str<>("address vector"), debug::dec<3>(i), iplocality(addr)));
+            }
+            else
+            {
+                throw std::runtime_error("debug_print_av_vector : address vector "
+                                         "traversal failure");
+            }
+        }
+    }
+
+    // --------------------------------------------------------------------
+    progress_status poll_for_work_completions()
+    {
+        progress_status p{0,0};
+        bool retry = false;
+        do {
+            // sends
+            int nsend = static_cast<Derived*>(this)->poll_send_queue(get_tx_endpoint().get_tx_cq());
+            p.m_num_sends += nsend;
+            retry = (nsend == max_completions_per_poll_);
+            // recvs
+            int nrecv = static_cast<Derived*>(this)->poll_recv_queue(get_rx_endpoint().get_rx_cq());
+            p.m_num_recvs  += nrecv;
+            retry |= (nrecv == max_completions_per_poll_);
+        } while (retry);
+        return p;
+    }
+
+    // --------------------------------------------------------------------
+    inline int poll_send_queue(fid_cq* tx_cq)
+    {
+        return static_cast<Derived*>(this)->poll_send_queue(tx_cq);
+    }
+
+    // --------------------------------------------------------------------
+    inline int poll_recv_queue(fid_cq* rx_cq)
+    {
+        return static_cast<Derived*>(this)->poll_recv_queue(rx_cq);
+    }
+
+    // --------------------------------------------------------------------
+    struct fid_cq* create_completion_queue(struct fid_domain* domain, size_t size, const char* type)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, type);
+
+        struct fid_cq* cq;
+        fi_cq_attr     cq_attr = {};
+        cq_attr.format = FI_CQ_FORMAT_MSG;
+        cq_attr.wait_obj = FI_WAIT_NONE;
+        cq_attr.wait_cond = FI_CQ_COND_NONE;
+        cq_attr.size = size;
+        cq_attr.flags = 0 /*FI_COMPLETION*/;
+        DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("CQ size"), debug::dec<4>(size)));
+        // open completion queue on fabric domain and set context to null
+        int ret = fi_cq_open(domain, &cq_attr, &cq, nullptr);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_cq_open");
+        return cq;
+    }
+
+    // --------------------------------------------------------------------
+    fid_av* create_address_vector(struct fi_info* info, int N, int num_rx_contexts)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        fid_av*    av;
+        fi_av_attr av_attr = {fi_av_type(0), 0, 0, 0, nullptr, nullptr, 0};
+
+        // number of addresses expected
+        av_attr.count = N;
+
+        // number of receive contexts used
+        int rx_ctx_bits = 0;
+        while (num_rx_contexts >> ++rx_ctx_bits)
+            ;
+        av_attr.rx_ctx_bits = rx_ctx_bits;
+
+        // if contexts is nonzero, then we are using a single scalable endpoint
+        av_attr.ep_per_node = (num_rx_contexts > 0) ? 2 : 0;
+
+        if (info->domain_attr->av_type != FI_AV_UNSPEC)
+        {
+            av_attr.type = info->domain_attr->av_type;
+        }
+        else
+        {
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("map FI_AV_TABLE")));
+            av_attr.type = FI_AV_TABLE;
+        }
+
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Creating AV")));
+        int ret = fi_av_open(fabric_domain_, &av_attr, &av, nullptr);
+        if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_av_open");
+        return av;
+    }
+
+    // --------------------------------------------------------------------
+    locality insert_address(const locality& address) { return insert_address(av_, address); }
+
+    // --------------------------------------------------------------------
+    locality insert_address(fid_av* av, const locality& address)
+    {
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+
+        DEBUG(NS_DEBUG::cnb_deb,
+            trace(debug::str<>("inserting AV"), iplocality(address), NS_DEBUG::ptr(av)));
+        fi_addr_t fi_addr = 0xffffffff;
+        int       ret = fi_av_insert(av, address.fabric_data(), 1, &fi_addr, 0, nullptr);
+        if (ret < 0) { throw NS_LIBFABRIC::fabric_error(ret, "fi_av_insert"); }
+        else if (ret == 0)
+        {
+            NS_DEBUG::cnb_deb.error("fi_av_insert called with existing address");
+            NS_LIBFABRIC::fabric_error(ret, "fi_av_insert did not return 1");
+        }
+        // address was generated correctly, now update the locality with the fi_addr
+        locality new_locality(address, fi_addr);
+        DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("AV add"), "rank", debug::dec<>(fi_addr),
+                                     iplocality(new_locality), "fi_addr", debug::hex<4>(fi_addr)));
+        return new_locality;
+    }
+};
+
+} // namespace NS_LIBFABRIC
