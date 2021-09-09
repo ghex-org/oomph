@@ -50,7 +50,7 @@ class context_impl : public context_base
     std::vector<std::unique_ptr<worker_type>> m_workers;
     ucx_mutex                                 m_mutex;
 
-    friend class worker_t;
+    friend struct worker_t;
 
   public: // ctors
     context_impl(MPI_Comm mpi_c, bool thread_safe)
