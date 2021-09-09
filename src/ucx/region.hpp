@@ -87,7 +87,7 @@ class rma_region
 #if defined(HWMALLOC_DEVICE_CUDA)
             params.memory_type = UCS_MEMORY_TYPE_CUDA;
 #elif defined(HWMALLOC_DEVICE_HIP)
-            params.memory_type = UCS_MEMORY_TYPE_ROCM
+            params.memory_type = UCS_MEMORY_TYPE_ROCM;
 #endif
 #endif
         }
