@@ -44,7 +44,7 @@ context::get_communicator()
 
 communicator::~communicator()
 {
-    if (m_impl) 
+    if (m_impl)
     {
         wait_all();
         m_impl->release();
@@ -99,8 +99,7 @@ class message_buffer::heap_ptr_impl
 message_buffer::message_buffer() = default;
 
 template<>
-message_buffer::message_buffer<typename context_impl::heap_type::pointer>(
-    typename context_impl::heap_type::pointer ptr)
+message_buffer::message_buffer(typename context_impl::heap_type::pointer ptr)
 : m_ptr{ptr.get()}
 , m_heap_ptr(ptr)
 {
