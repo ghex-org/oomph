@@ -220,20 +220,23 @@ class communicator
     }
 
     template<typename T>
-    [[nodiscard]] send_request send_multi(message_buffer<T> const& msg,
+    [[nodiscard]] send_request_vector send_multi(
+        message_buffer<T> const& msg,
         std::vector<rank_type> const& neighs, tag_type tag)
     {
         assert(msg);
         auto& scheduled = m_schedule->scheduled_sends;
         scheduled += neighs.size();
-        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
 
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
         auto       counter = new int{(int)neighs.size()};
 
+        send_request_vector result;
+        result.reserve(neighs.size());
         for (auto id : neighs)
         {
+            send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
                 [rd = r.m_data, counter]() mutable
@@ -246,8 +249,9 @@ class communicator
                     --(*(rd->m_scheduled));
                 },
                 r.m_data);
+            result.push_back(std::move(r));
         }
-        return r;
+        return result;
     }
 
     // callback versions
@@ -345,7 +349,7 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs,
+    send_request_vector send_multi(message_buffer<T>&& msg, std::vector<rank_type> const& neighs,
         tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
@@ -359,13 +363,15 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{std::move(msg), (int)neighs.size(), neighs};
 
+        send_request_vector result;
+        result.reserve(neighs.size());
         for (auto id : neighs)
         {
+            send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
                 [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
@@ -379,12 +385,13 @@ class communicator
                     --(*(rd->m_scheduled));
                 },
                 r.m_data);
+            result.push_back(std::move(r));
         }
-        return r;
+        return result;
     }
 
     template<typename T, typename CallBack>
-    send_request send_multi(message_buffer<T>& msg, std::vector<rank_type> const& neighs,
+    send_request_vector send_multi(message_buffer<T>& msg, std::vector<rank_type> const& neighs,
         tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
@@ -398,13 +405,15 @@ class communicator
             std::vector<rank_type> neighs;
         };
 
-        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
 
+        send_request_vector result;
+        result.reserve(neighs.size());
         for (auto id : neighs)
         {
+            send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
                 [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
@@ -418,8 +427,9 @@ class communicator
                     --(*(rd->m_scheduled));
                 },
                 r.m_data);
+            result.push_back(std::move(r));
         }
-        return r;
+        return result;
     }
 
     template<typename T, typename CallBack>
@@ -437,13 +447,13 @@ class communicator
             std::vector<rank_type>   neighs;
         };
 
-        send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
         auto         m = new msg_ref_count{&msg, {(int)neighs.size()}, neighs};
 
         for (auto id : neighs)
         {
+            send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
                 [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
@@ -458,7 +468,7 @@ class communicator
                 },
                 r.m_data);
         }
-        return r;
+        return send_request();
     }
 
     void progress();
