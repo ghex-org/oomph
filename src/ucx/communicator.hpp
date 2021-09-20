@@ -26,6 +26,14 @@ namespace oomph
 #define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
 
+// UCX uses the reserved space in request_state for this extra info
+struct ucx_per_msg_data {
+    void* m_data;
+};
+
+// Make sure that any reserved space is always big enough to hold our data
+static_assert(sizeof(ucx_per_msg_data) <= sizeof(oomph::detail::request_state::m_reserved));
+
 class communicator_impl : public communicator_base<communicator_impl>
 {
   public:
@@ -134,7 +142,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
             req_data.m_comm = this;
             req_data.m_cb = cb.release();
-            req->m_data = &req_data;
+            ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req->m_reserved.data());
+            ucx_data->m_data = &req_data;
         }
         else
         {
@@ -194,7 +203,8 @@ class communicator_impl : public communicator_base<communicator_impl>
                     //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
                     req_data.m_comm = this;
                     req_data.m_cb = cb.release();
-                    req->m_data = &req_data;
+                    ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req->m_reserved.data());
+                    ucx_data->m_data = &req_data;
                 }
             }
             else
@@ -280,7 +290,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     // https://github.com/openucx/ucx/issues/1162
     bool cancel_recv_cb(recv_request const& req)
     {
-        auto& req_data = request_data::get(req.m_data->m_data);
+        ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req.m_data->m_reserved.data());
+        auto& req_data = request_data::get(ucx_data->m_data);
         {
             // locked region
             if (m_thread_safe) m_mutex.lock();

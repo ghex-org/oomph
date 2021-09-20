@@ -82,7 +82,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     bool cancel_recv_cb(recv_request const& req)
     {
-        return m_recv_callbacks.cancel(req.m_data->m_index);
+        mpi_per_msg_data *mpi_data = reinterpret_cast<mpi_per_msg_data*>(req.m_data->m_reserved.data());
+        return m_recv_callbacks.cancel(mpi_data->m_index);
     }
 };
 

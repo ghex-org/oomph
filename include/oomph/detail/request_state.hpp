@@ -21,12 +21,13 @@ namespace detail
 {
 struct request_state
 {
-    communicator_impl* m_comm;
-    std::size_t*       m_scheduled;
-    std::size_t        m_index = 0;
-    bool               m_ready = false;
-    void*              m_data = nullptr;
-    std::size_t        m_ref_count = 0;
+    // reserved space may be used by transport layers for special storage
+    using reserved = std::array<uint64_t, OOMPH_TRANSPORT_RESERVED_SPACE>;
+    reserved                m_reserved;
+    communicator_impl*      m_comm;
+    std::size_t*            m_scheduled;
+    bool                    m_ready = false;
+    std::size_t             m_ref_count = 0;
 
     request_state(communicator_impl* comm, std::size_t* scheduled) noexcept
     : m_comm{comm}
