@@ -1,5 +1,5 @@
 /*
- * GridTools
+ * ghex-org
  *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
