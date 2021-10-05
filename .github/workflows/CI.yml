@@ -55,7 +55,7 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          CXX=/opt/rocm/llvm/bin/clang++ cmake
+          CXX=/opt/rocm/llvm/bin/clang++ cmake \
             -DCMAKE_BUILD_TYPE=Debug \
             -DOOMPH_WITH_TESTING=ON \
             -DOOMPH_WITH_MPI=ON \
