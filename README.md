@@ -134,3 +134,6 @@ comm.progress();
 // or progress until some event is triggered
 while(!completed) { comm.progress(); }
 ```
+## Acknowledgments
+This work was financially supported by the PRACE project funded in part by the EU's Horizon 2020
+Research and Innovation programme (2014-2020) under grant agreement 823767.
