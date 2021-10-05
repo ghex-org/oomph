@@ -1,3 +1,4 @@
+[![CI](https://github.com/ghex-org/oomph/actions/workflows/CI.yml/badge.svg)](https://github.com/ghex-org/oomph/actions/workflows/CI.yml)
 # OOMPH
 
 **Oomph** is a library for enabling high performance point-to-point, asynchronous communication over different fabrics.
