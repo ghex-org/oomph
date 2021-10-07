@@ -15,6 +15,7 @@
 #include <oomph/communicator.hpp>
 #include <hwmalloc/config.hpp>
 #include <hwmalloc/device.hpp>
+#include <oomph/tensor.hpp>
 
 namespace oomph
 {
@@ -59,6 +60,9 @@ class context
 #endif
 
     communicator get_communicator();
+
+    template<std::size_t N>
+    void map_tensor(void* ptr);
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);

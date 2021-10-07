@@ -38,6 +38,12 @@ context::get_communicator()
     return {m->get_communicator()};
 }
 
+template<>
+void context::map_tensor<1>(void* ptr)
+{
+    m->register_tensor(make_tensor<1>(ptr));
+}
+
 ///////////////////////////////
 // communicator              //
 ///////////////////////////////

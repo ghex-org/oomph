@@ -1,5 +1,6 @@
 target_sources(oomph_common PRIVATE barrier.cpp)
 target_sources(oomph_common PRIVATE rank_topology.cpp)
+#target_sources(oomph_common PRIVATE tensor.cpp)
 
 if (OOMPH_WITH_MPI)
     add_subdirectory(mpi)
