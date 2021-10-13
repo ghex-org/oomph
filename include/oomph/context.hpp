@@ -50,11 +50,31 @@ class context
         return {make_buffer_core(size * sizeof(T)), size};
     }
 
+    template<typename T>
+    message_buffer<T> make_buffer(T* ptr, std::size_t size)
+    {
+        return {make_buffer_core(ptr, size * sizeof(T)), size};
+    }
+
 #if HWMALLOC_ENABLE_DEVICE
     template<typename T>
     message_buffer<T> make_device_buffer(std::size_t size, int id = hwmalloc::get_device_id())
     {
         return {make_buffer_core(size * sizeof(T), id), size};
+    }
+
+    template<typename T>
+    message_buffer<T> make_device_buffer(T* device_ptr, std::size_t size,
+        int id = hwmalloc::get_device_id())
+    {
+        return {make_buffer_core(device_ptr, size * sizeof(T), id), size};
+    }
+
+    template<typename T>
+    message_buffer<T> make_device_buffer(T* ptr, T* device_ptr, std::size_t size,
+        int id = hwmalloc::get_device_id())
+    {
+        return {make_buffer_core(ptr, device_ptr, size * sizeof(T), id), size};
     }
 #endif
 
@@ -62,8 +82,12 @@ class context
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
+    detail::message_buffer make_buffer_core(void* ptr, std::size_t size);
 #if HWMALLOC_ENABLE_DEVICE
     detail::message_buffer make_buffer_core(std::size_t size, int device_id);
+    detail::message_buffer make_buffer_core(void* device_ptr, std::size_t size, int device_id);
+    detail::message_buffer make_buffer_core(void* ptr, void* device_ptr, std::size_t size,
+        int device_id);
 #endif
 };
 

@@ -170,11 +170,31 @@ class communicator
         return {make_buffer_core(size * sizeof(T)), size};
     }
 
+    template<typename T>
+    message_buffer<T> make_buffer(T* ptr, std::size_t size)
+    {
+        return {make_buffer_core(ptr, size * sizeof(T)), size};
+    }
+
 #if HWMALLOC_ENABLE_DEVICE
     template<typename T>
     message_buffer<T> make_device_buffer(std::size_t size, int id = hwmalloc::get_device_id())
     {
         return {make_buffer_core(size * sizeof(T), id), size};
+    }
+
+    template<typename T>
+    message_buffer<T> make_device_buffer(T* device_ptr, std::size_t size,
+        int id = hwmalloc::get_device_id())
+    {
+        return {make_buffer_core(device_ptr, size * sizeof(T), id), size};
+    }
+
+    template<typename T>
+    message_buffer<T> make_device_buffer(T* ptr, T* device_ptr, std::size_t size,
+        int id = hwmalloc::get_device_id())
+    {
+        return {make_buffer_core(ptr, device_ptr, size * sizeof(T), id), size};
     }
 #endif
 
@@ -204,8 +224,8 @@ class communicator
     }
 
     template<typename T>
-    [[nodiscard]] send_request send_multi(
-        message_buffer<T> const& msg, std::vector<rank_type> const& neighs, tag_type tag)
+    [[nodiscard]] send_request send_multi(message_buffer<T> const& msg,
+        std::vector<rank_type> const& neighs, tag_type tag)
     {
         assert(msg);
         auto& scheduled = m_schedule->scheduled_sends;
@@ -220,7 +240,8 @@ class communicator
         {
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, counter]() mutable {
+                [rd = r.m_data, counter]() mutable
+                {
                     if ((--(*counter)) == 0)
                     {
                         delete counter;
@@ -248,8 +269,8 @@ class communicator
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
         recv(m_ptr, s * sizeof(T), src, tag,
-            cb_rref<T, std::decay_t<CallBack>>{
-                r.m_data, std::move(msg), src, tag, std::forward<CallBack>(callback)},
+            cb_rref<T, std::decay_t<CallBack>>{r.m_data, std::move(msg), src, tag,
+                std::forward<CallBack>(callback)},
             r.m_data);
         return r;
     }
@@ -266,8 +287,8 @@ class communicator
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
         recv(m_ptr, s * sizeof(T), src, tag,
-            cb_lref<T, std::decay_t<CallBack>>{
-                r.m_data, &msg, src, tag, std::forward<CallBack>(callback)},
+            cb_lref<T, std::decay_t<CallBack>>{r.m_data, &msg, src, tag,
+                std::forward<CallBack>(callback)},
             r.m_data);
         return r;
     }
@@ -284,8 +305,8 @@ class communicator
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
         send(m_ptr, s * sizeof(T), dst, tag,
-            cb_rref<T, std::decay_t<CallBack>>{
-                r.m_data, std::move(msg), dst, tag, std::forward<CallBack>(callback)},
+            cb_rref<T, std::decay_t<CallBack>>{r.m_data, std::move(msg), dst, tag,
+                std::forward<CallBack>(callback)},
             r.m_data);
         return r;
     }
@@ -302,15 +323,15 @@ class communicator
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
         send(m_ptr, s * sizeof(T), dst, tag,
-            cb_lref<T, std::decay_t<CallBack>>{
-                r.m_data, &msg, dst, tag, std::forward<CallBack>(callback)},
+            cb_lref<T, std::decay_t<CallBack>>{r.m_data, &msg, dst, tag,
+                std::forward<CallBack>(callback)},
             r.m_data);
         return r;
     }
 
     template<typename T, typename CallBack>
-    send_request send(
-        message_buffer<T> const& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag,
+        CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
         assert(msg);
@@ -321,8 +342,8 @@ class communicator
         auto         m_ptr = msg.m.m_heap_ptr.get();
 
         send(m_ptr, s * sizeof(T), dst, tag,
-            cb_lref_const<T, std::decay_t<CallBack>>{
-                r.m_data, &msg, dst, tag, std::forward<CallBack>(callback)},
+            cb_lref_const<T, std::decay_t<CallBack>>{r.m_data, &msg, dst, tag,
+                std::forward<CallBack>(callback)},
             r.m_data);
         return r;
     }
@@ -351,7 +372,8 @@ class communicator
         {
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                {
                     if ((--(m->counter)) == 0)
                     {
                         cb(std::move(m->msg), std::move(m->neighs), tag);
@@ -389,7 +411,8 @@ class communicator
         {
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                {
                     if ((--(m->counter)) == 0)
                     {
                         cb(*(m->msg), std::move(m->neighs), tag);
@@ -427,7 +450,8 @@ class communicator
         {
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable {
+                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                {
                     if ((--(m->counter)) == 0)
                     {
                         cb(*(m->msg), std::move(m->neighs), tag);
@@ -445,8 +469,12 @@ class communicator
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
+    detail::message_buffer make_buffer_core(void* ptr, std::size_t size);
 #if HWMALLOC_ENABLE_DEVICE
     detail::message_buffer make_buffer_core(std::size_t size, int device_id);
+    detail::message_buffer make_buffer_core(void* device_ptr, std::size_t size, int device_id);
+    detail::message_buffer make_buffer_core(void* ptr, void* device_ptr, std::size_t size,
+        int device_id);
 #endif
 
     void send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size, rank_type dst,

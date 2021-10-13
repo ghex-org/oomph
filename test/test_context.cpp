@@ -24,7 +24,8 @@ TEST_F(mpi_test_fixture, context_ordered)
     using tag_type = communicator::tag_type;
     auto ctxt = context(MPI_COMM_WORLD, true);
 
-    auto func = [&ctxt](int tid) {
+    auto func = [&ctxt](int tid)
+    {
         auto comm = ctxt.get_communicator();
         auto msg_1 = comm.make_buffer<int>(size);
         auto msg_2 = comm.make_buffer<int>(size);
@@ -80,7 +81,8 @@ TEST_F(mpi_test_fixture, context_multi)
     auto ctxt_1 = context(MPI_COMM_WORLD, true);
     auto ctxt_2 = context(MPI_COMM_WORLD, true);
 
-    auto func = [&ctxt_1, &ctxt_2](int tid_1, int tid_2) {
+    auto func = [&ctxt_1, &ctxt_2](int tid_1, int tid_2)
+    {
         auto         comm_1 = ctxt_1.get_communicator();
         auto         msg_1 = comm_1.make_buffer<int>(size);
         auto         comm_2 = ctxt_2.get_communicator();
