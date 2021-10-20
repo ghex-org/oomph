@@ -30,8 +30,8 @@ struct worker_t
 
     struct ucp_worker_handle
     {
-        ucp_worker_h m_worker;
-        util::moved_bit    m_moved;
+        ucp_worker_h    m_worker;
+        util::moved_bit m_moved;
 
         ucp_worker_handle() noexcept
         : m_moved{true}
@@ -65,6 +65,7 @@ struct worker_t
         const ucp_worker_h& get() const noexcept { return m_worker; }
     };
 
+    using ep_handle_vector = std::vector<endpoint_t::close_handle>;
     using cache_type = std::unordered_map<rank_type, endpoint_t>;
     //using mutex_t = pthread_spin::recursive_mutex;
 
@@ -74,6 +75,7 @@ struct worker_t
     rank_type                 m_size;
     ucp_worker_handle         m_worker;
     address_t                 m_address;
+    ep_handle_vector          m_endpoint_handles;
     cache_type                m_endpoint_cache;
     //int                       m_progressed_sends = 0;
     //mutex_t*                  m_mutex_ptr = nullptr;

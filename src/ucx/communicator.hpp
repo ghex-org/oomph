@@ -59,6 +59,16 @@ class communicator_impl : public communicator_base<communicator_impl>
     {
     }
 
+    ~communicator_impl()
+    {
+        // schedule all endpoints for closing
+        for (auto& kvp : m_send_worker->m_endpoint_cache)
+        {
+            m_send_worker->m_endpoint_handles.push_back(kvp.second.close());
+            m_send_worker->m_endpoint_handles.back().progress();
+        }
+    }
+
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
     void progress()
