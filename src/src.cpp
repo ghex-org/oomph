@@ -200,11 +200,29 @@ context::make_buffer_core(std::size_t size)
     return m->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
+detail::message_buffer
+context::make_buffer_core(void* ptr, std::size_t size)
+{
+    return m->get_heap().register_user_allocation(ptr, size);
+}
+
 #if HWMALLOC_ENABLE_DEVICE
 detail::message_buffer
 context::make_buffer_core(std::size_t size, int id)
 {
     return m->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
+}
+
+detail::message_buffer
+context::make_buffer_core(void* device_ptr, std::size_t size, int device_id)
+{
+    return m->get_heap().register_user_allocation(device_ptr, device_id, size);
+}
+
+detail::message_buffer
+context::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, int device_id)
+{
+    return m->get_heap().register_user_allocation(ptr, device_ptr, device_id, size);
 }
 #endif
 
@@ -214,11 +232,29 @@ communicator::make_buffer_core(std::size_t size)
     return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
+detail::message_buffer
+communicator::make_buffer_core(void* ptr, std::size_t size)
+{
+    return m_impl->get_heap().register_user_allocation(ptr, size);
+}
+
 #if HWMALLOC_ENABLE_DEVICE
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size, int id)
 {
     return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
+}
+
+detail::message_buffer
+communicator::make_buffer_core(void* device_ptr, std::size_t size, int device_id)
+{
+    return m_impl->get_heap().register_user_allocation(device_ptr, device_id, size);
+}
+
+detail::message_buffer
+communicator::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, int device_id)
+{
+    return m_impl->get_heap().register_user_allocation(ptr, device_ptr, device_id, size);
 }
 #endif
 
