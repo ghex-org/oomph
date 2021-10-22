@@ -26,19 +26,15 @@ struct test_environment_base
 
     oomph::context&     ctxt;
     oomph::communicator comm;
-    message             smsg;
-    message             rmsg;
     rank_type           speer_rank;
     rank_type           rpeer_rank;
     int                 thread_id;
     int                 num_threads;
     tag_type            tag;
 
-    test_environment_base(oomph::context& c, std::size_t size, int tid, int num_t)
+    test_environment_base(oomph::context& c, int tid, int num_t)
     : ctxt(c)
     , comm(ctxt.get_communicator())
-    , smsg(comm.make_buffer<rank_type>(size))
-    , rmsg(comm.make_buffer<rank_type>(size))
     , speer_rank((comm.rank() + 1) % comm.size())
     , rpeer_rank((comm.rank() + comm.size() - 1) % comm.size())
     , thread_id(tid)
@@ -52,11 +48,26 @@ struct test_environment : public test_environment_base
 {
     using base = test_environment_base;
 
-    test_environment(oomph::context& c, std::size_t size, int tid, int num_t)
-    : base(c, size, tid, num_t)
+    static auto make_buffer(oomph::communicator& comm, std::size_t size, bool user_alloc,
+        rank_type* ptr)
     {
-        smsg = comm.make_buffer<rank_type>(size);
-        rmsg = comm.make_buffer<rank_type>(size);
+        if (user_alloc) return comm.make_buffer<rank_type>(ptr, size);
+        else
+            return comm.make_buffer<rank_type>(size);
+    }
+
+    std::vector<rank_type> raw_smsg;
+    std::vector<rank_type> raw_rmsg;
+    message                smsg;
+    message                rmsg;
+
+    test_environment(oomph::context& c, std::size_t size, int tid, int num_t, bool user_alloc)
+    : base(c, tid, num_t)
+    , raw_smsg(user_alloc ? size : 0)
+    , raw_rmsg(user_alloc ? size : 0)
+    , smsg(make_buffer(comm, size, user_alloc, raw_smsg.data()))
+    , rmsg(make_buffer(comm, size, user_alloc, raw_rmsg.data()))
+    {
         fill_send_buffer();
         fill_recv_buffer();
     }
@@ -84,11 +95,45 @@ struct test_environment_device : public test_environment_base
 {
     using base = test_environment_base;
 
-    test_environment_device(oomph::context& c, std::size_t size, int tid, int num_t)
-    : base(c, size, tid, num_t)
+    static auto make_buffer(oomph::communicator& comm, std::size_t size, bool user_alloc,
+        rank_type* device_ptr)
     {
-        smsg = comm.make_device_buffer<rank_type>(size, 0);
-        rmsg = comm.make_device_buffer<rank_type>(size, 0);
+        if (user_alloc) return comm.make_device_buffer<rank_type>(device_ptr, size, 0);
+        else
+            return comm.make_device_buffer<rank_type>(size, 0);
+    }
+
+    struct device_allocation
+    {
+        void* m_ptr = nullptr;
+        device_allocation(std::size_t size = 0)
+        {
+            if (size) m_ptr = hwmalloc::device_malloc(size * sizeof(rank_type));
+        }
+        device_allocation(device_allocation&& other)
+        : m_ptr{std::exchange(other.m_ptr, nullptr)}
+        {
+        }
+        ~device_allocation()
+        {
+            if (m_ptr) hwmalloc::device_free(m_ptr);
+        }
+        rank_type* get() const noexcept { return (rank_type*)m_ptr; }
+    };
+
+    device_allocation raw_device_smsg;
+    device_allocation raw_device_rmsg;
+    message           smsg;
+    message           rmsg;
+
+    test_environment_device(oomph::context& c, std::size_t size, int tid, int num_t,
+        bool user_alloc)
+    : base(c, tid, num_t)
+    , raw_device_smsg(user_alloc ? size : 0)
+    , raw_device_rmsg(user_alloc ? size : 0)
+    , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
+    , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
+    {
         fill_send_buffer();
         fill_recv_buffer();
     }
@@ -122,7 +167,8 @@ launch_test(Func f)
     // single threaded
     {
         oomph::context ctxt(MPI_COMM_WORLD, false);
-        f(ctxt, SIZE, 0, 1);
+        f(ctxt, SIZE, 0, 1, false);
+        f(ctxt, SIZE, 0, 1, true);
     }
 
     // multi threaded
@@ -131,7 +177,11 @@ launch_test(Func f)
         std::vector<std::thread> threads;
         threads.reserve(NTHREADS);
         for (int i = 0; i < NTHREADS; ++i)
-            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS});
+            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, false});
+        for (auto& t : threads) t.join();
+        threads.clear();
+        for (int i = 0; i < NTHREADS; ++i)
+            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
         for (auto& t : threads) t.join();
     }
 }
@@ -140,9 +190,9 @@ launch_test(Func f)
 // ===========
 template<typename Env>
 void
-test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
+test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
-    Env env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
@@ -187,13 +237,13 @@ TEST_F(mpi_test_fixture, send_recv)
 // ===================================
 template<typename Env>
 void
-test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
+test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -254,22 +304,25 @@ TEST_F(mpi_test_fixture, send_recv_cb)
 // =======================================================
 template<typename Env>
 void
-test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
+test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+    bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
 
-    auto send_callback = [&](message msg, rank_type, tag_type) {
+    auto send_callback = [&](message msg, rank_type, tag_type)
+    {
         ++sent;
         env.smsg = std::move(msg);
     };
-    auto recv_callback = [&](message msg, rank_type, tag_type) {
+    auto recv_callback = [&](message msg, rank_type, tag_type)
+    {
         ++received;
         env.rmsg = std::move(msg);
     };
@@ -327,13 +380,14 @@ TEST_F(mpi_test_fixture, send_recv_cb_disown)
 // =================================================
 template<typename Env>
 void
-test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
+test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+    bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -382,13 +436,14 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
 // =====================================================================
 template<typename Env>
 void
-test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads)
+test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+    bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
