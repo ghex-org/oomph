@@ -13,10 +13,6 @@
 #include <oomph/communicator.hpp>
 #include <oomph/util/moved_bit.hpp>
 #include "./address.hpp"
-#include <chrono>
-#ifndef NDEBUG
-#include <iostream>
-#endif
 
 namespace oomph
 {
@@ -48,46 +44,60 @@ struct endpoint_t
     endpoint_t(const endpoint_t&) = delete;
     endpoint_t& operator=(const endpoint_t&) = delete;
     endpoint_t(endpoint_t&& other) noexcept = default;
+    endpoint_t& operator=(endpoint_t&& other) = delete;
 
-    endpoint_t& operator=(endpoint_t&& other) noexcept
+    struct close_handle
     {
-        destroy();
-        m_ep.~ucp_ep_h();
-        ::new ((void*)(&m_ep)) ucp_ep_h{other.m_ep};
-        m_rank = other.m_rank;
-        m_worker = other.m_worker;
-        m_moved = std::move(other.m_moved);
-        return *this;
-    }
+        bool             m_done;
+        ucp_worker_h     m_ucp_worker;
+        ucs_status_ptr_t m_status;
 
-    ~endpoint_t() { destroy(); }
-
-    void destroy()
-    {
-        if (!m_moved)
+        close_handle()
+        : m_done{true}
         {
-            ucs_status_ptr_t ret = ucp_ep_close_nb(m_ep, UCP_EP_CLOSE_MODE_FLUSH);
-            if (UCS_OK == reinterpret_cast<std::uintptr_t>(ret)) return;
-            if (UCS_PTR_IS_ERR(ret)) return;
-
-            // wait untile the ep is destroyed, free the request
-            const auto              t0 = std::chrono::system_clock::now();
-            double                  elapsed = 0.0;
-            static constexpr double t_timeout = 2000;
-            while (UCS_OK != ucp_request_check_status(ret))
-            {
-                elapsed =
-                    std::chrono::duration<double, std::milli>(std::chrono::system_clock::now() - t0)
-                        .count();
-                if (elapsed > t_timeout) break;
-                ucp_worker_progress(m_worker);
-            }
-#ifndef NDEBUG
-            if (elapsed > t_timeout)
-                std::cerr << "WARNING: timeout waiting for UCX endpoint close" << std::endl;
-#endif
-            ucp_request_free(ret);
         }
+
+        close_handle(ucp_worker_h worker, ucs_status_ptr_t status)
+        : m_done{false}
+        , m_ucp_worker{worker}
+        , m_status{status}
+        {
+        }
+
+        close_handle(close_handle&& other)
+        : m_done{std::exchange(other.m_done, true)}
+        , m_ucp_worker{other.m_ucp_worker}
+        , m_status{other.m_status}
+        {
+        }
+
+        bool ready()
+        {
+            progress();
+            return m_done;
+        }
+
+        void progress()
+        {
+            if (!m_done)
+            {
+                ucp_worker_progress(m_ucp_worker);
+                if (UCS_OK != ucp_request_check_status(m_status))
+                {
+                    ucp_request_free(m_status);
+                    m_done = true;
+                }
+            }
+        }
+    };
+
+    close_handle close()
+    {
+        if (m_moved) return {};
+        ucs_status_ptr_t ret = ucp_ep_close_nb(m_ep, UCP_EP_CLOSE_MODE_FLUSH);
+        if (UCS_OK == reinterpret_cast<std::uintptr_t>(ret)) return {};
+        if (UCS_PTR_IS_ERR(ret)) return {};
+        return {m_worker, ret};
     }
 
     //operator bool() const noexcept { return m_moved; }
