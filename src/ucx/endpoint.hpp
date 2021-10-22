@@ -93,16 +93,11 @@ struct endpoint_t
 
     close_handle close()
     {
-        if (!m_moved)
-        {
-            ucs_status_ptr_t ret = ucp_ep_close_nb(m_ep, UCP_EP_CLOSE_MODE_FLUSH);
-            if (UCS_OK == reinterpret_cast<std::uintptr_t>(ret)) return {};
-            if (UCS_PTR_IS_ERR(ret)) return {};
-
-            return {m_worker, ret};
-        }
-        else
-            return {};
+        if (m_moved) return {};
+        ucs_status_ptr_t ret = ucp_ep_close_nb(m_ep, UCP_EP_CLOSE_MODE_FLUSH);
+        if (UCS_OK == reinterpret_cast<std::uintptr_t>(ret)) return {};
+        if (UCS_PTR_IS_ERR(ret)) return {};
+        return {m_worker, ret};
     }
 
     //operator bool() const noexcept { return m_moved; }

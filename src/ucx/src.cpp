@@ -61,11 +61,8 @@ context_impl::~context_impl()
             ucp_worker_progress(m_worker->m_worker);
             if (!h.ready()) tmp.push_back(std::move(h));
         }
-        {
-            using namespace std;
-            swap(handles, tmp);
-            tmp.clear();
-        }
+        handles.swap(tmp);
+        tmp.clear();
         elapsed = std::chrono::duration<double, std::milli>(std::chrono::system_clock::now() - t0)
                       .count();
     }
