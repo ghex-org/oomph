@@ -9,14 +9,18 @@
  */
 #include "./context.hpp"
 #include "./communicator.hpp"
+#include <chrono>
+#ifndef NDEBUG
+#include <iostream>
+#endif
 
 namespace oomph
 {
 communicator_impl*
 context_impl::get_communicator()
 {
-    auto send_worker = std::make_unique<worker_type>(
-        get(), m_db, (m_thread_safe ? UCS_THREAD_MODE_SERIALIZED : UCS_THREAD_MODE_SINGLE));
+    auto send_worker = std::make_unique<worker_type>(get(), m_db,
+        (m_thread_safe ? UCS_THREAD_MODE_SERIALIZED : UCS_THREAD_MODE_SINGLE));
     auto send_worker_ptr = send_worker.get();
     if (m_thread_safe)
     {
@@ -35,24 +39,58 @@ context_impl::get_communicator()
 
 context_impl::~context_impl()
 {
-    // ucp_worker_destroy should be called after a barrier
-    //// use MPI IBarrier and progress all workers
-    //MPI_Request req = MPI_REQUEST_NULL;
-    //int         flag;
-    //MPI_Ibarrier(m_mpi_comm, &req);
-    //while (true)
-    //{
-    //    // make communicators from workers and progress
-    //    for (auto& w_ptr : m_workers)
-    //        communicator_impl{this, m_thread_safe, m_worker.get(), w_ptr.get(), m_mutex}.progress();
-    //    communicator_impl{this, m_thread_safe, m_worker.get(), m_worker.get(), m_mutex}.progress();
-    //    MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-    //    if (flag) break;
-    //}
+    // issue a barrier to sync all contexts
     MPI_Barrier(m_mpi_comm);
-    // close endpoints
-    for (auto& w_ptr : m_workers) w_ptr->m_endpoint_cache.clear();
-    m_worker->m_endpoint_cache.clear();
+
+    const auto              t0 = std::chrono::system_clock::now();
+    double                  elapsed = 0.0;
+    static constexpr double t_timeout = 1000;
+
+    // close endpoints while also progressing the receive worker
+    std::vector<endpoint_t::close_handle> handles;
+    for (auto& w_ptr : m_workers)
+        for (auto& h : w_ptr->m_endpoint_handles) handles.push_back(std::move(h));
+
+    std::vector<endpoint_t::close_handle> tmp;
+    tmp.reserve(handles.size());
+
+    while (handles.size() != 0u && elapsed < t_timeout)
+    {
+        for (auto& h : handles)
+        {
+            ucp_worker_progress(m_worker->m_worker);
+            if (!h.ready()) tmp.push_back(std::move(h));
+        }
+        handles.swap(tmp);
+        tmp.clear();
+        elapsed = std::chrono::duration<double, std::milli>(std::chrono::system_clock::now() - t0)
+                      .count();
+    }
+
+    if (handles.size() > 0)
+    {
+#ifndef NDEBUG
+        std::cerr << "WARNING: timeout waiting for UCX endpoint close" << std::endl;
+#endif
+        // free all requests for the unclosed endpoints
+        for (auto& h : handles) ucp_request_free(h.m_status);
+    }
+
+    // issue another non-blocking barrier while progressing the receive worker in order to flush all
+    // remaining (remote) endpoints which are connected to this receive worker
+    MPI_Request req;
+    int         flag;
+    MPI_Ibarrier(m_mpi_comm, &req);
+    while (true)
+    {
+        ucp_worker_progress(m_worker->m_worker);
+        MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+        if (flag) break;
+    }
+
+    // receive worker should not have connected to any endpoint
+    assert(m_worker->m_endpoint_cache.size() == 0);
+
     // another MPI barrier to be sure
     MPI_Barrier(m_mpi_comm);
 }

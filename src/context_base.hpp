@@ -40,7 +40,7 @@ class context_base
         if (m_thread_safe && !(mpi_thread_safety == MPI_THREAD_MULTIPLE))
             throw std::runtime_error("oomph: MPI is not thread safe!");
         else if (!m_thread_safe && !(mpi_thread_safety == MPI_THREAD_SINGLE))
-            std::cerr << "oomph warning: MPI thread safety is too restrictive" << std::endl;
+            std::cerr << "oomph warning: MPI thread safety is higher than required" << std::endl;
     }
 
   public:
