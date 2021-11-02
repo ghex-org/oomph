@@ -159,6 +159,7 @@ operator/(vector<T, N> const& a, vector<U, N> const& b) noexcept
     return divide(a, b, std::make_index_sequence<N>{});
 }
 
+#if __cplusplus >= 201703L
 template<typename T, typename U, std::size_t N, std::size_t... I>
 inline constexpr auto
 dot(vector<T, N> const& a, vector<U, N> const& b, std::index_sequence<I...>) noexcept
@@ -172,7 +173,18 @@ dot(vector<T, N> const& a, vector<U, N> const& b) noexcept
 {
     return dot(a, b, std::make_index_sequence<N>{});
 }
+#else
+template<typename T, typename U, std::size_t N>
+inline constexpr auto
+dot(vector<T, N> const& a, vector<U, N> const& b) noexcept
+{
+    auto r = a[0] * b[0];
+    for (std::size_t i = 1; i < N; ++i) r += a[i] * b[i];
+    return r;
+}
+#endif
 
+#if __cplusplus >= 201703L
 template<typename T, std::size_t N, std::size_t... I>
 inline constexpr auto
 product(vector<T, N> const& v, std::index_sequence<I...>) noexcept
@@ -186,6 +198,16 @@ product(vector<T, N> const& v) noexcept
 {
     return product(v, std::make_index_sequence<N>{});
 }
+#else
+template<typename T, std::size_t N>
+inline constexpr auto
+product(vector<T, N> const& v) noexcept
+{
+    T r = v[0];
+    for (std::size_t i = 1; i < N; ++i) r *= v[i];
+    return r;
+}
+#endif
 
 template<std::size_t N, typename T, std::size_t... I>
 inline constexpr vector<T, N>
