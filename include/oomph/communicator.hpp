@@ -23,11 +23,13 @@
 
 namespace oomph
 {
-class context;
-class send_channel_base;
-class recv_channel_base;
-
+class context_impl;
 class communicator_impl;
+
+namespace detail
+{
+communicator get_communicator(context_impl* c);
+} // namespace detail
 
 class communicator
 {
@@ -42,9 +44,7 @@ class communicator
     static constexpr tag_type  any_tag = -1;
 
   private:
-    friend class context;
-    friend class send_channel_base;
-    friend class recv_channel_base;
+    friend communicator detail::get_communicator(context_impl*);
 
     struct schedule
     {
@@ -202,7 +202,7 @@ class communicator
     // ====================
 
     template<typename T>
-    [[nodiscard]] recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
+    recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
     {
         assert(msg);
         auto& scheduled = m_schedule->scheduled_recvs;
@@ -213,7 +213,7 @@ class communicator
     }
 
     template<typename T>
-    [[nodiscard]] send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
+    send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
     {
         assert(msg);
         auto& scheduled = m_schedule->scheduled_sends;
@@ -224,8 +224,8 @@ class communicator
     }
 
     template<typename T>
-    [[nodiscard]] send_request send_multi(message_buffer<T> const& msg,
-        std::vector<rank_type> const& neighs, tag_type tag)
+    send_request send_multi(message_buffer<T> const& msg, std::vector<rank_type> const& neighs,
+        tag_type tag)
     {
         assert(msg);
         auto& scheduled = m_schedule->scheduled_sends;

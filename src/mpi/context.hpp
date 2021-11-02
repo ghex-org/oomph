@@ -47,11 +47,6 @@ class context_impl : public context_base
     void  lock(communicator::rank_type r) { m_rma_context.lock(r); }
 
     communicator_impl* get_communicator();
-
-    template<std::size_t N>
-    void register_tensor(impl::tensor<N> const & t)
-    {
-    }
 };
 
 template<>
