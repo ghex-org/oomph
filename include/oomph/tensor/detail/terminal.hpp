@@ -14,6 +14,8 @@
 #include <oomph/tensor/detail/map.hpp>
 #include <memory>
 #include <vector>
+#include <map>
+#include <set>
 #include <algorithm>
 
 namespace oomph
@@ -39,11 +41,11 @@ class terminal<map<T, Layout>>
   protected:
     struct transport_range
     {
-        range_type        m_range;
-        message_buffer<T> m_message;
-        int               m_rank;
-        int               m_tag;
-        bool              m_direct;
+        range_type                         m_range;
+        std::shared_ptr<message_buffer<T>> m_message;
+        int                                m_rank;
+        int                                m_tag;
+        bool                               m_direct;
     };
 
     struct serialization_range
@@ -52,18 +54,74 @@ class terminal<map<T, Layout>>
         T*         m_ptr;
     };
 
+    struct buffer_cache
+    {
+        communicator*                                   m_comm;
+        std::vector<std::shared_ptr<message_buffer<T>>> m_messages;
+        std::map<std::size_t, std::set<std::size_t>>    m_available_idx;
+
+        buffer_cache(communicator* c) noexcept
+        : m_comm{c}
+        {
+        }
+
+        buffer_cache(buffer_cache&&) noexcept = default;
+        buffer_cache& operator=(buffer_cache&&) noexcept = default;
+
+        std::shared_ptr<message_buffer<T>> operator()(std::size_t size, std::size_t stage)
+        {
+            std::set<std::size_t>* index_set = nullptr;
+            auto                   it = m_available_idx.find(stage);
+            if (it == m_available_idx.end())
+            {
+                index_set = &(m_available_idx[stage]);
+                for (std::size_t i = 0; i < m_messages.size(); ++i) index_set->insert(i);
+            }
+            else
+            {
+                index_set = &(it->second);
+            }
+
+            auto m_it = std::find_if(index_set->begin(), index_set->end(),
+                [this, size](std::size_t i) { return (m_messages[i]->size() == size); });
+
+            if (m_it == index_set->end())
+            {
+                m_messages.push_back(
+                    std::make_shared<message_buffer<T>>(m_comm->make_buffer<T>(size)));
+                for (auto& s : m_available_idx) s.second.insert(m_messages.size() - 1);
+                index_set->erase(m_messages.size() - 1);
+                return m_messages.back();
+            }
+            else
+            {
+                auto res = *m_it;
+                index_set->erase(m_it);
+                return m_messages[res];
+            }
+        }
+    };
+
+    struct stage_t
+    {
+        std::vector<transport_range>     m_transport_ranges;
+        std::vector<serialization_range> m_serialization_ranges;
+    };
+
   protected:
-    map_type                         m_map;
-    std::unique_ptr<communicator>    m_comm;
-    std::vector<transport_range>     m_transport_ranges;
-    std::vector<serialization_range> m_serialization_ranges;
-    bool                             m_connected = false;
+    map_type                       m_map;
+    std::unique_ptr<communicator>  m_comm;
+    std::map<std::size_t, stage_t> m_stages;
+    buffer_cache                   m_buffer_cache;
+    std::vector<stage_t*>          m_stage_lu;
+    bool                           m_connected = false;
 
   public:
     template<typename Map>
     terminal(Map& m)
     : m_map{m}
     , m_comm{std::make_unique<communicator>(oomph::detail::get_communicator(m.m_context))}
+    , m_buffer_cache{m_comm.get()}
     {
     }
 
@@ -71,7 +129,7 @@ class terminal<map<T, Layout>>
     terminal& operator=(terminal&&) noexcept = default;
 
   public:
-    void add_range(range_type const& view, int rank, int tag)
+    void add_range(range_type const& view, int rank, int tag, std::size_t stage)
     {
         assert(!m_connected);
         //x==*,  y==1, z==1,  w==1 -> direct
@@ -95,22 +153,26 @@ class terminal<map<T, Layout>>
             }
         }
 
+        auto& s = m_stages[stage];
+
         if (direct)
         {
             auto ext = view.extents();
             ext[Layout::find(dim() - 1)] = m_map.line_size();
             auto const n_elements = product(ext);
-            m_transport_ranges.push_back(transport_range{view,
-                m_comm->make_buffer<T>(m_map.get_address(view.first()), n_elements), rank, tag,
-                true});
+            s.m_transport_ranges.push_back(transport_range{view,
+                std::make_shared<message_buffer<T>>(
+                    m_comm->make_buffer<T>(m_map.get_address(view.first()), n_elements)),
+                rank, tag, true});
         }
         else
         {
             auto const n_elements = product(view.extents());
             auto const n_elements_slice = n_elements / view.extents()[last_dim];
-            m_transport_ranges.push_back(
-                transport_range{view, m_comm->make_buffer<T>(n_elements), rank, tag, false});
-            T* ptr = m_transport_ranges.back().m_message.data();
+            s.m_transport_ranges.push_back(transport_range{view,
+                //m_comm->make_buffer<T>(n_elements),
+                m_buffer_cache(n_elements, stage), rank, tag, false});
+            T* ptr = s.m_transport_ranges.back().m_message->data();
 
             std::size_t const first_k = view.first()[last_dim];
             std::size_t const last_k = first_k + view.extents()[last_dim];
@@ -121,11 +183,12 @@ class terminal<map<T, Layout>>
                 auto ext = view.extents();
                 ext[last_dim] = 1;
 
-                m_serialization_ranges.push_back(serialization_range{range_type{first, ext}, ptr});
+                s.m_serialization_ranges.push_back(
+                    serialization_range{range_type{first, ext}, ptr});
                 ptr += n_elements_slice;
             }
 
-            std::sort(m_serialization_ranges.begin(), m_serialization_ranges.end(),
+            std::sort(s.m_serialization_ranges.begin(), s.m_serialization_ranges.end(),
                 [](auto const& a, auto const& b)
                 {
                     auto const& first_a = a.m_range.first();
@@ -144,7 +207,16 @@ class terminal<map<T, Layout>>
     void connect()
     {
         assert(!m_connected);
+        assert(m_stages.size() > 0);
+        m_stage_lu = std::vector<stage_t*>(m_stages.rbegin()->first + 1, nullptr);
+        for (auto& kvp : m_stages) m_stage_lu[kvp.first] = &(kvp.second);
         m_connected = true;
+    }
+
+    stage_t* get_stage(std::size_t stage)
+    {
+        assert(stage < m_stage_lu.size());
+        return m_stage_lu[stage];
     }
 
     T* serialize(serialization_range const& r, T* dst, vec coord,
@@ -186,18 +258,22 @@ class terminal<map<T, Layout>>
         void wait() {}
     };
 
-    pack_handle pack()
+    pack_handle pack(std::size_t stage)
     {
         assert(m_connected);
-        for (auto& r : m_serialization_ranges)
+        stage_t* s = get_stage(stage);
+        if (!s) return {};
+        for (auto& r : s->m_serialization_ranges)
             serialize(r, r.m_ptr, r.m_range.first(), std::integral_constant<std::size_t, 1>());
         return {};
     }
 
-    pack_handle unpack()
+    pack_handle unpack(std::size_t stage)
     {
         assert(m_connected);
-        for (auto& r : m_serialization_ranges)
+        stage_t* s = get_stage(stage);
+        if (!s) return {};
+        for (auto& r : s->m_serialization_ranges)
             serialize(r, (T const*)r.m_ptr, r.m_range.first(),
                 std::integral_constant<std::size_t, 1>());
         return {};
@@ -211,17 +287,21 @@ class terminal<map<T, Layout>>
         void          wait() { m_comm->wait_all(); }
     };
 
-    handle send()
+    handle send(std::size_t stage)
     {
         assert(m_connected);
-        for (auto& r : m_transport_ranges) m_comm->send(r.m_message, r.m_rank, r.m_tag);
+        stage_t* s = get_stage(stage);
+        if (!s) return {m_comm.get()};
+        for (auto& r : s->m_transport_ranges) m_comm->send(*r.m_message, r.m_rank, r.m_tag);
         return {m_comm.get()};
     }
 
-    handle recv()
+    handle recv(std::size_t stage)
     {
         assert(m_connected);
-        for (auto& r : m_transport_ranges) m_comm->recv(r.m_message, r.m_rank, r.m_tag);
+        stage_t* s = get_stage(stage);
+        if (!s) return {m_comm.get()};
+        for (auto& r : s->m_transport_ranges) m_comm->recv(*r.m_message, r.m_rank, r.m_tag);
         return {m_comm.get()};
     }
 };

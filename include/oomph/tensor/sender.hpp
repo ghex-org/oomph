@@ -40,9 +40,9 @@ class sender<map<T, Layout>> : private detail::terminal<detail::map<T, Layout>>
     sender(sender&&) noexcept = default;
     sender& operator=(sender&&) noexcept = default;
 
-    sender& add_dst(range_type const& view, int rank, int tag)
+    sender& add_dst(range_type const& view, int rank, int tag, std::size_t stage = 0)
     {
-        base::add_range(view, rank, tag);
+        base::add_range(view, rank, tag, stage);
         return *this;
     }
 
@@ -52,9 +52,9 @@ class sender<map<T, Layout>> : private detail::terminal<detail::map<T, Layout>>
         return *this;
     }
 
-    pack_handle pack() { return base::pack(); }
+    pack_handle pack(std::size_t stage = 0) { return base::pack(stage); }
 
-    handle send() { return base::send(); }
+    handle send(std::size_t stage = 0) { return base::send(stage); }
 };
 
 template<typename T, typename Layout>

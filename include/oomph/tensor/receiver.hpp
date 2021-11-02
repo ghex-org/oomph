@@ -40,9 +40,9 @@ class receiver<map<T, Layout>> : private detail::terminal<detail::map<T, Layout>
     receiver(receiver&&) noexcept = default;
     receiver& operator=(receiver&&) noexcept = default;
 
-    receiver& add_src(range_type const& view, int rank, int tag)
+    receiver& add_src(range_type const& view, int rank, int tag, std::size_t stage = 0)
     {
-        base::add_range(view, rank, tag);
+        base::add_range(view, rank, tag, stage);
         return *this;
     }
 
@@ -52,9 +52,9 @@ class receiver<map<T, Layout>> : private detail::terminal<detail::map<T, Layout>
         return *this;
     }
 
-    pack_handle unpack() { return base::unpack(); }
+    pack_handle unpack(std::size_t stage = 0) { return base::unpack(stage); }
 
-    handle recv() { return base::recv(); }
+    handle recv(std::size_t stage = 0) { return base::recv(stage); }
 };
 
 template<typename T, typename Layout>

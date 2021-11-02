@@ -153,15 +153,19 @@ TEST_F(mpi_test_fixture, ctor)
     {
         s
             // y-z plane, +x direction
-            .add_dst({{halo + x - halo, halo, halo}, {halo, y, z}}, 1, 0)
+            .add_dst({{halo + x - halo, halo, halo}, {halo, y, z}}, 1, 0,1)
             // x-y plane, -z direction
-            .add_dst({{halo, halo, halo}, {x, y, halo}}, 2, 0)
+            .add_dst({{halo, halo, halo}, {x, y, halo}}, 2, 0,0)
             // whole x-y plane, -z direction
-            .add_dst({{0, 0, halo}, {x + 2 * halo, y + 2 * halo, halo}}, 3, 0)
+            .add_dst({{0, 0, halo}, {x + 2 * halo, y + 2 * halo, halo}}, 3, 0,2)
             .connect();
 
-        s.pack().wait();
-        s.send().wait();
+        s.pack(1).wait();
+        s.send(1).wait();
+        s.pack(0).wait();
+        s.send(0).wait();
+        s.pack(2).wait();
+        s.send(2).wait();
     }
     if (world_rank == 1)
     {
