@@ -146,8 +146,10 @@ TEST_F(mpi_test_fixture, ctor)
     map_t t = ctxt.map_tensor<layout_t>({x + 2 * halo, y + 2 * halo, z + 2 * halo}, data.data(),
         (data.data() + data.size()) - 1);
 
-    tensor::sender<tensor::map<double, layout_t>>   s = tensor::make_sender(t);
-    tensor::receiver<tensor::map<double, layout_t>> r = tensor::make_receiver(t);
+    tensor::buffer_cache<double> s_cache;
+    tensor::buffer_cache<double> r_cache;
+    tensor::sender<tensor::map<double, layout_t>>   s = tensor::make_sender(t, s_cache);
+    tensor::receiver<tensor::map<double, layout_t>> r = tensor::make_receiver(t, r_cache);
 
     if (world_rank == 0)
     {

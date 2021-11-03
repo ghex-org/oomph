@@ -12,6 +12,7 @@
 #include <oomph/communicator.hpp>
 #include <oomph/tensor/range.hpp>
 #include <oomph/tensor/detail/map.hpp>
+#include <oomph/tensor/detail/buffer_cache.hpp>
 #include <memory>
 #include <vector>
 #include <map>
@@ -54,54 +55,6 @@ class terminal<map<T, Layout>>
         T*         m_ptr;
     };
 
-    struct buffer_cache
-    {
-        communicator*                                   m_comm;
-        std::vector<std::shared_ptr<message_buffer<T>>> m_messages;
-        std::map<std::size_t, std::set<std::size_t>>    m_available_idx;
-
-        buffer_cache(communicator* c) noexcept
-        : m_comm{c}
-        {
-        }
-
-        buffer_cache(buffer_cache&&) noexcept = default;
-        buffer_cache& operator=(buffer_cache&&) noexcept = default;
-
-        std::shared_ptr<message_buffer<T>> operator()(std::size_t size, std::size_t stage)
-        {
-            std::set<std::size_t>* index_set = nullptr;
-            auto                   it = m_available_idx.find(stage);
-            if (it == m_available_idx.end())
-            {
-                index_set = &(m_available_idx[stage]);
-                for (std::size_t i = 0; i < m_messages.size(); ++i) index_set->insert(i);
-            }
-            else
-            {
-                index_set = &(it->second);
-            }
-
-            auto m_it = std::find_if(index_set->begin(), index_set->end(),
-                [this, size](std::size_t i) { return (m_messages[i]->size() == size); });
-
-            if (m_it == index_set->end())
-            {
-                m_messages.push_back(
-                    std::make_shared<message_buffer<T>>(m_comm->make_buffer<T>(size)));
-                for (auto& s : m_available_idx) s.second.insert(m_messages.size() - 1);
-                index_set->erase(m_messages.size() - 1);
-                return m_messages.back();
-            }
-            else
-            {
-                auto res = *m_it;
-                index_set->erase(m_it);
-                return m_messages[res];
-            }
-        }
-    };
-
     struct stage_t
     {
         std::vector<transport_range>     m_transport_ranges;
@@ -109,19 +62,28 @@ class terminal<map<T, Layout>>
     };
 
   protected:
-    map_type                       m_map;
-    std::unique_ptr<communicator>  m_comm;
-    std::map<std::size_t, stage_t> m_stages;
-    buffer_cache                   m_buffer_cache;
-    std::vector<stage_t*>          m_stage_lu;
-    bool                           m_connected = false;
+    map_type                                        m_map;
+    std::unique_ptr<communicator>                   m_comm;
+    std::map<std::size_t, stage_t>                  m_stages;
+    std::shared_ptr<buffer_cache<T, communicator*>> m_top_buffer_cache;
+    buffer_cache<T, std::size_t>                    m_buffer_cache;
+    std::vector<stage_t*>                           m_stage_lu;
+    bool                                            m_connected = false;
 
   public:
     template<typename Map>
     terminal(Map& m)
     : m_map{m}
     , m_comm{std::make_unique<communicator>(oomph::detail::get_communicator(m.m_context))}
-    , m_buffer_cache{m_comm.get()}
+    , m_top_buffer_cache{std::make_shared<buffer_cache<T, communicator*>>()}
+    {
+    }
+
+    template<typename Map>
+    terminal(Map& m, std::shared_ptr<buffer_cache<T,communicator*>> c)
+    : m_map{m}
+    , m_comm{std::make_unique<communicator>(oomph::detail::get_communicator(m.m_context))}
+    , m_top_buffer_cache{c}
     {
     }
 
@@ -171,7 +133,9 @@ class terminal<map<T, Layout>>
             auto const n_elements_slice = n_elements / view.extents()[last_dim];
             s.m_transport_ranges.push_back(transport_range{view,
                 //m_comm->make_buffer<T>(n_elements),
-                m_buffer_cache(n_elements, stage), rank, tag, false});
+                //m_buffer_cache(*m_comm, n_elements, stage),
+                m_buffer_cache(*m_comm, n_elements, stage, *m_top_buffer_cache, m_comm.get()), rank,
+                tag, false});
             T* ptr = s.m_transport_ranges.back().m_message->data();
 
             std::size_t const first_k = view.first()[last_dim];

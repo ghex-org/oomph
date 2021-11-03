@@ -9,8 +9,9 @@
  */
 #pragma once
 
-#include <oomph/tensor/detail/terminal.hpp>
 #include <oomph/tensor/map.hpp>
+#include <oomph/tensor/buffer_cache.hpp>
+#include <oomph/tensor/detail/terminal.hpp>
 
 namespace oomph
 {
@@ -34,6 +35,11 @@ class sender<map<T, Layout>> : private detail::terminal<detail::map<T, Layout>>
   public:
     sender(map_type& m)
     : base(m)
+    {
+    }
+
+    sender(map_type& m, buffer_cache<T> const& c)
+    : base(m, c.m_cache)
     {
     }
 
@@ -62,6 +68,13 @@ sender<map<T, Layout>>
 make_sender(map<T, Layout>& m)
 {
     return {m};
+}
+
+template<typename T, typename Layout>
+sender<map<T, Layout>>
+make_sender(map<T, Layout>& m, buffer_cache<T> const& c)
+{
+    return {m, c};
 }
 
 } // namespace tensor
