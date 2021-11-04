@@ -9,6 +9,7 @@
  */
 
 #include <oomph/tensor/layout.hpp>
+#include <oomph/tensor/rt_layout.hpp>
 #include <oomph/tensor/sender.hpp>
 #include <oomph/tensor/receiver.hpp>
 
@@ -26,17 +27,35 @@ test_layout()
 {
     using namespace oomph;
     using namespace oomph::tensor;
-    static_assert(layout<I, J, K>::at(0) == I, "");
-    static_assert(layout<I, J, K>::at(1) == J, "");
-    static_assert(layout<I, J, K>::at(2) == K, "");
+    using layout_t = layout<I, J, K>;
+    static_assert(layout_t::at(0) == I, "");
+    static_assert(layout_t::at(1) == J, "");
+    static_assert(layout_t::at(2) == K, "");
 
     static constexpr std::size_t pos_0 = (I == 0) ? 0 : ((J == 0) ? 1 : 2);
     static constexpr std::size_t pos_1 = (I == 1) ? 0 : ((J == 1) ? 1 : 2);
     static constexpr std::size_t pos_2 = (I == 2) ? 0 : ((J == 2) ? 1 : 2);
 
-    static_assert(layout<I, J, K>::find(0) == pos_0, "");
-    static_assert(layout<I, J, K>::find(1) == pos_1, "");
-    static_assert(layout<I, J, K>::find(2) == pos_2, "");
+    static_assert(layout_t::find(0) == pos_0, "");
+    static_assert(layout_t::find(1) == pos_1, "");
+    static_assert(layout_t::find(2) == pos_2, "");
+
+    auto l = make_rt_layout<layout_t>();
+
+    EXPECT_EQ(l.at(0), layout_t::at(0));
+    EXPECT_EQ(l.at(1), layout_t::at(1));
+    EXPECT_EQ(l.at(2), layout_t::at(2));
+
+    EXPECT_EQ(l.find(0), layout_t::find(0));
+    EXPECT_EQ(l.find(1), layout_t::find(1));
+    EXPECT_EQ(l.find(2), layout_t::find(2));
+
+    EXPECT_TRUE( l.template is_equal<layout_t>() );
+    EXPECT_FALSE( (l.template is_equal<layout<I,K,J>>()) );
+    EXPECT_FALSE( (l.template is_equal<layout<J,I,K>>()) );
+    EXPECT_FALSE( (l.template is_equal<layout<J,K,I>>()) );
+    EXPECT_FALSE( (l.template is_equal<layout<K,I,J>>()) );
+    EXPECT_FALSE( (l.template is_equal<layout<K,J,I>>()) );
 }
 
 TEST(layout, ctor)
@@ -146,8 +165,8 @@ TEST_F(mpi_test_fixture, ctor)
     map_t t = ctxt.map_tensor<layout_t>({x + 2 * halo, y + 2 * halo, z + 2 * halo}, data.data(),
         (data.data() + data.size()) - 1);
 
-    tensor::buffer_cache<double> s_cache;
-    tensor::buffer_cache<double> r_cache;
+    tensor::buffer_cache<double>                    s_cache;
+    tensor::buffer_cache<double>                    r_cache;
     tensor::sender<tensor::map<double, layout_t>>   s = tensor::make_sender(t, s_cache);
     tensor::receiver<tensor::map<double, layout_t>> r = tensor::make_receiver(t, r_cache);
 
@@ -155,11 +174,11 @@ TEST_F(mpi_test_fixture, ctor)
     {
         s
             // y-z plane, +x direction
-            .add_dst({{halo + x - halo, halo, halo}, {halo, y, z}}, 1, 0,1)
+            .add_dst({{halo + x - halo, halo, halo}, {halo, y, z}}, 1, 0, 1)
             // x-y plane, -z direction
-            .add_dst({{halo, halo, halo}, {x, y, halo}}, 2, 0,0)
+            .add_dst({{halo, halo, halo}, {x, y, halo}}, 2, 0, 0)
             // whole x-y plane, -z direction
-            .add_dst({{0, 0, halo}, {x + 2 * halo, y + 2 * halo, halo}}, 3, 0,2)
+            .add_dst({{0, 0, halo}, {x + 2 * halo, y + 2 * halo, halo}}, 3, 0, 2)
             .connect();
 
         s.pack(1).wait();

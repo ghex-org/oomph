@@ -33,20 +33,20 @@ struct layout
     using reverse_lookup = boost::mp11::mp_transform<F, lookup_list>;
 
     // Get the position of the element with value `i` in the layout
-    static constexpr std::size_t find(int i)
+    static constexpr std::size_t find(std::size_t i)
     {
         return find_impl(i, boost::mp11::make_index_sequence<N>{});
     }
 
     // Get the value of the element at position `i` in the layout
-    static constexpr int at(std::size_t i)
+    static constexpr std::size_t at(std::size_t i)
     {
         std::size_t const ri[] = {I...};
         return ri[i];
     }
 
     template<std::size_t... J>
-    static constexpr std::size_t find_impl(int i, boost::mp11::index_sequence<J...>)
+    static constexpr std::size_t find_impl(std::size_t i, boost::mp11::index_sequence<J...>)
     {
         std::size_t const ri[] = {boost::mp11::mp_at_c<reverse_lookup, J>::value...};
         return ri[i];
