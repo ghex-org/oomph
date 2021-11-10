@@ -27,4 +27,13 @@ exit(char const* executable)
     return 1;
 }
 
+void print_config(char const *executable)
+{
+    std::cout << std::endl;
+    std::cout << "configuration for binary: " << executable << std::endl;
+    std::cout << std::endl;
+#include <oomph/cmake_config.hpp>
+    std::cout << std::endl;
+}
+
 } // namespace oomph
