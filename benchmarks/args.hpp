@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include "utils.hpp"
+#include <oomph/utils.hpp>
 #ifdef OOMPH_BENCHMARKS_MT
 #include <omp.h>
 #endif
@@ -29,12 +29,10 @@ struct args
 
     args(int argc, char** argv)
     {
-        if (argc != 4) { 
-	    is_valid = false; 
-	    if(argc==2 && !std::strcmp(argv[1], "-c")){
-	        print_config(argv[0]);
-	    }
-	}
+        if (argc != 4) {
+            is_valid = false;
+            if(argc==2 && !std::strcmp(argv[1], "-c")) oomph::print_config();
+        }
         else
         {
             n_iter = std::atoi(argv[1]);
