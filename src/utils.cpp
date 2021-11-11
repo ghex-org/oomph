@@ -11,8 +11,8 @@
 
 namespace oomph
 {
-
-void print_config()
+void
+print_config()
 {
     std::cout << std::endl;
     std::cout << "compile configuration:" << std::endl;
@@ -21,4 +21,4 @@ void print_config()
     std::cout << std::endl;
 }
 
-}
+} // namespace oomph

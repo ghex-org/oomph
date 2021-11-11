@@ -11,5 +11,5 @@
 
 namespace oomph
 {
-  void print_config();
+void print_config();
 }

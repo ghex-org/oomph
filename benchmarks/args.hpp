@@ -29,9 +29,10 @@ struct args
 
     args(int argc, char** argv)
     {
-        if (argc != 4) {
+        if (argc != 4)
+        {
             is_valid = false;
-            if(argc==2 && !std::strcmp(argv[1], "-c")) print_config();
+            if (argc == 2 && !std::strcmp(argv[1], "-c")) print_config();
         }
         else
         {
