@@ -31,7 +31,7 @@ struct args
     {
         if (argc != 4) {
             is_valid = false;
-            if(argc==2 && !std::strcmp(argv[1], "-c")) oomph::print_config();
+            if(argc==2 && !std::strcmp(argv[1], "-c")) print_config();
         }
         else
         {
