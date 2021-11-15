@@ -112,6 +112,10 @@ main(int argc, char** argv)
             }
 
             comm.wait_all();
+#ifdef OOMPH_BENCHMARKS_MT
+#pragma omp barrier
+#endif
+	    
             ///* wait for all */
             //for (int j = 0; j < inflight; j++)
             //{
