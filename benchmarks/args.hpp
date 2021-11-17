@@ -12,7 +12,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+
+#ifndef PURE_MPI
 #include <oomph/utils.hpp>
+#endif
+
 #ifdef OOMPH_BENCHMARKS_MT
 #include <omp.h>
 #endif
@@ -32,7 +36,9 @@ struct args
         if (argc != 4)
         {
             is_valid = false;
+#ifndef PURE_MPI
             if (argc == 2 && !std::strcmp(argv[1], "-c")) print_config();
+#endif
         }
         else
         {

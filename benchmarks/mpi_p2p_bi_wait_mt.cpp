@@ -12,6 +12,9 @@
 #include <mpi.h>
 #include <string.h>
 #include <atomic>
+
+// do not include OOMPH functionality
+#define PURE_MPI
 #include "./mpi_environment.hpp"
 #include "./args.hpp"
 #include "./timer.hpp"

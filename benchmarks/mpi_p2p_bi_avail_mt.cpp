@@ -12,6 +12,9 @@
 #include <mpi.h>
 #include <string.h>
 #include <atomic>
+
+// do not include OOMPH functionality
+#define PURE_MPI
 #include "./mpi_environment.hpp"
 #include "./args.hpp"
 #include "./timer.hpp"
@@ -131,6 +134,25 @@ main(int argc, char* argv[])
         int flag;
 #endif
         char header[256];
+
+        auto schedule_recv = [=, &dbg, &rdbg, &received, &lrecv](int j) {
+            MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j, mpi_comm,
+                &rreq[j]);
+            dbg += nthr;
+            rdbg += nthr;
+            received++;
+            lrecv++;
+        };
+
+        auto schedule_send = [=, &dbg, &sdbg, &sent, &lsent](int j) {
+            MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j, mpi_comm,
+                &sreq[j]);
+            dbg += nthr;
+            sdbg += nthr;
+            sent++;
+            lsent++;
+        };
+
         snprintf(header, 256, "%d total bwdt ", rank);
         while (sent < niter || received < niter)
         {
@@ -158,57 +180,25 @@ main(int argc, char* argv[])
 
 #ifdef USE_TESTANY
             MPI_Testany(inflight, rreq, &j, &flag, MPI_STATUS_IGNORE);
-            if (flag)
-            {
-                MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j,
-                    mpi_comm, &rreq[j]);
-                dbg += nthr;
-                rdbg += nthr;
-                received++;
-                lrecv++;
-            }
+            if (flag) schedule_recv(j);
 
             if (lsent < lrecv + 2 * inflight && sent < niter)
             {
                 MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
-                if (flag)
-                {
-                    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j,
-                        mpi_comm, &sreq[j]);
-                    dbg += nthr;
-                    sdbg += nthr;
-                    sent++;
-                    lsent++;
-                }
+                if (flag) schedule_send(j);
             }
 #else
             for (int i = 0; i < inflight; i++)
             {
                 MPI_Test(&rreq[i], &j, MPI_STATUS_IGNORE);
-                if (j)
-                {
-                    MPI_Irecv(rbuffers[i], buff_size, MPI_BYTE, peer_rank, thrid * inflight + i,
-                        mpi_comm, &rreq[i]);
-                    dbg += nthr;
-                    rdbg += nthr;
-                    received++;
-                    lrecv++;
-                }
+                if (j) schedule_recv(i);
             }
             if (lsent < lrecv + 2 * inflight)
             {
                 for (int i = 0; i < inflight; i++)
                 {
                     MPI_Test(&sreq[i], &j, MPI_STATUS_IGNORE);
-                    if (j)
-                    {
-                        MPI_Isend(sbuffers[i], buff_size, MPI_BYTE, peer_rank, thrid * inflight + i,
-                            mpi_comm, &sreq[i]);
-                        dbg += nthr;
-                        sdbg += nthr;
-                        sent++;
-                        lsent++;
-                    }
+                    if (j) schedule_send(i);
                 }
             }
 #endif
