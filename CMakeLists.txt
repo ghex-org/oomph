@@ -79,6 +79,12 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_config.inc.in
     ${CMAKE_CURRENT_BINARY_DIR}/include/oomph/cmake_config.inc)
 
 # ---------------------------------------------------------------------
+# fortan bindings
+# ---------------------------------------------------------------------
+include(oomph_fortran)
+add_subdirectory(bindings)
+
+# ---------------------------------------------------------------------
 # testing
 # ---------------------------------------------------------------------
 set(OOMPH_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")

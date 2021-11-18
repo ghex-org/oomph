@@ -7,9 +7,24 @@ mark_as_advanced(OOMPH_USE_FAST_PIMPL)
 # ---------------------------------------------------------------------
 # compiler and linker flags
 # ---------------------------------------------------------------------
+set(cxx_lang "$<COMPILE_LANGUAGE:CXX>")
+set(cxx_lang_clang "$<COMPILE_LANG_AND_ID:CXX,Clang>")
+#set(cuda_lang "$<COMPILE_LANGUAGE:CUDA>")
+set(fortran_lang "$<COMPILE_LANGUAGE:Fortran>")
+set(fortran_lang_gnu "$<COMPILE_LANG_AND_ID:Fortran,GNU>")
+
 function(oomph_target_compile_options target)
     set_target_properties(${target} PROPERTIES INTERFACE_POSITION_INDEPENDENT_CODE ON)
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    #target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(${target} PRIVATE
+    # flags for CXX builds
+    $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-local-typedef>>
+    $<${cxx_lang_clang}:$<BUILD_INTERFACE:-Wno-c++17-extensions -Wno-unused-lambda-capture>>
+    # flags for CUDA builds
+    #$<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra -Wno-unknown-pragmas --default-stream per-thread>>
+    # flags for Fortran builds
+    $<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
+    $<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>>)
 endfunction()
 
 function(oomph_target_link_options target)
