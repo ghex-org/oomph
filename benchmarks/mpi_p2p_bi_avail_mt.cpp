@@ -144,7 +144,7 @@ main(int argc, char* argv[])
             lrecv++;
         };
 
-        auto schedule_send = [=, &dbg, &sdbg, &sent, &lsent](int j) {
+        auto schedule_send = [&](int j) {
             MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j, mpi_comm,
                 &sreq[j]);
             dbg += nthr;
