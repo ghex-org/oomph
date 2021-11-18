@@ -14,7 +14,7 @@
 #include <atomic>
 
 // do not include OOMPH functionality
-#define PURE_MPI
+#define OOMPH_BENCHMARKS_PURE_MPI
 #include "./mpi_environment.hpp"
 #include "./args.hpp"
 #include "./timer.hpp"
