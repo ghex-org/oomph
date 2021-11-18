@@ -135,7 +135,7 @@ main(int argc, char* argv[])
 #endif
         char header[256];
 
-        auto schedule_recv = [=, &dbg, &rdbg, &received, &lrecv](int j) {
+        auto schedule_recv = [&](int j) {
             MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j, mpi_comm,
                 &rreq[j]);
             dbg += nthr;
