@@ -19,8 +19,11 @@
 namespace oomph
 {
 class context_impl;
+class barrier;
 class context
 {
+    friend class barrier;
+
   public:
     using pimpl = util::heap_pimpl<context_impl>;
 

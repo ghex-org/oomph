@@ -46,6 +46,7 @@ class communicator
     friend class send_channel_base;
     friend class recv_channel_base;
 
+  public:
     struct schedule
     {
         std::size_t scheduled_sends = 0;
@@ -121,12 +122,7 @@ class communicator
     };
 
   private:
-    communicator(impl_type* impl_) noexcept
-    : m_impl{impl_}
-    , m_pool{std::make_unique<boost::pool<>>(sizeof(detail::request_state), 128)}
-    , m_schedule{std::make_unique<schedule>()}
-    {
-    }
+    communicator(impl_type* impl_);
 
   public:
     communicator(communicator const&) = delete;

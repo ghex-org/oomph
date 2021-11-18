@@ -13,9 +13,58 @@
 #endif
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/util/stack_pimpl.hpp>
+#include <oomph/barrier.hpp>
+#include "./thread_id.hpp"
+#include <map>
+#include <set>
+#include <mutex>
 
 namespace oomph
 {
+///////////////////////////////
+// thread_id                 //
+///////////////////////////////
+namespace
+{
+std::uintptr_t*
+alloc_tid_m()
+{
+    auto ptr = new std::uintptr_t{};
+    *ptr = (std::uintptr_t)ptr;
+    return ptr;
+}
+} // namespace
+
+thread_id::thread_id()
+: m{alloc_tid_m()}
+{
+}
+
+thread_id::~thread_id() { delete m; }
+
+thread_id const&
+tid()
+{
+    static thread_local thread_id id;
+    return id;
+}
+
+namespace
+{
+std::mutex comm_map_mtx;
+std::map<context_impl const*,
+    std::map<std::uintptr_t, std::set<std::pair<communicator_impl*, communicator::schedule*>>>>
+    comm_map;
+} // namespace
+
+auto&
+get_comm_set(context_impl const* ctxt)
+{
+    std::lock_guard<std::mutex> lock(comm_map_mtx);
+    auto const&                 _tid = tid();
+    return comm_map[ctxt][_tid];
+}
+
 ///////////////////////////////
 // context                   //
 ///////////////////////////////
@@ -30,7 +79,10 @@ context::context(context&&) noexcept = default;
 
 context& context::operator=(context&&) noexcept = default;
 
-context::~context() = default;
+context::~context() //= default;
+{
+    comm_map.erase(m.get());
+}
 
 communicator
 context::get_communicator()
@@ -42,12 +94,21 @@ context::get_communicator()
 // communicator              //
 ///////////////////////////////
 
+communicator::communicator(impl_type* impl_)
+: m_impl{impl_}
+, m_pool{std::make_unique<boost::pool<>>(sizeof(detail::request_state), 128)}
+, m_schedule{std::make_unique<schedule>()}
+{
+    get_comm_set(m_impl->m_context).insert(std::make_pair(m_impl, m_schedule.get()));
+}
+
 communicator::~communicator()
 {
     if (m_impl)
     {
         wait_all();
         m_impl->release();
+        get_comm_set(m_impl->m_context).erase(std::make_pair(m_impl, m_schedule.get()));
     }
 }
 
@@ -79,6 +140,83 @@ void
 communicator::progress()
 {
     m_impl->progress();
+}
+
+///////////////////////////////
+// barrier                   //
+///////////////////////////////
+barrier::barrier(context const& c, size_t n_threads)
+: m_threads{n_threads}
+, b_count2{m_threads}
+, m_mpi_comm{c.mpi_comm()}
+, m_context{c.m.get()}
+{
+}
+
+void
+barrier::operator()() const
+{
+    if (in_node1()) rank_barrier();
+    else
+        while (b_count2 == m_threads)
+        {
+            //comm.progress();
+            for (auto& p : get_comm_set(m_context)) p.first->progress();
+        }
+    in_node2();
+}
+
+void
+barrier::rank_barrier() const
+{
+    MPI_Request req = MPI_REQUEST_NULL;
+    int         flag;
+    MPI_Ibarrier(m_mpi_comm, &req);
+    while (true)
+    {
+        //    comm.progress();
+        for (auto& p : get_comm_set(m_context)) p.first->progress();
+        MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+        if (flag) break;
+    }
+}
+
+bool
+barrier::in_node1() const
+{
+    size_t expected = b_count;
+    while (!b_count.compare_exchange_weak(expected, expected + 1, std::memory_order_relaxed))
+        expected = b_count;
+    if (expected == m_threads - 1)
+    {
+        b_count.store(0);
+        return true;
+    }
+    else
+    {
+        while (b_count != 0)
+        {
+            //comm.progress();
+            for (auto& p : get_comm_set(m_context)) p.first->progress();
+        }
+        return false;
+    }
+}
+
+void
+barrier::in_node2() const
+{
+    size_t ex = b_count2;
+    while (!b_count2.compare_exchange_weak(ex, ex - 1, std::memory_order_relaxed)) ex = b_count2;
+    if (ex == 1) { b_count2.store(m_threads); }
+    else
+    {
+        while (b_count2 != m_threads)
+        {
+            //comm.progress();
+            for (auto& p : get_comm_set(m_context)) p.first->progress();
+        }
+    }
 }
 
 ///////////////////////////////
