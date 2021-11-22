@@ -12,3 +12,4 @@
 #include <hwmalloc/config.hpp>
 
 #cmakedefine01 OOMPH_USE_FAST_PIMPL
+#cmakedefine01 OOMPH_ENABLE_BARRIER
