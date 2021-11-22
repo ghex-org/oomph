@@ -1,4 +1,5 @@
 PROGRAM test_context
+    !use iso_c_binding
     use oomph_mod
     use oomph_communicator_mod
 

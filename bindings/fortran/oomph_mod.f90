@@ -10,7 +10,7 @@
 MODULE oomph_mod
     use iso_c_binding
     use oomph_defs
-    !use ghex_comm_mod
+    !use oomph_commmunicator_mod
     !use ghex_message_mod
     !use ghex_structured_mod
     !use ghex_cubed_sphere_mod

@@ -29,6 +29,7 @@ install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/oomph_defs.mod
         ${CMAKE_CURRENT_BINARY_DIR}/oomph_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/oomph_communicator_mod.mod
     DESTINATION
         ${CMAKE_INSTALL_INCLUDEDIR}/oomph/bindings/fortran)
 
