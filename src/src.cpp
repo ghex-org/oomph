@@ -11,16 +11,20 @@
 #if HWMALLOC_ENABLE_DEVICE
 #include <hwmalloc/device.hpp>
 #endif
+#include <oomph/config.hpp>
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/util/stack_pimpl.hpp>
+#if OOMPH_ENABLE_BARRIER
 #include <oomph/barrier.hpp>
 #include "./thread_id.hpp"
 #include <map>
 #include <set>
 #include <mutex>
+#endif // OOMPH_ENABLE_BARRIER
 
 namespace oomph
 {
+#if OOMPH_ENABLE_BARRIER
 ///////////////////////////////
 // thread_id                 //
 ///////////////////////////////
@@ -51,19 +55,18 @@ tid()
 
 namespace
 {
-std::mutex comm_map_mtx;
-std::map<context_impl const*,
-    std::map<std::uintptr_t, std::set<std::pair<communicator_impl*, communicator::schedule*>>>>
-    comm_map;
+std::mutex                                                                            comm_map_mtx;
+std::map<context_impl const*, std::map<std::uintptr_t, std::set<communicator_impl*>>> comm_map;
 } // namespace
 
 auto&
 get_comm_set(context_impl const* ctxt)
 {
-    std::lock_guard<std::mutex> lock(comm_map_mtx);
     auto const&                 _tid = tid();
+    std::lock_guard<std::mutex> lock(comm_map_mtx);
     return comm_map[ctxt][_tid];
 }
+#endif // OOMPH_ENABLE_BARRIER
 
 ///////////////////////////////
 // context                   //
@@ -79,10 +82,11 @@ context::context(context&&) noexcept = default;
 
 context& context::operator=(context&&) noexcept = default;
 
-context::~context() //= default;
-{
-    comm_map.erase(m.get());
-}
+#if OOMPH_ENABLE_BARRIER
+context::~context() { comm_map.erase(m.get()); }
+#else
+context::~context() = default;
+#endif
 
 communicator
 context::get_communicator()
@@ -99,7 +103,9 @@ communicator::communicator(impl_type* impl_)
 , m_pool{std::make_unique<boost::pool<>>(sizeof(detail::request_state), 128)}
 , m_schedule{std::make_unique<schedule>()}
 {
-    get_comm_set(m_impl->m_context).insert(std::make_pair(m_impl, m_schedule.get()));
+#if OOMPH_ENABLE_BARRIER
+    get_comm_set(m_impl->m_context).insert(m_impl);
+#endif // OOMPH_ENABLE_BARRIER
 }
 
 communicator::~communicator()
@@ -108,7 +114,9 @@ communicator::~communicator()
     {
         wait_all();
         m_impl->release();
-        get_comm_set(m_impl->m_context).erase(std::make_pair(m_impl, m_schedule.get()));
+#if OOMPH_ENABLE_BARRIER
+        get_comm_set(m_impl->m_context).erase(m_impl);
+#endif // OOMPH_ENABLE_BARRIER
     }
 }
 
@@ -142,6 +150,7 @@ communicator::progress()
     m_impl->progress();
 }
 
+#if OOMPH_ENABLE_BARRIER
 ///////////////////////////////
 // barrier                   //
 ///////////////////////////////
@@ -159,10 +168,7 @@ barrier::operator()() const
     if (in_node1()) rank_barrier();
     else
         while (b_count2 == m_threads)
-        {
-            //comm.progress();
-            for (auto& p : get_comm_set(m_context)) p.first->progress();
-        }
+            for (auto c : get_comm_set(m_context)) c->progress();
     in_node2();
 }
 
@@ -174,8 +180,7 @@ barrier::rank_barrier() const
     MPI_Ibarrier(m_mpi_comm, &req);
     while (true)
     {
-        //    comm.progress();
-        for (auto& p : get_comm_set(m_context)) p.first->progress();
+        for (auto c : get_comm_set(m_context)) c->progress();
         MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
         if (flag) break;
     }
@@ -195,10 +200,7 @@ barrier::in_node1() const
     else
     {
         while (b_count != 0)
-        {
-            //comm.progress();
-            for (auto& p : get_comm_set(m_context)) p.first->progress();
-        }
+            for (auto c : get_comm_set(m_context)) c->progress();
         return false;
     }
 }
@@ -212,12 +214,10 @@ barrier::in_node2() const
     else
     {
         while (b_count2 != m_threads)
-        {
-            //comm.progress();
-            for (auto& p : get_comm_set(m_context)) p.first->progress();
-        }
+            for (auto c : get_comm_set(m_context)) c->progress();
     }
 }
+#endif // OOMPH_ENABLE_BARRIER
 
 ///////////////////////////////
 // message_buffer            //

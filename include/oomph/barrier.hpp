@@ -9,6 +9,9 @@
  */
 #pragma once
 
+#include <oomph/config.hpp>
+
+#if OOMPH_ENABLE_BARRIER
 #include <oomph/context.hpp>
 #include <atomic>
 
@@ -82,3 +85,6 @@ class barrier
 };
 
 } // namespace oomph
+#else
+#pragma message("barrier is not enabled in this configuration")
+#endif // OOMPH_ENABLE_BARRIER

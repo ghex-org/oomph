@@ -362,7 +362,7 @@ class communicator
         send_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
         const auto   s = msg.size();
         auto         m_ptr = msg.m.m_heap_ptr.get();
-        auto         m = new msg_ref_count{std::move(msg), {(int)neighs.size()}, neighs};
+        auto         m = new msg_ref_count{std::move(msg), (int)neighs.size(), neighs};
 
         for (auto id : neighs)
         {

@@ -1,4 +1,4 @@
-
+if (OOMPH_ENABLE_BARRIER)
 set(benchmarks
     bench_p2p_bi_ft_wait
     bench_p2p_bi_ft_avail
@@ -80,4 +80,7 @@ if (OOMPH_WITH_LIBFABRIC)
             make_benchmark_mt(${t} libfabric)
         endif()
     endforeach()
+endif()
+else()
+    message("warning: benchmarks cannot be built unless barrier is enabled")
 endif()
