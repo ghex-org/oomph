@@ -22,14 +22,12 @@ namespace detail
 struct request_state
 {
     struct reserved_t;
-    //// reserved space may be used by transport layers for special storage
-    //using reserved = std::array<uint64_t, OOMPH_TRANSPORT_RESERVED_SPACE>;
-    //reserved                m_reserved;
     communicator_impl*      m_comm;
     std::size_t*            m_scheduled;
     bool                    m_ready = false;
     std::size_t             m_ref_count = 0;
-    void*                   m_reserved_;
+    // reserved space may be used by transport layers for special storage
+    void*                   m_reserved;
 
     request_state(communicator_impl* comm, std::size_t* scheduled) noexcept
     : m_comm{comm}
@@ -37,7 +35,7 @@ struct request_state
     {
     }
 
-    reserved_t* reserve() noexcept { return reinterpret_cast<reserved_t*>(&m_reserved_); }
+    reserved_t* reserved() noexcept { return reinterpret_cast<reserved_t*>(&m_reserved); }
 };
 
 class shared_request_ptr

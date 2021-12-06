@@ -82,7 +82,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     bool cancel_recv_cb(recv_request const& req)
     {
-        return m_recv_callbacks.cancel(req.m_data->reserve()->m_index);
+        return m_recv_callbacks.cancel(req.m_data->reserved()->m_index);
     }
 };
 

@@ -141,7 +141,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
             req_data.m_comm = this;
             req_data.m_cb = cb.release();
-            req->reserve()->m_data = &req_data;
+            req->reserved()->m_data = &req_data;
         }
         else
         {
@@ -201,7 +201,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
                     req_data.m_comm = this;
                     req_data.m_cb = cb.release();
-                    req->reserve()->m_data = &req_data;
+                    req->reserved()->m_data = &req_data;
                 }
             }
             else
@@ -287,7 +287,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     // https://github.com/openucx/ucx/issues/1162
     bool cancel_recv_cb(recv_request const& req)
     {
-        auto& req_data = request_data::get(req.m_data->reserve()->m_data);
+        auto& req_data = request_data::get(req.m_data->reserved()->m_data);
         {
             // locked region
             if (m_thread_safe) m_mutex.lock();
