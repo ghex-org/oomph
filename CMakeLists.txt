@@ -49,12 +49,6 @@ target_include_directories(oomph INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>)
 
 # ---------------------------------------------------------------------
-# Declare minimum amount of 64bit slots to reserve in request struct
-# for different transport layers
-# ---------------------------------------------------------------------
-set(OOMPH_TRANSPORT_RESERVED_SPACE 1)
-
-# ---------------------------------------------------------------------
 # oomph MPI variant
 # ---------------------------------------------------------------------
 include(oomph_mpi)
