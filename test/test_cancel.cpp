@@ -29,7 +29,9 @@ test_1(oomph::communicator& comm, unsigned int size, int thread_id = 0)
         EXPECT_EQ(comm.scheduled_sends(), 0);
         EXPECT_EQ(comm.scheduled_recvs(), 0);
 
-        comm.send_multi(msg, dsts, 42 + 42 + thread_id).wait();
+
+        comm.send_multi(msg, dsts, 42 + 42 + thread_id);
+        comm.wait_all();
 
         EXPECT_EQ(comm.scheduled_sends(), 0);
         EXPECT_EQ(comm.scheduled_recvs(), 0);
@@ -101,7 +103,8 @@ test_2(oomph::communicator& comm, unsigned int size, int thread_id = 0)
         EXPECT_EQ(comm.scheduled_sends(), 0);
         EXPECT_EQ(comm.scheduled_recvs(), 0);
 
-        comm.send_multi(msg, dsts, 42 + 42 + thread_id).wait();
+        comm.send_multi(msg, dsts, 42 + 42 + thread_id);
+        comm.wait_all();
 
         EXPECT_EQ(comm.scheduled_sends(), 0);
         EXPECT_EQ(comm.scheduled_recvs(), 0);
