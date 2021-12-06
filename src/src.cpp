@@ -101,11 +101,9 @@ context::get_communicator()
 communicator::communicator(impl_type* impl_)
 : m_impl{impl_}
 , m_pool{std::make_unique<boost::pool<>>(
-      sizeof(detail::request_state)
-      //+
-      //    ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
-              //sizeof(void*)
-              ,
+      sizeof(detail::request_state) +
+          ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
+              sizeof(void*),
       128)}
 , m_schedule{std::make_unique<schedule>()}
 {

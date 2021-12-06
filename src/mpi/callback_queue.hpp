@@ -18,17 +18,10 @@
 namespace oomph
 {
 
-// MPI uses the reserved space in request_state for this extra info
-//struct mpi_per_msg_data {
-//    std::size_t m_index;
-//};
 struct detail::request_state::reserved_t
 {
     std::size_t m_index;
 };
-
-// Make sure that any reserved space is always big enough to hold our data
-//static_assert(sizeof(mpi_per_msg_data) <= sizeof(oomph::detail::request_state::m_reserved));
 
 class callback_queue
 {
@@ -75,8 +68,6 @@ class callback_queue
     void enqueue(mpi_request const& req, cb_type&& cb, handle_ptr&& h)
     {
         m_queue.push_back(element_type{req, std::move(cb), std::move(h)});
-        //mpi_per_msg_data *mpi_data = reinterpret_cast<mpi_per_msg_data*>(m_queue.back().m_handle->m_reserved.data());
-        //mpi_data->m_index = m_queue.size() - 1;
         m_queue.back().m_handle->reserve()->m_index = m_queue.size() - 1;
     }
 
@@ -128,8 +119,6 @@ class callback_queue
             }
             else if (i > j)
             {
-                //mpi_per_msg_data *mpi_data = reinterpret_cast<mpi_per_msg_data*>(e.m_handle->m_reserved.data());
-                //mpi_data->m_index = j;
                 e.m_handle->reserve()->m_index = j;
                 m_queue[j] = std::move(e);
                 ++j;
@@ -156,8 +145,6 @@ class callback_queue
             if (index + 1 < m_queue.size())
             {
                 m_queue[index] = std::move(m_queue.back());
-                //mpi_per_msg_data *mpi_data = reinterpret_cast<mpi_per_msg_data*>(m_queue[index].m_handle->m_reserved.data());
-                //mpi_data->m_index = index;
                 m_queue[index].m_handle->reserve()->m_index = index;
             }
             m_queue.pop_back();

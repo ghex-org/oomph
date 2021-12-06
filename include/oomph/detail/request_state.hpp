@@ -22,7 +22,7 @@ namespace detail
 struct request_state
 {
     struct reserved_t;
-    // reserved space may be used by transport layers for special storage
+    //// reserved space may be used by transport layers for special storage
     //using reserved = std::array<uint64_t, OOMPH_TRANSPORT_RESERVED_SPACE>;
     //reserved                m_reserved;
     communicator_impl*      m_comm;
@@ -37,7 +37,7 @@ struct request_state
     {
     }
 
-    reserved_t* reserve() noexcept { return reinterpret_cast<reserved_t*>(m_reserved_); }
+    reserved_t* reserve() noexcept { return reinterpret_cast<reserved_t*>(&m_reserved_); }
 };
 
 class shared_request_ptr
