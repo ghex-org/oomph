@@ -30,7 +30,7 @@ test_1(oomph::communicator& comm, unsigned int size, int thread_id = 0)
         EXPECT_EQ(comm.scheduled_recvs(), 0);
 
 
-        auto result = comm.send_multi(msg, dsts, 42 + 42 + thread_id);
+        comm.send_multi(msg, dsts, 42 + 42 + thread_id);
         comm.wait_all();
 
         EXPECT_EQ(comm.scheduled_sends(), 0);
