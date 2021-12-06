@@ -220,7 +220,7 @@ class communicator
     }
 
     template<typename T>
-    [[nodiscard]] send_request_vector send_multi(
+    send_request_vector send_multi(
         message_buffer<T> const& msg,
         std::vector<rank_type> const& neighs, tag_type tag)
     {
