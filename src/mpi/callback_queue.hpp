@@ -3,10 +3,10 @@
  * 
  * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #pragma once
 
@@ -17,6 +17,12 @@
 
 namespace oomph
 {
+
+struct detail::request_state::reserved_t
+{
+    std::size_t m_index;
+};
+
 class callback_queue
 {
   public: // member types
@@ -62,7 +68,7 @@ class callback_queue
     void enqueue(mpi_request const& req, cb_type&& cb, handle_ptr&& h)
     {
         m_queue.push_back(element_type{req, std::move(cb), std::move(h)});
-        m_queue.back().m_handle->m_index = m_queue.size() - 1;
+        m_queue.back().m_handle->reserved()->m_index = m_queue.size() - 1;
     }
 
     auto size() const noexcept { return m_queue.size(); }
@@ -113,7 +119,7 @@ class callback_queue
             }
             else if (i > j)
             {
-                e.m_handle->m_index = j;
+                e.m_handle->reserved()->m_index = j;
                 m_queue[j] = std::move(e);
                 ++j;
             }
@@ -139,7 +145,7 @@ class callback_queue
             if (index + 1 < m_queue.size())
             {
                 m_queue[index] = std::move(m_queue.back());
-                m_queue[index].m_handle->m_index = index;
+                m_queue[index].m_handle->reserved()->m_index = index;
             }
             m_queue.pop_back();
             return true;
