@@ -27,12 +27,17 @@ namespace oomph
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
 
 // UCX uses the reserved space in request_state for this extra info
-struct ucx_per_msg_data {
+//struct ucx_per_msg_data {
+//    void* m_data;
+//};
+struct detail::request_state::reserved_t
+{
+    //std::size_t m_index;
     void* m_data;
 };
 
 // Make sure that any reserved space is always big enough to hold our data
-static_assert(sizeof(ucx_per_msg_data) <= sizeof(oomph::detail::request_state::m_reserved));
+//static_assert(sizeof(ucx_per_msg_data) <= sizeof(oomph::detail::request_state::m_reserved));
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
@@ -142,8 +147,9 @@ class communicator_impl : public communicator_base<communicator_impl>
             //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
             req_data.m_comm = this;
             req_data.m_cb = cb.release();
-            ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req->m_reserved.data());
-            ucx_data->m_data = &req_data;
+            //ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req->m_reserved.data());
+            //ucx_data->m_data = &req_data;
+            req->reserve()->m_data = &req_data;
         }
         else
         {
@@ -203,8 +209,9 @@ class communicator_impl : public communicator_base<communicator_impl>
                     //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
                     req_data.m_comm = this;
                     req_data.m_cb = cb.release();
-                    ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req->m_reserved.data());
-                    ucx_data->m_data = &req_data;
+                    //ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req->m_reserved.data());
+                    //ucx_data->m_data = &req_data;
+                    req->reserve()->m_data = &req_data;
                 }
             }
             else
@@ -290,8 +297,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     // https://github.com/openucx/ucx/issues/1162
     bool cancel_recv_cb(recv_request const& req)
     {
-        ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req.m_data->m_reserved.data());
-        auto& req_data = request_data::get(ucx_data->m_data);
+        //ucx_per_msg_data *ucx_data = reinterpret_cast<ucx_per_msg_data*>(req.m_data->m_reserved.data());
+        //auto& req_data = request_data::get(ucx_data->m_data);
+        auto& req_data = request_data::get(req.m_data->reserve()->m_data);
         {
             // locked region
             if (m_thread_safe) m_mutex.lock();
