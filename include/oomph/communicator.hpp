@@ -220,9 +220,8 @@ class communicator
     }
 
     template<typename T>
-    send_request send_multi(
-        message_buffer<T> const& msg,
-        std::vector<rank_type> const& neighs, tag_type tag)
+    send_request send_multi(message_buffer<T> const& msg, std::vector<rank_type> const& neighs,
+        tag_type tag)
     {
         assert(msg);
         auto& scheduled = m_schedule->scheduled_sends;
@@ -371,7 +370,8 @@ class communicator
             send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, rdx = rx.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                [rd = r.m_data, rdx = rx.m_data, m, tag,
+                    cb = std::forward<CallBack>(callback)]() mutable
                 {
                     if ((--(m->counter)) == 0)
                     {
@@ -411,7 +411,8 @@ class communicator
             send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, rdx = rx.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                [rd = r.m_data, rdx = rx.m_data, m, tag,
+                    cb = std::forward<CallBack>(callback)]() mutable
                 {
                     if ((--(m->counter)) == 0)
                     {
@@ -451,7 +452,8 @@ class communicator
             send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, rdx = rx.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                [rd = r.m_data, rdx = rx.m_data, m, tag,
+                    cb = std::forward<CallBack>(callback)]() mutable
                 {
                     if ((--(m->counter)) == 0)
                     {
