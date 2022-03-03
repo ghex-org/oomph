@@ -11,6 +11,7 @@
 
 #include <oomph/util/pimpl.hpp>
 #include <oomph/detail/request_state.hpp>
+#include <vector>
 
 namespace oomph
 {
@@ -46,6 +47,8 @@ class send_request
     void wait();
 };
 
+using send_request_vector = std::vector<send_request> ;
+
 class recv_request
 {
   private:
@@ -78,5 +81,7 @@ class recv_request
     void wait();
     bool cancel();
 };
+
+using recv_request_vector = std::vector<recv_request>;
 
 } // namespace oomph
