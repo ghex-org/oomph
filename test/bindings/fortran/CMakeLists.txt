@@ -1,5 +1,7 @@
+find_package(OpenMP REQUIRED)
+
 # list of tests to be executed
-set(parallel_tests_f context_f)
+set(parallel_tests_f context_f message_f barrier_f send_recv_ft_f send_recv_cb_f)
 
 function(reg_parallel_test_f t_ lib n)
     set(t ${t_}_${lib})
@@ -8,6 +10,11 @@ function(reg_parallel_test_f t_ lib n)
     target_link_libraries(${t} PRIVATE oomph_f)
     target_link_libraries(${t} PRIVATE oomph_${lib})
     target_link_libraries(${t} PUBLIC MPI::MPI_Fortran)
+    target_link_libraries(${t} PRIVATE OpenMP::OpenMP_Fortran)
+    target_include_directories(${t} PRIVATE
+        $<INSTALL_INTERFACE:..>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../..>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../../..>)
     add_test(
         NAME ${t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}

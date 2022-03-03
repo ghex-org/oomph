@@ -26,6 +26,9 @@ function(oomph_target_compile_options target)
     # flags for Fortran builds
     $<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
     $<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>>)
+    if (OOMPH_ENABLE_BARRIER)
+        target_compile_definitions(${target} PRIVATE OOMPH_ENABLE_BARRIER)
+    endif()
 endfunction()
 
 function(oomph_target_link_options target)
