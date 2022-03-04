@@ -14,6 +14,7 @@
 #include <bindings/fortran/message_bind.hpp>
 
 using namespace oomph::fort;
+using communicator_type = oomph::communicator;
 
 namespace oomph {
     namespace fort {
@@ -38,8 +39,27 @@ namespace oomph {
                 if(cb) cb(&message, rank, tag, user_data);
             }
         };
+
+        struct callback_multi {
+            f_callback cb;
+            void *user_data = nullptr;
+            callback_multi(f_callback pcb, void *puser_data = nullptr) : cb{pcb}, user_data{puser_data} {}
+            void operator() (message_type message, std::vector<int>, int tag) const {
+                if(cb) cb(&message, -1, tag, user_data);
+            }
+        };
+
+        struct callback_multi_ref {
+            f_callback cb;
+            void *user_data = nullptr;
+            callback_multi_ref(f_callback pcb, void *puser_data = nullptr) : cb{pcb}, user_data{puser_data} {}
+            void operator() (message_type &message, std::vector<int>, int tag) const {
+                if(cb) cb(&message, -1, tag, user_data);
+            }
+        };
     }
 }
+
 
 extern "C"
 void* oomph_get_communicator()
@@ -50,19 +70,19 @@ void* oomph_get_communicator()
 extern "C"
 int oomph_comm_rank(obj_wrapper *wrapper)
 {
-    return get_object_ptr_unsafe<oomph::communicator>(wrapper)->rank();
+    return get_object_ptr_unsafe<communicator_type>(wrapper)->rank();
 }
 
 extern "C"
 int oomph_comm_size(obj_wrapper *wrapper)
 {
-    return get_object_ptr_unsafe<oomph::communicator>(wrapper)->size();
+    return get_object_ptr_unsafe<communicator_type>(wrapper)->size();
 }
 
 extern "C"
 void oomph_comm_progress(obj_wrapper *wrapper)
 {
-    get_object_ptr_unsafe<oomph::communicator>(wrapper)->progress();
+    get_object_ptr_unsafe<communicator_type>(wrapper)->progress();
 }
 
 
@@ -77,7 +97,7 @@ void oomph_comm_post_send(obj_wrapper *wcomm, message_type *message, int rank, i
         std::terminate();
     }
 
-    oomph::communicator *comm = get_object_ptr_unsafe<oomph::communicator>(wcomm);
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
 
     auto req = comm->send(*message, rank, tag);
     new(freq->data) decltype(req)(std::move(req));
@@ -92,7 +112,7 @@ void oomph_comm_post_send_cb_wrapped(obj_wrapper *wcomm, message_type *message, 
         std::terminate();
     }
 
-    oomph::communicator *comm = get_object_ptr_unsafe<oomph::communicator>(wcomm);
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
 
     auto req = comm->send(*message, rank, tag, callback_ref{cb, user_data});
     if(!freq) return;
@@ -108,9 +128,68 @@ void oomph_comm_send_cb_wrapped(obj_wrapper *wcomm, message_type **message_ref, 
         std::terminate();
     }
 
-    oomph::communicator *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     
     auto req = comm->send(std::move(**message_ref), rank, tag, callback{cb, user_data});
+    *message_ref = nullptr;
+    if(!freq) return;
+    new(freq->data) decltype(req)(std::move(req));
+    freq->recv_request = false;
+}
+
+
+/*
+   SEND_MULTI requests
+ */
+
+extern "C"
+void oomph_comm_post_send_multi_wrapped(obj_wrapper *wcomm, message_type *message, int *ranks, int nranks, int tag, frequest_type *freq)
+{
+    if(nullptr==message || nullptr==wcomm){
+        std::cerr << "ERROR: trying to submit a NULL message or communicator in " << __FUNCTION__ << ". Terminating.\n";
+        std::terminate();
+    }
+
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
+    std::vector<int> ranks_array(nranks);
+    ranks_array.assign(ranks, ranks+nranks);
+
+    auto req = comm->send_multi(*message, ranks_array, tag);
+    new(freq->data) decltype(req)(std::move(req));
+    freq->recv_request = false;
+}
+
+extern "C"
+void oomph_comm_post_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type *message, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
+{
+    if(nullptr==message || nullptr==wcomm){
+        std::cerr << "ERROR: trying to submit a NULL message or communicator in " << __FUNCTION__ << ". Terminating.\n";
+        std::terminate();
+    }
+
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
+    std::vector<int> ranks_array(nranks);
+    ranks_array.assign(ranks, ranks+nranks);
+
+    auto req = comm->send_multi(*message, ranks_array, tag, callback_multi_ref{cb, user_data});
+    if(!freq) return;
+    new(freq->data) decltype(req)(std::move(req));
+    freq->recv_request = false;
+}
+
+extern "C"
+void oomph_comm_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type **message_ref, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
+{
+    if(nullptr==message_ref || nullptr==wcomm || nullptr == *message_ref){
+        std::cerr << "ERROR: NULL message or communicator in " << __FUNCTION__ << ". Terminating.\n";
+        std::terminate();
+    }
+
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
+    std::vector<int> ranks_array(nranks);
+    ranks_array.assign(ranks, ranks+nranks);
+
+    auto req = comm->send_multi(std::move(**message_ref), ranks_array, tag, callback_multi{cb, user_data});
     *message_ref = nullptr;
     if(!freq) return;
     new(freq->data) decltype(req)(std::move(req));
@@ -129,7 +208,7 @@ void oomph_comm_post_recv(obj_wrapper *wcomm, message_type *message, int rank, i
         std::terminate();
     }
 
-    oomph::communicator *comm = get_object_ptr_unsafe<oomph::communicator>(wcomm);
+    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
 
     auto req = comm->recv(*message, rank, tag);
     new(freq->data) decltype(req)(std::move(req));
@@ -173,7 +252,6 @@ void oomph_comm_recv_cb_wrapped(obj_wrapper *wcomm, message_type **message_ref, 
 /*
    resubmission of recv requests from inside callbacks
  */
-
 extern "C"
 void oomph_comm_resubmit_recv_wrapped(obj_wrapper *wcomm, message_type *message, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {

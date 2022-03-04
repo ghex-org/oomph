@@ -15,7 +15,5 @@ namespace oomph
 namespace fort
 {
 context& get_context();
-    using context_type = oomph::context;
-    using communicator_type = oomph::communicator;
 } // namespace fort
 } // namespace oomph

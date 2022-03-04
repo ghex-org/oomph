@@ -118,6 +118,60 @@ MODULE oomph_communicator_mod
 
 
      ! -----------------------------------------------------------------------------------------
+     ! SEND_MULTI requests
+     ! -----------------------------------------------------------------------------------------
+     
+     ! WRAPPED - you should call oomph_comm_post_send_multi
+     ! post a send to MULTIPLE destinations on a message: message is still owned by the user
+     ! and has to be freed when necessary
+     ! request has to be tested / waited on to assure completion
+     subroutine oomph_comm_post_send_multi_wrapped(comm, message, ranks, nranks, tag, request) bind(c)
+       use iso_c_binding
+       import oomph_communicator, oomph_message, oomph_request
+       type(oomph_communicator), value :: comm
+       type(oomph_message), value :: message
+       type(c_ptr), value :: ranks
+       integer(c_int), value :: nranks
+       integer(c_int), value :: tag
+       type(oomph_request) :: request
+     end subroutine oomph_comm_post_send_multi_wrapped
+
+     ! WRAPPED - you should call oomph_comm_post_send_multi_cb
+     ! post a send to MULTIPLE destinations on a message: message is still owned by the user
+     ! and has to be freed when necessary
+     ! request has to be tested / waited on to assure completion
+     subroutine oomph_comm_post_send_multi_cb_wrapped(comm, message, ranks, nranks, tag, cb, req, user_data) bind(c)
+       use iso_c_binding
+       import oomph_communicator, oomph_message, oomph_request, oomph_cb_user_data
+       type(oomph_communicator), value :: comm
+       type(oomph_message), value :: message
+       type(c_ptr), value :: ranks
+       integer(c_int), value :: nranks
+       integer(c_int), value :: tag
+       type(c_funptr), value :: cb
+       type(oomph_request) :: req
+       type(oomph_cb_user_data), value :: user_data
+     end subroutine oomph_comm_post_send_multi_cb_wrapped
+
+     ! WRAPPED - you should call oomph_comm_post_send_multi_cb
+     ! post a send to MULTIPLE destinations on a message: message is still owned by the user
+     ! and has to be freed when necessary
+     ! request has to be tested / waited on to assure completion
+     subroutine oomph_comm_send_multi_cb_wrapped(comm, message, ranks, nranks, tag, cb, req, user_data) bind(c)
+       use iso_c_binding
+       import oomph_communicator, oomph_message, oomph_request, oomph_cb_user_data
+       type(oomph_communicator), value :: comm
+       type(oomph_message) :: message
+       type(c_ptr), value :: ranks
+       integer(c_int), value :: nranks
+       integer(c_int), value :: tag
+       type(c_funptr), value :: cb
+       type(oomph_request) :: req
+       type(oomph_cb_user_data), value :: user_data
+     end subroutine oomph_comm_send_multi_cb_wrapped
+
+
+     ! -----------------------------------------------------------------------------------------
      ! RECV requests
      ! -----------------------------------------------------------------------------------------
 
@@ -271,6 +325,81 @@ CONTAINS
       req = lreq
     end if
   end subroutine oomph_comm_send_cb
+
+  subroutine oomph_comm_post_send_multi(comm, message, ranks, tag, req)
+    use iso_c_binding
+    type(oomph_communicator), intent(in) :: comm
+    type(oomph_message), value :: message
+    integer, dimension(:), intent(in), target :: ranks
+    integer, intent(in) :: tag
+    type(oomph_request) :: req
+    
+    call oomph_comm_post_send_multi_wrapped(comm, message, c_loc(ranks), size(ranks), tag, req)
+  end subroutine oomph_comm_post_send_multi
+
+  subroutine oomph_comm_post_send_multi_cb(comm, message, ranks, tag, cb, req, user_data)
+    use iso_c_binding
+    type(oomph_communicator), intent(in) :: comm
+    type(oomph_message), value :: message
+    integer, dimension(:), intent(in), target :: ranks
+    integer, intent(in) :: tag
+    procedure(f_callback), optional, pointer :: cb
+    type(oomph_request), optional :: req
+    type(oomph_cb_user_data), optional :: user_data
+    
+    ! local variables
+    procedure(f_callback), pointer :: lcb
+    type(oomph_request) :: lreq
+    type(oomph_cb_user_data) :: luser_data
+
+    if (present(cb)) then
+      lcb => cb
+    else
+      lcb => null()
+    end if
+
+    if (present(user_data)) then
+      luser_data = user_data
+    end if
+   
+    call oomph_comm_post_send_multi_cb_wrapped(comm, message, c_loc(ranks), size(ranks), tag, c_funloc(lcb), lreq, luser_data)    
+
+    if (present(req)) then
+      req = lreq
+    end if
+  end subroutine oomph_comm_post_send_multi_cb
+
+  subroutine oomph_comm_send_multi_cb(comm, message, ranks, tag, cb, req, user_data)
+    use iso_c_binding
+    type(oomph_communicator), intent(in) :: comm
+    type(oomph_message) :: message
+    integer, dimension(:), intent(in), target :: ranks
+    integer, intent(in) :: tag
+    procedure(f_callback), optional, pointer :: cb
+    type(oomph_request), optional :: req
+    type(oomph_cb_user_data), optional :: user_data
+    
+    ! local variables
+    procedure(f_callback), pointer :: lcb
+    type(oomph_request) :: lreq
+    type(oomph_cb_user_data) :: luser_data
+    
+    if (present(cb)) then
+      lcb => cb
+    else
+      lcb => null()
+    end if
+
+    if (present(user_data)) then
+      luser_data = user_data
+    end if
+   
+    call oomph_comm_send_multi_cb_wrapped(comm, message, c_loc(ranks), size(ranks), tag, c_funloc(lcb), lreq, luser_data)    
+
+    if (present(req)) then
+      req = lreq
+    end if
+  end subroutine oomph_comm_send_multi_cb
 
   subroutine oomph_comm_post_recv_cb(comm, message, rank, tag, cb, req, user_data)
     use iso_c_binding

@@ -18,6 +18,12 @@ MODULE oomph_request_mod
        type(oomph_request) :: req
      end function oomph_request_test
 
+     logical(c_bool) function oomph_request_ready(req) bind(c)
+       use iso_c_binding
+       import oomph_request
+       type(oomph_request) :: req
+     end function oomph_request_ready
+
      subroutine oomph_request_wait(req) bind(c)
        use iso_c_binding
        import oomph_request

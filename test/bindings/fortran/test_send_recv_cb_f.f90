@@ -158,7 +158,6 @@ contains
     if (received < 2) then
       call oomph_comm_resubmit_recv(communicators(thrid), mesg, rank, tag, pcb, user_data = user_data)
     end if
-
   end subroutine recv_callback
 
 END PROGRAM test_send_recv_cb
