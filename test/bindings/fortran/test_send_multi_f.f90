@@ -67,12 +67,12 @@ PROGRAM test_send_multi
   ! allocate shared data structures. things related to recv messages
   ! could be allocated here, but have to wait til per-thread communicator
   ! is created below.
-  allocate(communicators(0:nthreads-1))
+  allocate(communicators(nthreads))
 
   !$omp parallel private(it, thrid, peer, peers, comm, status, smsg, msg_data, rreq, sreq)
 
   ! allocate a communicator per thread and store in a shared array
-  thrid = omp_get_thread_num()
+  thrid = omp_get_thread_num()+1
   communicators(thrid) = oomph_get_communicator()
   comm = communicators(thrid)
 
@@ -211,7 +211,7 @@ CONTAINS
     ! pcb => recv_callback
 
     ! needed to know which communicator we can use. Communicators are bound to threads.
-    thrid = omp_get_thread_num()
+    thrid = omp_get_thread_num()+1
 
     ! mark receipt in the user data
     ! OBS: this array is now 1-based, not 0-based as the original
