@@ -1,4 +1,5 @@
 target_sources(oomph_common PRIVATE utils.cpp)
+target_sources(oomph_common PRIVATE thread_id.cpp)
 target_sources(oomph_common PRIVATE rank_topology.cpp)
 
 if (OOMPH_WITH_MPI)
