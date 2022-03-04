@@ -217,9 +217,10 @@ CONTAINS
     ! OBS: this array is now 1-based, not 0-based as the original
     call c_f_pointer(user_data%data, rank_received, [mpi_size])
 
-    !$omp atomic
+    ! atomic not needed now since only the master thread completes the recv requests
+    !! $omp atomic
     rank_received(tag+1) = rank_received(tag+1)+1
-    !$omp end atomic
+    !! $omp end atomic
 
     ! resubmit
     call oomph_comm_resubmit_recv(communicators(thrid), mesg, rank, tag, pcb, rreq, user_data=user_data)
