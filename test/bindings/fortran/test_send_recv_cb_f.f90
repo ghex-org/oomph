@@ -23,9 +23,7 @@ PROGRAM test_send_recv_cb
   type(oomph_cb_user_data) :: user_data
   integer, volatile, target :: tag_received
   integer(1), dimension(:), pointer :: msg_data
-
   procedure(f_callback), pointer :: pcb
-  pcb => recv_callback
 
   !$omp parallel shared(nthreads)
   nthreads = omp_get_num_threads()
@@ -78,10 +76,11 @@ PROGRAM test_send_recv_cb
   ! to keep ownership of the message)
   ! user_data is used to count completed receive requests. 
   ! This per-thread integer is updated inside the callback by any thread.
-  ! Lock is not needed, because only thread can write to it at the same time
+  ! Lock is not needed, because only one thread can write to it at the same time
   ! (recv requests are submitted sequentially, after completion)
   tag_received = 0
   user_data%data = c_loc(tag_received)
+  pcb => recv_callback
   call oomph_comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb, user_data = user_data)
 
   ! send, but keep ownership of the message: buffer is not freed after send
@@ -90,11 +89,14 @@ PROGRAM test_send_recv_cb
 
   ! progress the communication - complete the send before posting another one
   ! here we send the same buffer twice
-  do while(.not.oomph_request_test(sreq))
-    call oomph_comm_progress(comm)
-  end do
+  call oomph_request_wait(sreq)
+  
+  ! if overlapping is needed, test and progress instead of waiting
+  ! do while(.not.oomph_request_test(sreq))
+  !   call oomph_comm_progress(comm)
+  ! end do
 
-  ! send again, give ownership of the message to oomph: buffer will be freed after completion
+  ! send again, give ownership of the message to oomph: buffer will be freed automatically after completion
   call oomph_comm_send_cb(comm, smsg, mpi_peer, thrid)
 
   ! progress the communication - wait for all (2) recv to complete
@@ -107,15 +109,17 @@ PROGRAM test_send_recv_cb
 
   ! cleanup per-thread. messages are freed by oomph if comm_recv_cb and comm_send_cb
   call oomph_free(comm)
+  call oomph_free(rmsg)
+  ! smsg has been freed by oomph after send completion
+  ! call oomph_free(smsg)
 
   !$omp end parallel
 
   ! cleanup shared
-  deallocate(communicators)
-
   if (mpi_rank == 0) then
     print *, "result: OK"
   end if
+  deallocate(communicators)
   call oomph_finalize()  
   call mpi_finalize(mpi_err)
 

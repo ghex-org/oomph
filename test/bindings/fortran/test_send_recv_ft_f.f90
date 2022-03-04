@@ -17,9 +17,17 @@ PROGRAM test_send_recv_ft
   type(oomph_message) :: smsg, rmsg
   integer(1), dimension(:), pointer :: msg_data
 
-  call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
-  if (MPI_THREAD_MULTIPLE /= mpi_threading) then
-    stop "MPI does not support multithreading"
+  !$omp parallel shared(nthreads)
+  nthreads = omp_get_num_threads()
+  !$omp end parallel
+
+  if (nthreads==1) then
+    call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
+  else
+    call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
+    if (MPI_THREAD_MULTIPLE /= mpi_threading) then
+      stop "MPI does not support multithreading"
+    end if
   end if
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
   call mpi_comm_rank (mpi_comm_world, mpi_rank, mpi_err)
@@ -31,10 +39,6 @@ PROGRAM test_send_recv_ft
      call exit(1)
   end if
   mpi_peer = modulo(mpi_rank+1, 2)
-
-  !$omp parallel shared(nthreads)
-  nthreads = omp_get_num_threads()
-  !$omp end parallel
 
   ! init oomph
   call oomph_init(nthreads, mpi_comm_world);

@@ -10,7 +10,7 @@ PROGRAM test_message
   type(oomph_message) :: msg
   integer(1), dimension(:), pointer :: msg_data
 
-  call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
+  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 
   call oomph_init(1, MPI_COMM_WORLD)
   msg = oomph_message_new(msg_size, OomphAllocatorHost)
