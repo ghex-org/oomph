@@ -25,6 +25,13 @@ PROGRAM test_send_recv_cb
   integer(1), dimension(:), pointer :: msg_data
   procedure(f_callback), pointer :: pcb
 
+  ! this HAS TO BE before the OpenMP block
+  ! Intel MPI breaks everything if this is done there.
+  ! In short, there seems to be some problem with thread local storage.
+  ! Global variables cannot be written to by threads, 
+  ! as this causes some variable address issues.
+  pcb => recv_callback
+
   !$omp parallel shared(nthreads)
   nthreads = omp_get_num_threads()
   !$omp end parallel
@@ -39,14 +46,20 @@ PROGRAM test_send_recv_cb
   end if
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
   call mpi_comm_rank (mpi_comm_world, mpi_rank, mpi_err)
-  if (mpi_size /= 2) then
-    if (mpi_rank == 0) then
-      print *, "Usage: this test can only be executed for 2 ranks"
-    end if
-    call mpi_finalize(mpi_err)
-    call exit(1)
+
+  if (and(mpi_size, 1)) then
+    print *, "This test requires an even number of ranks"
+    call mpi_abort(mpi_comm_world, -1, mpi_err)
   end if
-  mpi_peer = modulo(mpi_rank+1, 2)
+  if (and(mpi_rank, 1)) then
+    mpi_peer = mpi_rank-1
+  else
+    mpi_peer = mpi_rank+1
+  end if
+
+  if (mpi_rank==0) then
+    print *, mpi_size, "ranks and", nthreads, "threads per rank"
+  end if
 
   ! init oomph
   call oomph_init(nthreads, mpi_comm_world);
@@ -80,7 +93,6 @@ PROGRAM test_send_recv_cb
   ! (recv requests are submitted sequentially, after completion)
   tag_received = 0
   user_data%data = c_loc(tag_received)
-  pcb => recv_callback
   call oomph_comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb, user_data = user_data)
 
   ! send, but keep ownership of the message: buffer is not freed after send
@@ -90,7 +102,7 @@ PROGRAM test_send_recv_cb
   ! progress the communication - complete the send before posting another one
   ! here we send the same buffer twice
   call oomph_request_wait(sreq)
-  
+
   ! if overlapping is needed, test and progress instead of waiting
   ! do while(.not.oomph_request_test(sreq))
   !   call oomph_comm_progress(comm)
@@ -125,17 +137,24 @@ PROGRAM test_send_recv_cb
 
 contains
 
+  ! --------------------
+  ! In Intel compiler, this function CANNOT write to any global variables.
+  ! If this is done in an OpenMP application, something goes wrong with
+  ! variable address calculations / relocation.
+  ! --------------------
   subroutine recv_callback (mesg, rank, tag, user_data) bind(c)
     use iso_c_binding   
     type(oomph_message), value :: mesg
     integer(c_int), value :: rank, tag
     type(oomph_cb_user_data), value :: user_data
+
+    ! local variables
     integer :: thrid
     integer(1), dimension(:), pointer :: msg_data
     integer, pointer :: received
 
     ! NOTE: this segfaults in Intel compiler. It seems we have to use
-    ! the globally defined pcb from the main function. WHY??
+    ! the globally defined pcb from the main function.
     ! procedure(f_callback), pointer :: pcb
     ! pcb => recv_callback
 
@@ -144,12 +163,12 @@ contains
 
     ! what have we received?
     msg_data => oomph_message_data(mesg)
-    if (any(msg_data /= (mpi_peer+1)*nthreads)) then
-      print *, "wrong data received"
-      print *, mpi_rank, ": ", thrid, ": ", msg_data
+    if (any(msg_data /= (rank+1)*nthreads)) then
+      print *, "wrong data received, expected", rank
+      print *, mpi_rank, "received", msg_data
       call exit(1)
     end if
-    
+
     ! mark receipt in the user data
     call c_f_pointer(user_data%data, received)
     received = received + 1

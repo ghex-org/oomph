@@ -3,10 +3,11 @@ find_package(OpenMP REQUIRED)
 # list of tests to be executed
 set(parallel_tests_f context_f message_f barrier_f send_recv_ft_f send_recv_cb_f send_multi_f)
 
-function(reg_parallel_test_f t_ lib n)
+function(reg_parallel_test_f t_ lib n nthr)
     set(t ${t_}_${lib})
     add_executable(${t} test_${t_}.f90)
     oomph_target_compile_options(${t})
+    set_target_properties(${t} PROPERTIES LINKER_LANGUAGE Fortran)
     target_link_libraries(${t} PRIVATE oomph_f)
     target_link_libraries(${t} PRIVATE oomph_${lib})
     target_link_libraries(${t} PUBLIC MPI::MPI_Fortran)
@@ -19,22 +20,24 @@ function(reg_parallel_test_f t_ lib n)
         NAME ${t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
             $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(${t} PROPERTIES
+        ENVIRONMENT OMP_NUM_THREADS=${nthr})
 endfunction()
 
 if (OOMPH_WITH_MPI)
     foreach(t ${parallel_tests_f})
-        reg_parallel_test_f(${t} mpi 4)
+        reg_parallel_test_f(${t} mpi 4 4)
     endforeach()
 endif()
 
 if (OOMPH_WITH_UCX)
     foreach(t ${parallel_tests_f})
-        reg_parallel_test_f(${t} ucx 4)
+        reg_parallel_test_f(${t} ucx 4 4)
     endforeach()
 endif()
 
 if (OOMPH_WITH_LIBFABRIC)
     foreach(t ${parallel_tests_f})
-        reg_parallel_test_f(${t} libfabric 4)
+        reg_parallel_test_f(${t} libfabric 4 4)
     endforeach()
 endif()

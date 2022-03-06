@@ -46,6 +46,13 @@ PROGRAM test_send_multi
   ! recv callback
   procedure(f_callback), pointer :: pcb
 
+  ! this HAS TO BE before the OpenMP block
+  ! Intel MPI breaks everything if this is done there.
+  ! In short, there seems to be some problem with thread local storage.
+  ! Global variables cannot be written to by threads, 
+  ! as this causes some variable address issues.
+  pcb => recv_callback
+
   !$omp parallel shared(nthreads)
   nthreads = omp_get_num_threads()
   !$omp end parallel
@@ -61,6 +68,10 @@ PROGRAM test_send_multi
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
   call mpi_comm_rank (mpi_comm_world, mpi_rank, mpi_err)
 
+  if (mpi_rank==0) then
+    print *, mpi_size, "ranks and", nthreads, "threads per rank"
+  end if
+
   ! init oomph
   call oomph_init(nthreads, mpi_comm_world);
 
@@ -69,7 +80,7 @@ PROGRAM test_send_multi
   ! is created below.
   allocate(communicators(nthreads))
 
-  !$omp parallel private(it, thrid, peer, peers, comm, status, smsg, msg_data, rreq, sreq)
+  !$omp parallel private(it, thrid, peer, peers, comm, status, smsg, msg_data, rreq, sreq, user_data)
 
   ! allocate a communicator per thread and store in a shared array
   thrid = omp_get_thread_num()+1
@@ -89,7 +100,6 @@ PROGRAM test_send_multi
   allocate (rmsg(0:mpi_size-1))
   it = 0
   user_data%data = c_loc(rank_received)
-  pcb => recv_callback
   do while (it<mpi_size)
     if (it/=mpi_rank) then
       rmsg(it) = oomph_message_new(msg_size, OomphAllocatorHost)
@@ -227,8 +237,11 @@ CONTAINS
 
     ! cannot test the request: progress cannot be called inside the callback
     if (.not.oomph_request_ready(rreq)) then
+      ! Due to immediate completion it can happen that the old request has not completed yet.
+      ! The below sequence sorts this out: we only need to store the most recent incomplete request
+      ! to cancel it at the end of the program. In reality this should be solved better.
       ! if (.not.oomph_request_ready(rrequests(tag))) then
-      !   print *, mpi_rank, rank, thrid, "current request still not completed. could be trouble."
+      !   print *, mpi_rank, rank, thrid, "current request still not completed."
       ! end if
       rrequests(tag) = rreq
     end if

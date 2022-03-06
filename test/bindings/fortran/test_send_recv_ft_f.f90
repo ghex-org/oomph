@@ -31,14 +31,20 @@ PROGRAM test_send_recv_ft
   end if
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
   call mpi_comm_rank (mpi_comm_world, mpi_rank, mpi_err)
-  if (mpi_size /= 2) then
-     if (mpi_rank == 0) then
-        print *, "Usage: this test can only be executed for 2 ranks"
-     end if
-     call mpi_finalize(mpi_err)
-     call exit(1)
+
+  if (and(mpi_size, 1)) then
+    print *, "This test requires an even number of ranks"
+    call mpi_abort(mpi_comm_world, -1, mpi_err)
   end if
-  mpi_peer = modulo(mpi_rank+1, 2)
+  if (and(mpi_rank, 1)) then
+    mpi_peer = mpi_rank-1
+  else
+    mpi_peer = mpi_rank+1
+  end if
+
+  if (mpi_rank==0) then
+    print *, mpi_size, "ranks and", nthreads, "threads per rank"
+  end if
 
   ! init oomph
   call oomph_init(nthreads, mpi_comm_world);
