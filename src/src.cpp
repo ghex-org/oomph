@@ -25,34 +25,6 @@
 namespace oomph
 {
 #if OOMPH_ENABLE_BARRIER
-///////////////////////////////
-// thread_id                 //
-///////////////////////////////
-namespace
-{
-std::uintptr_t*
-alloc_tid_m()
-{
-    auto ptr = new std::uintptr_t{};
-    *ptr = (std::uintptr_t)ptr;
-    return ptr;
-}
-} // namespace
-
-thread_id::thread_id()
-: m{alloc_tid_m()}
-{
-}
-
-thread_id::~thread_id() { delete m; }
-
-thread_id const&
-tid()
-{
-    static thread_local thread_id id;
-    return id;
-}
-
 namespace
 {
 std::mutex                                                                            comm_map_mtx;
@@ -117,10 +89,10 @@ communicator::~communicator()
     if (m_impl)
     {
         wait_all();
-        m_impl->release();
 #if OOMPH_ENABLE_BARRIER
         get_comm_set(m_impl->m_context).erase(m_impl);
 #endif // OOMPH_ENABLE_BARRIER
+        m_impl->release();
     }
 }
 

@@ -31,6 +31,7 @@ class thread_id
   public:
     friend bool operator==(thread_id const& a, thread_id const& b) noexcept { return (a.m == b.m); }
     friend bool operator!=(thread_id const& a, thread_id const& b) noexcept { return (a.m != b.m); }
+    friend bool operator<(thread_id const& a, thread_id const& b) noexcept { return (a.m < b.m); }
 
     operator std::uintptr_t() const& noexcept { return *m; }
 };
