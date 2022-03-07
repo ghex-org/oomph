@@ -4,6 +4,8 @@ pkg_check_modules(PC_UCX QUIET ucx)
 find_path(UCP_INCLUDE_DIR ucp/api/ucp.h
     HINTS
     ${HPCX_UCX_DIR}   ENV HPCX_UCX_DIR
+    ${UCX_ROOT}  ENV UCX_ROOT
+    ${UCX_DIR}   ENV UCX_DIR
     ${UCP_ROOT}  ENV UCX_ROOT
     ${UCP_DIR}   ENV UCX_DIR
     PATH_SUFFIXES include)
@@ -11,6 +13,8 @@ find_path(UCP_INCLUDE_DIR ucp/api/ucp.h
 find_path(UCP_LIBRARY_DIR libucp.so
     HINTS
     ${HPCX_UCX_DIR}   ENV HPCX_UCX_DIR
+    ${UCX_ROOT}  ENV UCX_ROOT
+    ${UCX_DIR}   ENV UCX_DIR
     ${UCP_ROOT}  ENV UCX_ROOT
     ${UCP_DIR}   ENV UCX_DIR
     PATH_SUFFIXES lib lib64)
