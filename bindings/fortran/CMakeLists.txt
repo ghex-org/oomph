@@ -8,8 +8,6 @@ target_include_directories(oomph_f PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../..>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>)
 
-message(${CMAKE_CURRENT_SOURCE_DIR})
-
 oomph_target_compile_options(oomph_f)
 target_link_libraries(oomph_f PRIVATE oomph_common)
 target_link_libraries(oomph_f PUBLIC MPI::MPI_Fortran)
@@ -35,7 +33,6 @@ install(TARGETS oomph_f
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-#message(${CMAKE_INSTALL_INCLUDEDIR})
 install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/oomph_defs.mod

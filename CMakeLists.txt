@@ -121,7 +121,7 @@ install(
         ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/oomphConfigVersion.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibfabric.cmake
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCX.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)

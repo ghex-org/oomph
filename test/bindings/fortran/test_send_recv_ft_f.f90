@@ -32,11 +32,11 @@ PROGRAM test_send_recv_ft
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
   call mpi_comm_rank (mpi_comm_world, mpi_rank, mpi_err)
 
-  if (and(mpi_size, 1)) then
+  if (and(mpi_size, 1) /= 0) then
     print *, "This test requires an even number of ranks"
     call mpi_abort(mpi_comm_world, -1, mpi_err)
   end if
-  if (and(mpi_rank, 1)) then
+  if (and(mpi_rank, 1) /= 0) then
     mpi_peer = mpi_rank-1
   else
     mpi_peer = mpi_rank+1
