@@ -12,6 +12,11 @@ oomph_target_compile_options(oomph_f)
 target_link_libraries(oomph_f PRIVATE oomph_common)
 target_link_libraries(oomph_f PUBLIC MPI::MPI_Fortran)
 
+if(OOMPH_FORTRAN_OPENMP)
+  target_link_libraries(oomph_f PUBLIC OpenMP::OpenMP_Fortran)
+  target_link_libraries(oomph_f PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 target_sources(oomph_f PRIVATE object_wrapper.cpp)
 target_sources(oomph_f PRIVATE context_bind.cpp)
 target_sources(oomph_f PRIVATE communicator_bind.cpp)
@@ -39,6 +44,7 @@ install(
         ${CMAKE_CURRENT_BINARY_DIR}/oomph_mod.mod
         ${CMAKE_CURRENT_BINARY_DIR}/oomph_communicator_mod.mod
         ${CMAKE_CURRENT_BINARY_DIR}/oomph_message_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/oomph_request_mod.mod
     DESTINATION
         ${CMAKE_INSTALL_INCLUDEDIR}/oomph/bindings/fortran)
 
