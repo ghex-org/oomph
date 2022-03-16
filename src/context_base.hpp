@@ -39,7 +39,7 @@ class context_base
         OOMPH_CHECK_MPI_RESULT(MPI_Query_thread(&mpi_thread_safety));
         if (m_thread_safe && !(mpi_thread_safety == MPI_THREAD_MULTIPLE))
             throw std::runtime_error("oomph: MPI is not thread safe!");
-        else if (!m_thread_safe && !(mpi_thread_safety == MPI_THREAD_SINGLE))
+        else if (!m_thread_safe && !(mpi_thread_safety == MPI_THREAD_SINGLE) && rank() == 0)
             std::cerr << "oomph warning: MPI thread safety is higher than required" << std::endl;
     }
 
