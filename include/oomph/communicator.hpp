@@ -234,9 +234,10 @@ class communicator
 
         for (auto id : neighs)
         {
+            send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, counter]() mutable
+                [rd = r.m_data, rdx = rx.m_data, counter]() mutable
                 {
                     if ((--(*counter)) == 0)
                     {
@@ -245,7 +246,7 @@ class communicator
                     }
                     --(*(rd->m_scheduled));
                 },
-                r.m_data);
+                rx.m_data);
         }
         return r;
     }
@@ -366,9 +367,11 @@ class communicator
 
         for (auto id : neighs)
         {
+            send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                [rd = r.m_data, rdx = rx.m_data, m, tag,
+                    cb = std::forward<CallBack>(callback)]() mutable
                 {
                     if ((--(m->counter)) == 0)
                     {
@@ -378,7 +381,7 @@ class communicator
                     }
                     --(*(rd->m_scheduled));
                 },
-                r.m_data);
+                rx.m_data);
         }
         return r;
     }
@@ -405,9 +408,11 @@ class communicator
 
         for (auto id : neighs)
         {
+            send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                [rd = r.m_data, rdx = rx.m_data, m, tag,
+                    cb = std::forward<CallBack>(callback)]() mutable
                 {
                     if ((--(m->counter)) == 0)
                     {
@@ -417,7 +422,7 @@ class communicator
                     }
                     --(*(rd->m_scheduled));
                 },
-                r.m_data);
+                rx.m_data);
         }
         return r;
     }
@@ -444,9 +449,11 @@ class communicator
 
         for (auto id : neighs)
         {
+            send_request rx(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
             send(
                 m_ptr, s * sizeof(T), id, tag,
-                [rd = r.m_data, m, tag, cb = std::forward<CallBack>(callback)]() mutable
+                [rd = r.m_data, rdx = rx.m_data, m, tag,
+                    cb = std::forward<CallBack>(callback)]() mutable
                 {
                     if ((--(m->counter)) == 0)
                     {
@@ -456,7 +463,7 @@ class communicator
                     }
                     --(*(rd->m_scheduled));
                 },
-                r.m_data);
+                rx.m_data);
         }
         return r;
     }

@@ -26,6 +26,11 @@ namespace oomph
 #define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
 
+struct detail::request_state::reserved_t
+{
+    void* m_data;
+};
+
 class communicator_impl : public communicator_base<communicator_impl>
 {
   public:
@@ -93,10 +98,12 @@ class communicator_impl : public communicator_base<communicator_impl>
         // work through ready recv callbacks, which were pushed to the queue by other threads
         // (including this thread)
         if (m_thread_safe)
-            m_recv_cb_queue.consume_all([](request_data::cb_ptr_t cb) {
-                cb->invoke();
-                delete cb;
-            });
+            m_recv_cb_queue.consume_all(
+                [](request_data::cb_ptr_t cb)
+                {
+                    cb->invoke();
+                    delete cb;
+                });
     }
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
@@ -134,7 +141,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
             req_data.m_comm = this;
             req_data.m_cb = cb.release();
-            req->m_data = &req_data;
+            req->reserved()->m_data = &req_data;
         }
         else
         {
@@ -194,7 +201,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
                     req_data.m_comm = this;
                     req_data.m_cb = cb.release();
-                    req->m_data = &req_data;
+                    req->reserved()->m_data = &req_data;
                 }
             }
             else
@@ -239,8 +246,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         while (!m_cancel_recv_cb_queue.push(cb)) {}
     }
 
-    inline static void recv_callback(
-        void* ucx_req, ucs_status_t status, ucp_tag_recv_info_t* /*info*/)
+    inline static void recv_callback(void* ucx_req, ucs_status_t status,
+        ucp_tag_recv_info_t* /*info*/)
     {
         auto& req_data = request_data::get(ucx_req);
         if (status == UCS_OK)
@@ -280,7 +287,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     // https://github.com/openucx/ucx/issues/1162
     bool cancel_recv_cb(recv_request const& req)
     {
-        auto& req_data = request_data::get(req.m_data->m_data);
+        auto& req_data = request_data::get(req.m_data->reserved()->m_data);
         {
             // locked region
             if (m_thread_safe) m_mutex.lock();
@@ -298,7 +305,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         bool found = false;
         m_cancel_recv_cb_vec.clear();
         m_cancel_recv_cb_queue.consume_all(
-            [this, cmp = req_data.m_cb, &found](request_data::cb_ptr_t cb) {
+            [this, cmp = req_data.m_cb, &found](request_data::cb_ptr_t cb)
+            {
                 if (cb == cmp) found = true;
                 else
                     m_cancel_recv_cb_vec.push_back(cb);

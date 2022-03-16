@@ -38,8 +38,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
-    mpi_request send(
-        context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst, tag_type tag)
+    mpi_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+        tag_type tag)
     {
         MPI_Request        r;
         const_device_guard dg(ptr);
@@ -47,8 +47,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         return {r};
     }
 
-    mpi_request recv(
-        context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag)
+    mpi_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+        tag_type tag)
     {
         MPI_Request  r;
         device_guard dg(ptr);
@@ -82,7 +82,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     bool cancel_recv_cb(recv_request const& req)
     {
-        return m_recv_callbacks.cancel(req.m_data->m_index);
+        return m_recv_callbacks.cancel(req.m_data->reserved()->m_index);
     }
 };
 

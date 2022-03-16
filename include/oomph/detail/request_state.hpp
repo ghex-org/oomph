@@ -21,18 +21,21 @@ namespace detail
 {
 struct request_state
 {
-    communicator_impl* m_comm;
-    std::size_t*       m_scheduled;
-    std::size_t        m_index = 0;
-    bool               m_ready = false;
-    void*              m_data = nullptr;
-    std::size_t        m_ref_count = 0;
+    struct reserved_t;
+    communicator_impl*      m_comm;
+    std::size_t*            m_scheduled;
+    bool                    m_ready = false;
+    std::size_t             m_ref_count = 0;
+    // reserved space may be used by transport layers for special storage
+    void*                   m_reserved;
 
     request_state(communicator_impl* comm, std::size_t* scheduled) noexcept
     : m_comm{comm}
     , m_scheduled{scheduled}
     {
     }
+
+    reserved_t* reserved() noexcept { return reinterpret_cast<reserved_t*>(&m_reserved); }
 };
 
 class shared_request_ptr

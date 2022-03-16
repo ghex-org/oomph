@@ -25,34 +25,6 @@
 namespace oomph
 {
 #if OOMPH_ENABLE_BARRIER
-///////////////////////////////
-// thread_id                 //
-///////////////////////////////
-namespace
-{
-std::uintptr_t*
-alloc_tid_m()
-{
-    auto ptr = new std::uintptr_t{};
-    *ptr = (std::uintptr_t)ptr;
-    return ptr;
-}
-} // namespace
-
-thread_id::thread_id()
-: m{alloc_tid_m()}
-{
-}
-
-thread_id::~thread_id() { delete m; }
-
-thread_id const&
-tid()
-{
-    static thread_local thread_id id;
-    return id;
-}
-
 namespace
 {
 std::mutex                                                                            comm_map_mtx;
@@ -100,7 +72,11 @@ context::get_communicator()
 
 communicator::communicator(impl_type* impl_)
 : m_impl{impl_}
-, m_pool{std::make_unique<boost::pool<>>(sizeof(detail::request_state), 128)}
+, m_pool{std::make_unique<boost::pool<>>(
+      sizeof(detail::request_state) +
+          ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
+              sizeof(void*),
+      128)}
 , m_schedule{std::make_unique<schedule>()}
 {
 #if OOMPH_ENABLE_BARRIER
@@ -113,10 +89,10 @@ communicator::~communicator()
     if (m_impl)
     {
         wait_all();
-        m_impl->release();
 #if OOMPH_ENABLE_BARRIER
         get_comm_set(m_impl->m_context).erase(m_impl);
 #endif // OOMPH_ENABLE_BARRIER
+        m_impl->release();
     }
 }
 

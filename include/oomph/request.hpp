@@ -11,6 +11,7 @@
 
 #include <oomph/util/pimpl.hpp>
 #include <oomph/detail/request_state.hpp>
+#include <vector>
 
 namespace oomph
 {
