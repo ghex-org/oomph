@@ -7,7 +7,8 @@ add_subdirectory(mpi_runner)
 # ---------------------------------------------------------------------
 
 # list of tests to be executed
-set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality)
+set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality
+    test_tensor)
 if (OOMPH_ENABLE_BARRIER)
     list(APPEND parallel_tests test_barrier)
 endif()

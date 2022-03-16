@@ -13,6 +13,7 @@
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/message_buffer.hpp>
 #include <oomph/communicator.hpp>
+#include <oomph/tensor/map_fwd.hpp>
 #include <hwmalloc/config.hpp>
 #include <hwmalloc/device.hpp>
 
@@ -82,6 +83,10 @@ class context
 #endif
 
     communicator get_communicator();
+
+    template<typename Layout, typename T>
+    tensor::map<T, Layout> map_tensor(
+        tensor::vector<std::size_t, Layout::max_arg + 1> const& extents, T* first, T* last);
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);

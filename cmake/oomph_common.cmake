@@ -8,9 +8,13 @@ mark_as_advanced(OOMPH_USE_FAST_PIMPL)
 # ---------------------------------------------------------------------
 # compiler and linker flags
 # ---------------------------------------------------------------------
+#set(cxx_lang "$<COMPILE_LANGUAGE:CXX>")
 function(oomph_target_compile_options target)
     set_target_properties(${target} PROPERTIES INTERFACE_POSITION_INDEPENDENT_CODE ON)
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    #target_compile_options(${target} PRIVATE
+    #    $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic>>
+    #)
 endfunction()
 
 function(oomph_target_link_options target)

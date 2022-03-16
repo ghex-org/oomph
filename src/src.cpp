@@ -63,7 +63,7 @@ context::~context() = default;
 communicator
 context::get_communicator()
 {
-    return {m->get_communicator()};
+    return detail::get_communicator(m.get());
 }
 
 ///////////////////////////////
@@ -125,6 +125,15 @@ communicator::progress()
 {
     m_impl->progress();
 }
+
+namespace detail
+{
+communicator
+get_communicator(context_impl* c)
+{
+    return {c->get_communicator()};
+}
+} // namespace detail
 
 #if OOMPH_ENABLE_BARRIER
 ///////////////////////////////
@@ -421,47 +430,5 @@ recv_request::cancel()
     }
     return res;
 }
-
-/////////////////////////////////
-//// send_channel_base         //
-/////////////////////////////////
-//
-//send_channel_base::~send_channel_base() = default;
-//
-//void
-//send_channel_base::connect()
-//{
-//    m_impl->connect();
-//}
-//
-/////////////////////////////////
-//// recv_channel_base         //
-/////////////////////////////////
-//
-//recv_channel_base::~recv_channel_base() = default;
-//
-//void
-//recv_channel_base::connect()
-//{
-//    m_impl->connect();
-//}
-//
-//std::size_t
-//recv_channel_base::capacity()
-//{
-//    return m_impl->capacity();
-//}
-//
-//void*
-//recv_channel_base::get(std::size_t& index)
-//{
-//    return m_impl->get(index);
-//}
-//
-//recv_channel_impl*
-//recv_channel_base::get_impl() noexcept
-//{
-//    return &(*m_impl);
-//}
 
 } // namespace oomph
