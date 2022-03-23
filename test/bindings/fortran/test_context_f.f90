@@ -7,7 +7,6 @@ PROGRAM test_context
 
   integer :: mpi_err
   integer :: mpi_threading
-  integer :: nthreads = 0
   type(oomph_communicator) :: comm
 
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)

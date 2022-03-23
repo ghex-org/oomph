@@ -4,7 +4,8 @@ PROGRAM test_message
 
   implicit none
 
-  integer(8) :: msg_size = 16, i
+  integer(8) :: msg_size = 16
+  integer(1) :: i
   integer :: mpi_err
   integer :: mpi_threading
   type(oomph_message) :: msg
@@ -16,7 +17,7 @@ PROGRAM test_message
   msg = oomph_message_new(msg_size, OomphAllocatorHost)
 
   msg_data => oomph_message_data(msg)
-  msg_data(1:msg_size) = (/(i, i=1,msg_size,1)/)
+  msg_data(1:msg_size) = (/(i, i=1,int(msg_size, 1),1)/)
 
   print *, "values:    ", msg_data
 

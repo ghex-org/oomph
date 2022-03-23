@@ -19,7 +19,7 @@ MODULE oomph_mod
   interface
      subroutine oomph_init(nthreads, mpi_comm) bind(c)
        use iso_c_binding
-       integer, value :: nthreads, mpi_comm
+       integer(c_int), value :: nthreads, mpi_comm
      end subroutine oomph_init
 
      subroutine oomph_finalize() bind(c)
@@ -29,7 +29,7 @@ MODULE oomph_mod
 #ifdef OOMPH_ENABLE_BARRIER
      subroutine oomph_barrier(type) bind(c)
        use iso_c_binding
-       integer, value :: type
+       integer(c_int), value :: type
      end subroutine oomph_barrier
 #endif
   end interface

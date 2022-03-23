@@ -62,7 +62,7 @@ PROGRAM test_send_recv_cb
   end if
 
   ! init oomph
-  call oomph_init(nthreads, mpi_comm_world);
+  call oomph_init(nthreads, mpi_comm_world)
 
   ! initialize shared datastructures
   allocate(communicators(nthreads))
@@ -82,7 +82,7 @@ PROGRAM test_send_recv_cb
 
   ! initialize send data
   msg_data => oomph_message_data(smsg)
-  msg_data(1:msg_size) = (mpi_rank+1)*nthreads;
+  msg_data(1:msg_size) = int((mpi_rank+1)*nthreads, 1)
 
   ! pre-post a recv. subsequent recv are posted inside the callback.
   ! rmsg can not be accessed after this point (use post_recv_cb variant

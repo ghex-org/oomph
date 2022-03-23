@@ -47,7 +47,7 @@ PROGRAM test_send_recv_ft
   end if
 
   ! init oomph
-  call oomph_init(nthreads, mpi_comm_world);
+  call oomph_init(nthreads, mpi_comm_world)
 
   !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data)
 
@@ -61,7 +61,7 @@ PROGRAM test_send_recv_ft
   rmsg = oomph_message_new(msg_size, OomphAllocatorHost)
   smsg = oomph_message_new(msg_size, OomphAllocatorHost)
   msg_data => oomph_message_data(smsg)
-  msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
+  msg_data(1:msg_size) = int((mpi_rank+1)*nthreads + thrid, 1)
 
   ! send / recv with a request, tag 1
   call oomph_comm_post_send(comm, smsg, mpi_peer, thrid, sreq)

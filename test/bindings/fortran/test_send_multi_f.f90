@@ -16,7 +16,7 @@ PROGRAM test_send_multi
   implicit none
 
   integer :: mpi_err
-  integer :: mpi_threading, mpi_size, mpi_rank, mpi_peer
+  integer :: mpi_threading, mpi_size, mpi_rank
   integer :: nthreads = 0
   integer(8) :: msg_size = 16
 
@@ -73,7 +73,7 @@ PROGRAM test_send_multi
   end if
 
   ! init oomph
-  call oomph_init(nthreads, mpi_comm_world);
+  call oomph_init(nthreads, mpi_comm_world)
 
   ! allocate shared data structures. things related to recv messages
   ! could be allocated here, but have to wait til per-thread communicator
@@ -135,7 +135,7 @@ PROGRAM test_send_multi
   ! initialize send data
   smsg = oomph_message_new(msg_size, OomphAllocatorHost)
   msg_data => oomph_message_data(smsg)
-  msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
+  msg_data(1:msg_size) = int((mpi_rank+1)*nthreads + thrid, 1)
 
   ! send without a callback (returns a request), keep ownership of the message
   call oomph_comm_post_send_multi(comm, smsg, peers, mpi_rank, req=sreq)
