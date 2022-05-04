@@ -63,8 +63,10 @@ struct unique_function_impl<Func, void, Args...> : unique_function<void, Args...
 template<typename R, typename... Args>
 class unique_function<R(Args...)>
 {
-  private: // members
+  public:
     using interface_t = detail::unique_function<R, Args...>;
+
+  private: // members
     using u_ptr_t = std::unique_ptr<interface_t>;
     template<typename F>
     using result_t = std::result_of_t<F&(Args...)>;
@@ -80,6 +82,10 @@ class unique_function<R(Args...)>
     unique_function(unique_function&& other) = default;
     unique_function& operator=(unique_function&& other) = default;
 
+    unique_function(interface_t* iptr) noexcept
+    : impl{iptr}
+    {}
+
     template<typename F,
         // F can be invoked with Args and return type can be converted to R
         typename = decltype((R)(std::declval<result_t<F>>())),
@@ -94,6 +100,8 @@ class unique_function<R(Args...)>
     R operator()(Args... args) const { return impl->invoke(std::forward<Args>(args)...); }
 
     interface_t* release() noexcept { return impl.release(); }
+
+    void reset(interface_t* ptr) noexcept { impl.reset(ptr); }
 };
 
 } // namespace util

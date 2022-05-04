@@ -11,6 +11,7 @@
 
 #include "../context_base.hpp"
 #include "./rma_context.hpp"
+#include "./shared_callback_queue.hpp"
 
 namespace oomph
 {
@@ -26,6 +27,9 @@ class context_impl : public context_base
   private:
     heap_type   m_heap;
     rma_context m_rma_context;
+
+  public:
+    shared_callback_queue m_cb_queue;
 
   public:
     context_impl(MPI_Comm comm, bool thread_safe)
