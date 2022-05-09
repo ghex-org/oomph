@@ -37,17 +37,17 @@ class communicator_impl : public communicator_base<communicator_impl>
     using worker_type = worker_t;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    using lockfree_queue = boost::lockfree::queue<request_data*, //request_data::cb_ptr_t,
+    using lockfree_queue = boost::lockfree::queue<request_data*,
         boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
 
   public:
-    context_impl*                       m_context;
-    bool const                          m_thread_safe;
-    worker_type*                        m_recv_worker;
-    worker_type*                        m_send_worker;
-    ucx_mutex&                          m_mutex;
-    lockfree_queue                      m_recv_cb_queue;
-    lockfree_queue                      m_cancel_recv_cb_queue;
+    context_impl*              m_context;
+    bool const                 m_thread_safe;
+    worker_type*               m_recv_worker;
+    worker_type*               m_send_worker;
+    ucx_mutex&                 m_mutex;
+    lockfree_queue             m_recv_cb_queue;
+    lockfree_queue             m_cancel_recv_cb_queue;
     std::vector<request_data*> m_cancel_recv_cb_vec;
 
   public:
@@ -98,12 +98,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         // work through ready recv callbacks, which were pushed to the queue by other threads
         // (including this thread)
         if (m_thread_safe)
-            //m_recv_cb_queue.consume_all(
-            //    [](request_data::cb_ptr_t cb)
-            //    {
-            //        cb->invoke();
-            //        delete cb;
-            //    });
             m_recv_cb_queue.consume_all(
                 [this](request_data* d)
                 {
@@ -113,8 +107,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     m_mutex.lock();
                     ucp_request_free(ucx_req);
                     m_mutex.unlock();
-                }
-            );
+                });
     }
 
     void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
@@ -146,14 +139,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else if (!UCS_PTR_IS_ERR(ret))
         {
-            //// send operation was scheduled
-            //// attach necessary data to the request
-            //auto& req_data = request_data::get(ret);
-            ////req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
-            //req_data.m_comm = this;
-            //req_data.m_cb = cb.release();
-            //req->reserved()->m_data = &req_data;
-
             // send operation was scheduled
             // attach necessary data to the request
             req->reserved()->m_data = request_data::construct(ret, this, std::move(cb));
@@ -177,8 +162,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                                    ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
                                    : (OOMPH_UCX_TAG_MASK | OOMPH_UCX_SPECIFIC_SOURCE_MASK);
 
-        //// pointer to store callback in case of early completion
-        //request_data::cb_ptr_t cb_ptr = nullptr;
+        // function to store callback in case of early completion
         util::unique_function<void()> early_cb;
         {
             // locked region
@@ -202,30 +186,13 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 if (UCS_INPROGRESS != ucp_request_check_status(ret))
                 {
-                    //// early completed
-                    //// store callback for later: will be called outside locked region
-                    //cb_ptr = cb.release();
-                    //// destroy request
-                    //request_data::get(ret).clear();
-                    //ucp_request_free(ret);
-
                     // early completed
                     // store callback for later: will be called outside locked region
                     early_cb = std::move(cb);
-                    //request_data::construct(ret);
                     ucp_request_free(ret);
                 }
                 else
                 {
-                    //// recv operation was scheduled
-                    //// attach necessary data to the request
-                    //auto& req_data = request_data::get(ret);
-                    ////req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
-                    //req_data.m_comm = this;
-                    //req_data.m_cb = cb.release();
-                    //req->reserved()->m_data = &req_data;
-
-                    
                     // recv operation was scheduled
                     // attach necessary data to the request
                     req->reserved()->m_data = request_data::construct(ret, this, std::move(cb));
@@ -240,13 +207,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             if (m_thread_safe) m_mutex.unlock();
         }
         // check for early completion
-        //if (cb_ptr)
-        if (early_cb)
-        {
-            //cb_ptr->invoke();
-            //delete cb_ptr;
-            early_cb();
-        }
+        if (early_cb) early_cb();
     }
 
     inline static void send_callback(void* ucx_req, ucs_status_t status)
@@ -255,29 +216,22 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (status == UCS_OK)
         {
             // invoke callback
-            //req_data.m_cb->invoke();
-            //delete req_data.m_cb;
             req_data->m_cb();
         }
         // else: cancelled - do nothing - cancel for sends does not exist
 
         // destroy request
-        //req_data.clear();
         req_data->destroy();
         ucp_request_free(ucx_req);
     }
 
-    //void enqueue_recv(request_data::cb_ptr_t cb)
     void enqueue_recv(request_data& d)
     {
-        //while (!m_recv_cb_queue.push(cb)) {}
         while (!m_recv_cb_queue.push(&d)) {}
     }
 
-    //void enqueue_cancel_recv(request_data::cb_ptr_t cb)
     void enqueue_cancel_recv(request_data& d)
     {
-        //while (!m_cancel_recv_cb_queue.push(cb)) {}
         while (!m_cancel_recv_cb_queue.push(&d)) {}
     }
 
@@ -294,26 +248,15 @@ class communicator_impl : public communicator_base<communicator_impl>
             // enqueue callback on the issuing communicator
             // this guarantees that only the communicator on which the receive was executed will
             // invoke the callback
-            if (req_data.m_comm->m_thread_safe)
-            {
-                //req_data.m_comm->enqueue_recv(std::move(req_data.m_cb));
-                req_data.m_comm->enqueue_recv(req_data);
-            }
+            if (req_data.m_comm->m_thread_safe) { req_data.m_comm->enqueue_recv(req_data); }
             else
             {
-                //req_data.m_cb->invoke();
-                //delete req_data.m_cb;
                 req_data.m_cb();
 
                 // destroy request
                 req_data.destroy();
                 ucp_request_free(ucx_req);
             }
-
-            //// destroy request
-            ////req_data.clear();
-            //req_data.destroy();
-            //ucp_request_free(ucx_req);
         }
         else if (status == UCS_ERR_CANCELED)
         {
@@ -350,12 +293,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         bool found = false;
         m_cancel_recv_cb_vec.clear();
         m_cancel_recv_cb_queue.consume_all(
-        //    [this, cmp = req_data.m_cb, &found](request_data::cb_ptr_t cb)
-        //    {
-        //        if (cb == cmp) found = true;
-        //        else
-        //            m_cancel_recv_cb_vec.push_back(cb);
-        //    });
             [this, cmp = &req_data, &found](request_data* r)
             {
                 if (r == cmp) found = true;
@@ -369,14 +306,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         // delete callback here if it was actually cancelled
         if (found)
         {
-        //    delete req_data.m_cb;
-        //    // destroy request
-        //    req_data.clear();
-        //    if (m_thread_safe) m_mutex.lock();
-        //    ucp_request_free(req_data.m_ucx_ptr);
-        //    if (m_thread_safe) m_mutex.unlock();
-
             void* ucx_req = req_data.m_ucx_ptr;
+            // destroy request
             req_data.destroy();
             if (m_thread_safe) m_mutex.lock();
             ucp_request_free(ucx_req);
