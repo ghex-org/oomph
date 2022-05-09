@@ -104,7 +104,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             //        cb->invoke();
             //        delete cb;
             //    });
-            m_recv_cb_queue.consume_one(
+            m_recv_cb_queue.consume_all(
                 [this](request_data* d)
                 {
                     d->m_cb();
