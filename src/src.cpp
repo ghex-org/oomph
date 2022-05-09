@@ -44,9 +44,10 @@ get_comm_set(context_impl const* ctxt)
 // context                   //
 ///////////////////////////////
 
-context::context(MPI_Comm comm, bool thread_safe)
+context::context(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+    std::size_t message_pool_reserve)
 : m_mpi_comm{comm}
-, m(m_mpi_comm.get(), thread_safe)
+, m(m_mpi_comm.get(), thread_safe, message_pool_never_free, message_pool_reserve)
 {
 }
 
@@ -72,11 +73,14 @@ context::get_communicator()
 
 communicator::communicator(impl_type* impl_)
 : m_impl{impl_}
-, m_pool{std::make_unique<boost::pool<>>(
+, m_pool{std::make_unique<pool_type>(
       sizeof(detail::request_state) +
           ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
               sizeof(void*),
       128)}
+, m_send_multi_pool_1{std::make_unique<pool_type>(sizeof(msg_ref_count<message_buffer<int>*>), 128)}
+, m_send_multi_pool_2{std::make_unique<pool_type>(sizeof(msg_ref_count<message_buffer<int>>), 128)}
+, m_send_multi_pool_3{std::make_unique<pool_type>(sizeof(int), 128)}
 , m_schedule{std::make_unique<schedule>()}
 {
 #if OOMPH_ENABLE_BARRIER

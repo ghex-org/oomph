@@ -32,7 +32,8 @@ class context
     pimpl                 m;
 
   public:
-    context(MPI_Comm comm, bool thread_safe = true);
+    context(MPI_Comm comm, bool thread_safe = true, bool message_pool_never_free = false,
+        std::size_t message_pool_reserve = 1);
 
     context(context const&) = delete;
 

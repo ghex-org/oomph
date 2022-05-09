@@ -28,9 +28,10 @@ class context_impl : public context_base
     rma_context m_rma_context;
 
   public:
-    context_impl(MPI_Comm comm, bool thread_safe)
+    context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+        std::size_t message_pool_reserve)
     : context_base(comm, thread_safe)
-    , m_heap{this}
+    , m_heap{this, message_pool_never_free, message_pool_reserve}
     , m_rma_context{m_mpi_comm}
     {
     }

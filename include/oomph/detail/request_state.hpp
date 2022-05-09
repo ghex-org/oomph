@@ -41,11 +41,13 @@ struct request_state
 class shared_request_ptr
 {
   private:
+    using pool_type = boost::pool<boost::default_user_allocator_malloc_free>;
+
     request_state* m_ptr = nullptr;
-    boost::pool<>* m_pool = nullptr;
+    pool_type* m_pool = nullptr;
 
   public:
-    shared_request_ptr(boost::pool<>* pool, communicator_impl* comm, std::size_t* scheduled)
+    shared_request_ptr(pool_type* pool, communicator_impl* comm, std::size_t* scheduled)
     : m_pool{pool}
     {
         m_ptr = new (m_pool->malloc()) request_state(comm, scheduled);
