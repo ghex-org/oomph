@@ -191,6 +191,8 @@ class unique_function<R(Args...)>
   public: // member functions
     R operator()(Args... args) const { return get()->invoke(std::forward<Args>(args)...); }
 
+    operator bool() const noexcept { return (holder.index() != 0); }
+
   private: // helper functions
     static interface_t* get_from_buffer(holder_t const& h) noexcept
     {
