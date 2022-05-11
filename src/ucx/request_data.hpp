@@ -30,7 +30,6 @@ struct request_data
         m_cb.~cb_t();
     }
 
-    //static request_data* construct(void* ptr, comm_ptr_t comm, cb_ptr_t cb)
     static request_data* construct(void* ptr, comm_ptr_t comm, cb_t&& cb)
     {
         return ::new (get_impl(ptr)) request_data{ptr, comm, std::move(cb)};
