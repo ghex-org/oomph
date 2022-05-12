@@ -17,6 +17,7 @@
 #include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../device_guard.hpp"
+#include "../pool_allocator.hpp"
 
 namespace oomph
 {
@@ -24,15 +25,19 @@ class communicator_impl : public communicator_base<communicator_impl>
 {
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
+    using pool_type = boost::pool<boost::default_user_allocator_malloc_free>;
 
   public:
     context_impl*  m_context;
     callback_queue m_send_callbacks;
     callback_queue m_recv_callbacks;
 
+    pool_type m_request_pool;
+
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
+    , m_request_pool(ctxt->m_request_state_size)
     {
     }
 
@@ -97,8 +102,13 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else
         {
-            auto s = std::make_shared<detail::shared_request_state>(m_context, this,
-                &(m_context->m_scheduled), src, tag, std::move(cb), req);
+            //auto s = std::make_shared<detail::shared_request_state>(m_context, this,
+            //    &(m_context->m_scheduled), src, tag, std::move(cb), req);
+
+            auto s = std::allocate_shared<detail::shared_request_state>(
+                ts_pool_allocator<char>(&(m_context->m_shared_request_pool), &(m_context->m_mtx)),
+                m_context, this, &(m_context->m_scheduled), src, tag, std::move(cb), req);
+
             m_context->m_req_queue.push(s);
             return {std::move(s)};
         }

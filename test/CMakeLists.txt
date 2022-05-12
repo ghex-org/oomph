@@ -7,7 +7,7 @@ add_subdirectory(mpi_runner)
 # ---------------------------------------------------------------------
 
 # list of serial tests to be executed
-set(serial_tests test_unique_function)
+set(serial_tests test_unique_function test_unsafe_shared_ptr)
 
 # list of parallel tests to be executed
 set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality)

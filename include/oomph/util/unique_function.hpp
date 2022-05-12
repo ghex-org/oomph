@@ -19,7 +19,7 @@ namespace oomph
 {
 namespace util
 {
-template<typename Signature>
+template<typename Signature, std::size_t S = 128>
 class unique_function;
 
 namespace detail
@@ -80,15 +80,15 @@ struct unique_function_impl<Func, void, Args...> : unique_function<void, Args...
 
 // a function object wrapper a la std::function but for move-only types
 // which uses small buffer optimization
-template<typename R, typename... Args>
-class unique_function<R(Args...)>
+template<typename R, typename... Args, std::size_t S>
+class unique_function<R(Args...), S>
 {
   private: // member types
     // abstract base class
     using interface_t = detail::unique_function<R, Args...>;
 
     // buffer size and type
-    static constexpr std::size_t sbo_size = 128;
+    static constexpr std::size_t sbo_size = S;
     using buffer_t = std::aligned_storage_t<sbo_size, std::alignment_of<std::max_align_t>::value>;
 
     // variant holds 3 alternatives:
