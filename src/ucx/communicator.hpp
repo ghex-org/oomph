@@ -210,6 +210,13 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (early_cb) early_cb();
     }
 
+    std::size_t scheduled_shared_recvs() const noexcept { return 0;/*m_context->m_cb_queue.size();*/ }
+
+    void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+        util::unique_function<void()>&& cb/*, communicator::shared_request_ptr&& h*/)
+    {
+    }
+
     inline static void send_callback(void* ucx_req, ucs_status_t status)
     {
         auto req_data = request_data::get(ucx_req);

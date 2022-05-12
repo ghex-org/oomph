@@ -19,6 +19,7 @@ class communicator_impl;
 
 namespace detail
 {
+
 struct request_state
 {
     struct reserved_t;

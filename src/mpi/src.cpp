@@ -21,6 +21,12 @@ context_impl::get_communicator()
     m_comms_set.insert(comm);
     return comm;
 }
+    
+void 
+detail::shared_request_state::progress()
+{
+    m_ctxt->progress(); 
+}
 
 //send_channel_base::send_channel_base(communicator& comm, std::size_t size, std::size_t T_size,
 //    communicator::rank_type dst, communicator::tag_type tag, std::size_t levels)

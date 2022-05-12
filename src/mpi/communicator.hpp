@@ -74,23 +74,45 @@ class communicator_impl : public communicator_base<communicator_impl>
             m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
     }
 
-    void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb/*, communicator::shared_request_ptr&& h*/)
+    //void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+    //    tag_type tag, util::unique_function<void()>&& cb /*, communicator::shared_request_ptr&& h*/)
+    //{
+    //    //auto req = recv(ptr, size, src, tag);
+    //    //if (req.is_ready()) cb();
+    //    //else
+    //    //    //m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
+    //    //    m_context->m_cb_queue.enqueue(req, std::move(cb));
+    //}
+
+    //std::size_t scheduled_shared_recvs() const noexcept { return 0;/*m_context->m_cb_queue.size();*/ }
+
+    shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
     {
         auto req = recv(ptr, size, src, tag);
-        if (req.is_ready()) cb();
+        if (req.is_ready())
+        {
+            cb(src, tag);
+            return {};
+        }
         else
-            //m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
-            m_context->m_cb_queue.enqueue(req, std::move(cb));
+        {
+            auto s = std::make_shared<detail::shared_request_state>(m_context, this,
+                &(m_context->m_scheduled), src, tag, std::move(cb), req);
+            m_context->m_req_queue.push(s);
+            return {std::move(s)};
+        }
     }
-
-    std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_cb_queue.size(); }
+    
+    std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_scheduled.load(); }
 
     void progress()
     {
         m_send_callbacks.progress();
         m_recv_callbacks.progress();
-        m_context->m_cb_queue.progress();
+        //m_context->m_cb_queue.progress();
+        //m_context->m_req_queue.progress();
+        m_context->progress();
     }
 
     bool cancel_recv_cb(recv_request const& req)

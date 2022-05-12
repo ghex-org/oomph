@@ -307,11 +307,18 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
     m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(req));
 }
 
-void
-communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()> cb/*, shared_request_ptr req*/)
+//void
+//communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
+//    tag_type tag, util::unique_function<void()> cb/*, shared_request_ptr req*/)
+//{
+//    m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb)/*, std::move(req)*/);
+//}
+
+shared_recv_request
+communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
+    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb)/*, std::move(req)*/);
+    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
 }
 
 std::size_t
@@ -436,6 +443,44 @@ recv_request::cancel()
         m_data.reset();
     }
     return res;
+}
+
+
+bool
+shared_recv_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return m->is_ready();
+}
+
+bool
+shared_recv_request::is_canceled() const noexcept
+{
+    if (!m) return true;
+    return m->is_canceled();
+}
+
+bool
+shared_recv_request::test()
+{
+    if (!m) return true;
+    m->progress();
+    return m->is_ready();
+}
+
+void
+shared_recv_request::wait()
+{
+    if (!m) return;
+    while (!m->is_ready()) m->progress();
+}
+
+bool
+shared_recv_request::cancel()
+{
+    if (!m) return false;
+    if (m->is_ready()) return false;
+    return m->cancel();
 }
 
 /////////////////////////////////
