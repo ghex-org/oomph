@@ -307,6 +307,19 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
     m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(req));
 }
 
+void
+communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
+    tag_type tag, util::unique_function<void()> cb/*, shared_request_ptr req*/)
+{
+    m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb)/*, std::move(req)*/);
+}
+
+std::size_t
+communicator::scheduled_shared_recvs() const noexcept
+{
+    return m_impl->scheduled_shared_recvs();
+}
+
 ///////////////////////////////
 // make_buffer               //
 ///////////////////////////////

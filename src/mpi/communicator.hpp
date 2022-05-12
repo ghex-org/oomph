@@ -74,10 +74,23 @@ class communicator_impl : public communicator_base<communicator_impl>
             m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
     }
 
+    void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+        util::unique_function<void()>&& cb/*, communicator::shared_request_ptr&& h*/)
+    {
+        auto req = recv(ptr, size, src, tag);
+        if (req.is_ready()) cb();
+        else
+            //m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
+            m_context->m_cb_queue.enqueue(req, std::move(cb));
+    }
+
+    std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_cb_queue.size(); }
+
     void progress()
     {
         m_send_callbacks.progress();
         m_recv_callbacks.progress();
+        m_context->m_cb_queue.progress();
     }
 
     bool cancel_recv_cb(recv_request const& req)

@@ -131,7 +131,6 @@ class unique_function<R(Args...)>
     unique_function(unique_function const&) = delete;
     unique_function& operator=(unique_function const&) = delete;
 
-
     // construct from large function
     template<typename F, typename = has_signature_t<F>, enable_if_large_function_t<F> = true>
     unique_function(F&& f)

@@ -81,6 +81,22 @@ class communicator
             --(*(req->m_scheduled));
         }
     };
+    template<typename T, typename CallBack>
+    struct shared_cb_rref
+    {
+        //shared_request_ptr req;
+        message_buffer<T>  m;
+        rank_type          r;
+        tag_type           t;
+        CallBack           cb;
+
+        void operator()() noexcept
+        {
+            cb(std::move(m), r, t);
+            //req->m_ready = true;
+            //--(*(req->m_scheduled));
+        }
+    };
 
     template<typename T, typename CallBack>
     struct cb_lref
@@ -170,7 +186,13 @@ class communicator
     bool        is_local(rank_type rank) const noexcept;
     std::size_t scheduled_sends() const noexcept { return m_schedule->scheduled_sends; }
     std::size_t scheduled_recvs() const noexcept { return m_schedule->scheduled_recvs; }
-    bool is_ready() const noexcept { return (scheduled_sends() == 0) && (scheduled_recvs() == 0); }
+    std::size_t scheduled_shared_recvs() const noexcept;
+
+    bool is_ready() const noexcept
+    {
+        return (scheduled_sends() == 0) && (scheduled_recvs() == 0) &&
+               (scheduled_shared_recvs() == 0);
+    }
 
     void wait_all()
     {
@@ -314,6 +336,50 @@ class communicator
                 std::forward<CallBack>(callback)},
             r.m_data);
         return r;
+    }
+
+    //template<typename T, typename CallBack>
+    //void shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
+    //{
+    //    OOMPH_CHECK_CALLBACK(CallBack)
+    //    assert(msg);
+    //    //auto& scheduled = m_schedule->scheduled_recvs;
+    //    //++scheduled;
+    //    //recv_request r(shared_request_ptr(m_pool.get(), m_impl, &scheduled));
+    //    const auto   s = msg.size();
+    //    auto         m_ptr = msg.m.m_heap_ptr.get();
+
+    //    shared_recv(m_ptr, s * sizeof(T), src, tag,
+    //        shared_cb_rref<T, std::decay_t<CallBack>>{/*r.m_data, */std::move(msg), src, tag,
+    //            std::forward<CallBack>(callback)});
+    //    //, r.m_data);
+    //    //return r;
+    //}
+
+    template<typename T, typename CallBack>
+    shared_recv_request shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
+        CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK(CallBack)
+        assert(msg);
+        const auto s = msg.size();
+        auto       m_ptr = msg.m.m_heap_ptr.get();
+
+        struct cb_
+        {
+            message_buffer<T>  m;
+            std::decay_t<CallBack>           cb;
+
+            void operator()(rank_type r, tag_type t) noexcept
+            {
+                cb(std::move(m), r, t);
+            }
+        };
+        return shared_recv(m_ptr, s * sizeof(T), src, tag,
+            util::unique_function<void(rank_type, tag_type)>(
+                cb_{std::move(msg), std::forward<CallBack>(callback)}));
+                //[m = std::move(msg), cb = std::forward<CallBack>(callback)](rank_type r, tag_type t)
+                //{ cb(std::move(m), r, t); }));
     }
 
     template<typename T, typename CallBack>
@@ -498,6 +564,17 @@ class communicator
         }
         return r;
     }
+    //void shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
+    //    tag_type tag, util::unique_function<void()> cb/*, shared_request_ptr req*/);
+
+
+    shared_recv_request shared_recv(
+        detail::message_buffer::heap_ptr_impl* m_ptr,
+        std::size_t size,
+        rank_type src,
+        tag_type tag,
+        util::unique_function<void(rank_type, tag_type)>&& cb);
+
 };
 
 } // namespace oomph
