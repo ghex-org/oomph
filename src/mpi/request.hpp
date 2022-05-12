@@ -61,6 +61,7 @@ struct shared_request_state : public request_state_base<true>
 {
     using base = request_state_base<true>;
     mpi_request m_req;
+    std::shared_ptr<shared_request_state> m_self_ptr;
 
     shared_request_state(oomph::context_impl* ctxt, oomph::communicator_impl* comm,
         std::atomic<std::size_t>* scheduled, rank_type rank, tag_type tag, cb_type&& cb,

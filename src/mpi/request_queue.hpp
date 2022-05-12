@@ -77,8 +77,9 @@ class shared_request_queue
             //delete e.m_cb_ptr;
             //cb_type cb{e.m_cb_ptr};
             //cb();
+            auto ptr = std::move(e->m_self_ptr);
             e->invoke_cb();
-            delete e;
+            //delete e;
             --m_size;
         }
 

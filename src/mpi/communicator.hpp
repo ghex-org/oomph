@@ -122,9 +122,14 @@ class communicator_impl : public communicator_base<communicator_impl>
             cb(src, tag);
         else
         {
-          auto s = new detail::shared_request_state(
-            m_context, this, &(m_context->m_scheduled), src, tag, std::move(cb), req);
-            m_context->m_req_queue.enqueue(s);
+            //auto s = new detail::shared_request_state(m_context, this, &(m_context->m_scheduled),
+            //    src, tag, std::move(cb), req);
+            //m_context->m_req_queue.enqueue(s);
+
+            auto s = std::make_shared<detail::shared_request_state>(m_context, this,
+                &(m_context->m_scheduled), src, tag, std::move(cb), req);
+            s->m_self_ptr = s;
+            m_context->m_req_queue.enqueue(s.get());
         }
 
     }
