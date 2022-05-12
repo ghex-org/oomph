@@ -10,7 +10,6 @@
  */
 #pragma once
 
-#include <oomph/util/unique_function.hpp>
 #include <utility>
 #include <memory>
 
@@ -25,19 +24,39 @@ namespace detail
 template<typename T>
 struct control_block
 {
-    using this_type = control_block<T>;
-    using deleter_type = oomph::util::unique_function<void(this_type*), 16>;
+    std::size_t m_ref_count = 1ul;
+    T*          m_ptr = nullptr;
 
-    deleter_type m_deleter;
-    T            m_t;
-    std::size_t  m_ref_count = 1ul;
+    virtual void free() = 0;
+};
 
-    template<typename Deleter, typename... Args>
-    control_block(Deleter&& d, Args&&... args)
-    : m_deleter{std::forward<Deleter>(d)}
+template<typename T, typename Allocator>
+struct control_block_impl : public control_block<T>
+{
+    using this_type = control_block_impl<T, Allocator>;
+    using base_type = control_block<T>;
+    using alloc_t = typename std::allocator_traits<Allocator>::template rebind_alloc<this_type>;
+    using traits = std::allocator_traits<alloc_t>;
+
+    alloc_t m_alloc;
+    T       m_t;
+
+    template<typename Alloc, typename... Args>
+    control_block_impl(Alloc const a, Args&&... args)
+    : base_type()
+    , m_alloc{a}
     , m_t{std::forward<Args>(args)...}
-    {}
+    {
+        this->m_ptr = &m_t;
+    }
 
+    void free() override final
+    {
+        auto a = m_alloc;
+        m_alloc.~alloc_t();
+        m_t.~T();
+        traits::deallocate(a, this, 1);
+    }
 };
 
 } // namespace detail
@@ -48,6 +67,13 @@ class unsafe_shared_ptr
   private:
     using block_t = detail::control_block<T>;
 
+  public:
+    template<typename Alloc>
+    static constexpr std::size_t allocation_size()
+    {
+        return sizeof(detail::control_block_impl<T, Alloc>);
+    }
+
   private:
     block_t* m = nullptr;
 
@@ -55,19 +81,13 @@ class unsafe_shared_ptr
     template<typename Alloc, typename... Args>
     unsafe_shared_ptr(Alloc const& alloc, Args&&... args)
     {
-        using alloc_t = typename std::allocator_traits<Alloc>::template rebind_alloc<block_t>;
+        using block_impl_t = detail::control_block_impl<T, Alloc>;
+        using alloc_t = typename block_impl_t::alloc_t;
         using traits = std::allocator_traits<alloc_t>;
 
         alloc_t a(alloc);
         m = traits::allocate(a, 1);
-
-        traits::construct(a, //m, T{std::forward<Args>(args)...}, 0ul,
-            m,
-            [a](block_t* ptr) mutable
-            {
-                ptr->~block_t();
-                traits::deallocate(a, ptr, 1);
-            }, std::forward<Args>(args)...);
+        ::new (m) block_impl_t(a, std::forward<Args>(args)...);
     }
 
   public:
@@ -99,18 +119,15 @@ class unsafe_shared_ptr
         return *this;
     }
 
-    ~unsafe_shared_ptr()
-    {
-        destroy();
-    }
+    ~unsafe_shared_ptr() { destroy(); }
 
     operator bool() const noexcept { return (bool)m; }
-    
-    T* get() const noexcept { return &(m->m_t); }
 
-    T* operator->() const noexcept { return &(m->m_t); }
+    T* get() const noexcept { return m->m_ptr; }
 
-    T& operator*() const noexcept { return m->m_t; }
+    T* operator->() const noexcept { return m->m_ptr; }
+
+    T& operator*() const noexcept { return *(m->m_ptr); }
 
     std::size_t use_count() const noexcept { return m ? m->m_ref_count : 0ul; }
 
@@ -118,11 +135,7 @@ class unsafe_shared_ptr
     void destroy() noexcept
     {
         if (!m) return;
-        if (--m->m_ref_count == 0)
-        {
-            auto d = std::move(m->m_deleter);
-            d(m);
-        }
+        if (--m->m_ref_count == 0) m->free();
         m = nullptr;
     }
 };
@@ -140,7 +153,6 @@ allocate_shared(Alloc const& alloc, Args&&... args)
 {
     return {alloc, std::forward<Args>(args)...};
 }
-
 
 } // namespace util
 } // namespace oomph

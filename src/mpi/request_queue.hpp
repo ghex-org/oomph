@@ -18,6 +18,106 @@
 
 namespace oomph
 {
+
+class request_queue
+{
+  private:
+    using element_type = detail::request_state2;
+    using queue_type = std::vector<element_type*>;
+
+  private: // members
+    queue_type               m_queue;
+    queue_type               m_ready_queue;
+    bool                     in_progress = false;
+    std::vector<MPI_Request> reqs;
+    std::vector<int>         indices;
+
+  public: // ctors
+    request_queue()
+    {
+        m_queue.reserve(256);
+        m_ready_queue.reserve(256);
+    }
+
+  public: // member functions
+    std::size_t size() const noexcept { return m_queue.size(); }
+
+    void enqueue(element_type* e)
+    {
+        e->m_index = m_queue.size();
+        m_queue.push_back(e);
+    }
+
+    int progress()
+    {
+        if (in_progress) return 0;
+        in_progress = true;
+
+        const auto qs = size();
+        if (qs == 0)
+        {
+            in_progress = false;
+            return 0;
+        }
+
+        m_ready_queue.clear();
+
+        m_ready_queue.reserve(qs);
+        //reqs.resize(0);
+        reqs.clear();
+        reqs.reserve(qs);
+        indices.resize(qs + 1);
+
+        std::transform(m_queue.begin(), m_queue.end(), std::back_inserter(reqs),
+            [](auto e) { return e->m_req.m_req; });
+
+        int outcount;
+        OOMPH_CHECK_MPI_RESULT(
+            MPI_Testsome(qs, reqs.data(), &outcount, indices.data(), MPI_STATUSES_IGNORE));
+
+        if (outcount == 0)
+        {
+            in_progress = false;
+            return 0;
+        }
+
+        indices[outcount] = qs;
+
+        std::size_t k = 0;
+        std::size_t j = 0;
+        for (std::size_t i = 0; i < qs; ++i)
+        {
+            auto e = m_queue[i];
+            if ((int)i == indices[k])
+            {
+                m_ready_queue.push_back(e);
+                ++k;
+            }
+            else if (i > j)
+            {
+                e->m_index = j;
+                m_queue[j] = e;
+                ++j;
+            }
+            else
+            {
+                ++j;
+            }
+        }
+        m_queue.erase(m_queue.end() - m_ready_queue.size(), m_queue.end());
+
+        int completed = m_ready_queue.size();
+        for (auto e : m_ready_queue) 
+        {
+            auto ptr = std::move(e->m_self_ptr);
+            e->invoke_cb();
+        }
+
+        in_progress = false;
+        return completed;
+    }
+};
+
 class shared_request_queue
 {
   private:
@@ -73,13 +173,8 @@ class shared_request_queue
 
         if (found)
         {
-            //e.m_cb_ptr->invoke();
-            //delete e.m_cb_ptr;
-            //cb_type cb{e.m_cb_ptr};
-            //cb();
             auto ptr = std::move(e->m_self_ptr);
             e->invoke_cb();
-            //delete e;
             --m_size;
         }
 

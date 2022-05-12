@@ -13,6 +13,7 @@
 #include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
 #include "./request.hpp"
+#include "./request_queue.hpp"
 #include "./callback_queue.hpp"
 #include "./context.hpp"
 #include "../communicator_base.hpp"
@@ -32,12 +33,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     callback_queue m_send_callbacks;
     callback_queue m_recv_callbacks;
 
-    pool_type m_request_pool;
+    request_queue m_send_reqs;
+    request_queue m_recv_reqs;
+    pool_type m_request_state_pool;
+
+    //pool_type m_request_pool;
 
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
-    , m_request_pool(ctxt->m_request_state_size)
+    , m_request_state_pool(
+        util::unsafe_shared_ptr<detail::request_state2>::template
+            allocation_size<pool_allocator<char>>())
+    //, m_request_pool(ctxt->m_request_state_size)
     {
     }
 
@@ -79,6 +87,46 @@ class communicator_impl : public communicator_base<communicator_impl>
             m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
     }
 
+    send_request2 send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+    {
+        auto req = send(ptr, size, dst, tag);
+        if (req.is_ready())
+        {
+            cb(dst, tag);
+            return {};
+        }
+        else
+        {
+            auto s = util::allocate_shared<detail::request_state2>(
+                pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, dst, tag,
+                std::move(cb), req);
+            s->m_self_ptr = s;
+            m_send_reqs.enqueue(s.get());
+            return {std::move(s)};
+        }
+    }
+
+    recv_request2 recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+    {
+        auto req = recv(ptr, size, src, tag);
+        if (req.is_ready())
+        {
+            cb(src, tag);
+            return {};
+        }
+        else
+        {
+            auto s = util::allocate_shared<detail::request_state2>(
+                pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, src, tag,
+                std::move(cb), req);
+            s->m_self_ptr = s;
+            m_recv_reqs.enqueue(s.get());
+            return {std::move(s)};
+        }
+    }
+
     //void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
     //    tag_type tag, util::unique_function<void()>&& cb /*, communicator::shared_request_ptr&& h*/)
     //{
@@ -116,7 +164,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     shared_recv_request 
     shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::atomic<std::size_t>* scheduled)
     {
         auto req = recv(ptr, size, src, tag);
         if (req.is_ready())
@@ -131,7 +180,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             //m_context->m_req_queue.enqueue(s);
 
             auto s = std::make_shared<detail::shared_request_state>(m_context, this,
-                &(m_context->m_scheduled), src, tag, std::move(cb), req);
+                //&(m_context->m_scheduled)
+                scheduled, src, tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_context->m_req_queue.enqueue(s.get());
             return {std::move(s)};
@@ -139,7 +189,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     }
     
-    std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_scheduled.load(); }
+    //std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_scheduled.load(); }
 
     void progress()
     {

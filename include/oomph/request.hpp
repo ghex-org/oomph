@@ -10,8 +10,10 @@
 #pragma once
 
 #include <oomph/util/pimpl.hpp>
+#include <oomph/util/unsafe_shared_ptr.hpp>
 #include <oomph/detail/request_state.hpp>
-#include <vector>
+//#include <vector>
+#include <memory>
 
 namespace oomph
 {
@@ -93,9 +95,9 @@ class send_request2
     friend class communicator;
     friend class communicator_impl;
 
-    std::shared_ptr<state_type> m;
+    util::unsafe_shared_ptr<state_type> m;
 
-    send_request2(std::shared_ptr<state_type> s) noexcept
+    send_request2(util::unsafe_shared_ptr<state_type> s) noexcept
     : m{std::move(s)}
     {
     }
@@ -121,9 +123,9 @@ class recv_request2
     friend class communicator;
     friend class communicator_impl;
 
-    std::shared_ptr<state_type> m;
+    util::unsafe_shared_ptr<state_type> m;
 
-    recv_request2(std::shared_ptr<state_type> s) noexcept
+    recv_request2(util::unsafe_shared_ptr<state_type> s) noexcept
     : m{std::move(s)}
     {
     }

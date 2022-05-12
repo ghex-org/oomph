@@ -144,6 +144,7 @@ class communicator
 
   private:
     impl_type*                 m_impl;
+    std::atomic<std::size_t>*  m_shared_scheduled_recvs;
     std::unique_ptr<pool_type> m_pool;
     std::unique_ptr<pool_type> m_send_multi_pool_1;
     std::unique_ptr<pool_type> m_send_multi_pool_2;
@@ -151,7 +152,7 @@ class communicator
     std::unique_ptr<schedule>  m_schedule;
 
   private:
-    communicator(impl_type* impl_);
+    communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
 
   public:
     communicator(communicator const&) = delete;
@@ -186,7 +187,7 @@ class communicator
     bool        is_local(rank_type rank) const noexcept;
     std::size_t scheduled_sends() const noexcept { return m_schedule->scheduled_sends; }
     std::size_t scheduled_recvs() const noexcept { return m_schedule->scheduled_recvs; }
-    std::size_t scheduled_shared_recvs() const noexcept;
+    std::size_t scheduled_shared_recvs() const noexcept { return m_shared_scheduled_recvs->load(); }
 
     bool is_ready() const noexcept
     {
@@ -602,7 +603,18 @@ class communicator
     //    tag_type tag,
     //    util::unique_function<void(rank_type, tag_type)>&& cb);
 
-    //void shared_recv(
+    send_request2 send(
+        detail::message_buffer::heap_ptr_impl const* m_ptr,
+        std::size_t size, rank_type dst,
+        tag_type tag, 
+        util::unique_function<void(rank_type, tag_type)>&& cb);
+
+    recv_request2 recv(
+        detail::message_buffer::heap_ptr_impl* m_ptr,
+        std::size_t size, rank_type src,
+        tag_type tag, 
+        util::unique_function<void(rank_type, tag_type)>&& cb);
+
     shared_recv_request shared_recv(
         detail::message_buffer::heap_ptr_impl* m_ptr,
         std::size_t size,

@@ -27,9 +27,17 @@ class context
   public:
     using pimpl = util::heap_pimpl<context_impl>;
 
+  public:
+    struct schedule
+    {
+        std::atomic<std::size_t> scheduled_sends = 0;
+        std::atomic<std::size_t> scheduled_recvs = 0;
+    };
+
   private:
-    util::mpi_comm_holder m_mpi_comm;
-    pimpl                 m;
+    util::mpi_comm_holder     m_mpi_comm;
+    pimpl                     m;
+    std::unique_ptr<schedule> m_schedule;
 
   public:
     context(MPI_Comm comm, bool thread_safe = true, bool message_pool_never_free = false,

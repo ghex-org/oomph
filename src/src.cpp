@@ -48,6 +48,7 @@ context::context(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
     std::size_t message_pool_reserve)
 : m_mpi_comm{comm}
 , m(m_mpi_comm.get(), thread_safe, message_pool_never_free, message_pool_reserve)
+, m_schedule{std::make_unique<schedule>()}
 {
 }
 
@@ -64,15 +65,16 @@ context::~context() = default;
 communicator
 context::get_communicator()
 {
-    return {m->get_communicator()};
+    return {m->get_communicator(), &(m_schedule->scheduled_recvs)};
 }
 
 ///////////////////////////////
 // communicator              //
 ///////////////////////////////
 
-communicator::communicator(impl_type* impl_)
+communicator::communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs )
 : m_impl{impl_}
+, m_shared_scheduled_recvs{shared_scheduled_recvs}
 , m_pool{std::make_unique<pool_type>(
       sizeof(detail::request_state) +
           ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
@@ -321,18 +323,32 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
 //    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
 //}
 
+send_request2
+communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
+    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+{
+    return m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), &(m_schedule->scheduled_sends));
+}
+
+recv_request2
+communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
+    tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+{
+    return m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), &(m_schedule->scheduled_recvs));
+}
+
 shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
     rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
+    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb), m_shared_scheduled_recvs);
 }
 
-std::size_t
-communicator::scheduled_shared_recvs() const noexcept
-{
-    return m_impl->scheduled_shared_recvs();
-}
+//std::size_t
+//communicator::scheduled_shared_recvs() const noexcept
+//{
+//    return m_impl->scheduled_shared_recvs();
+//}
 
 ///////////////////////////////
 // make_buffer               //
@@ -451,6 +467,7 @@ recv_request::cancel()
     }
     return res;
 }
+
 
 
 bool
