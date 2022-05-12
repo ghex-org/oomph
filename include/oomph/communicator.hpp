@@ -356,8 +356,34 @@ class communicator
     //    //return r;
     //}
 
+    //template<typename T, typename CallBack>
+    //shared_recv_request shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
+    //    CallBack&& callback)
+    //{
+    //    OOMPH_CHECK_CALLBACK(CallBack)
+    //    assert(msg);
+    //    const auto s = msg.size();
+    //    auto       m_ptr = msg.m.m_heap_ptr.get();
+
+    //    struct cb_
+    //    {
+    //        message_buffer<T>  m;
+    //        std::decay_t<CallBack>           cb;
+
+    //        void operator()(rank_type r, tag_type t) noexcept
+    //        {
+    //            cb(std::move(m), r, t);
+    //        }
+    //    };
+    //    return shared_recv(m_ptr, s * sizeof(T), src, tag,
+    //        util::unique_function<void(rank_type, tag_type)>(
+    //            cb_{std::move(msg), std::forward<CallBack>(callback)}));
+    //            //[m = std::move(msg), cb = std::forward<CallBack>(callback)](rank_type r, tag_type t)
+    //            //{ cb(std::move(m), r, t); }));
+    //}
+
     template<typename T, typename CallBack>
-    shared_recv_request shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
+    void shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
         CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
@@ -375,7 +401,7 @@ class communicator
                 cb(std::move(m), r, t);
             }
         };
-        return shared_recv(m_ptr, s * sizeof(T), src, tag,
+        shared_recv(m_ptr, s * sizeof(T), src, tag,
             util::unique_function<void(rank_type, tag_type)>(
                 cb_{std::move(msg), std::forward<CallBack>(callback)}));
                 //[m = std::move(msg), cb = std::forward<CallBack>(callback)](rank_type r, tag_type t)
@@ -568,7 +594,14 @@ class communicator
     //    tag_type tag, util::unique_function<void()> cb/*, shared_request_ptr req*/);
 
 
-    shared_recv_request shared_recv(
+    //shared_recv_request shared_recv(
+    //    detail::message_buffer::heap_ptr_impl* m_ptr,
+    //    std::size_t size,
+    //    rank_type src,
+    //    tag_type tag,
+    //    util::unique_function<void(rank_type, tag_type)>&& cb);
+
+    void shared_recv(
         detail::message_buffer::heap_ptr_impl* m_ptr,
         std::size_t size,
         rank_type src,

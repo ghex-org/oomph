@@ -91,27 +91,42 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     //std::size_t scheduled_shared_recvs() const noexcept { return 0;/*m_context->m_cb_queue.size();*/ }
 
-    shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+    //shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+    //    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    //{
+    //    auto req = recv(ptr, size, src, tag);
+    //    if (req.is_ready())
+    //    {
+    //        cb(src, tag);
+    //        return {};
+    //    }
+    //    else
+    //    {
+    //        //auto s = std::make_shared<detail::shared_request_state>(m_context, this,
+    //        //    &(m_context->m_scheduled), src, tag, std::move(cb), req);
+
+    //        auto s = std::allocate_shared<detail::shared_request_state>(
+    //            ts_pool_allocator<char>(&(m_context->m_shared_request_pool), &(m_context->m_mtx)),
+    //            m_context, this, &(m_context->m_scheduled), src, tag, std::move(cb), req);
+
+    //        m_context->m_req_queue.push(s);
+    //        return {std::move(s)};
+    //    }
+    //}
+
+    void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
     {
         auto req = recv(ptr, size, src, tag);
         if (req.is_ready())
-        {
             cb(src, tag);
-            return {};
-        }
         else
         {
-            //auto s = std::make_shared<detail::shared_request_state>(m_context, this,
-            //    &(m_context->m_scheduled), src, tag, std::move(cb), req);
-
-            auto s = std::allocate_shared<detail::shared_request_state>(
-                ts_pool_allocator<char>(&(m_context->m_shared_request_pool), &(m_context->m_mtx)),
-                m_context, this, &(m_context->m_scheduled), src, tag, std::move(cb), req);
-
-            m_context->m_req_queue.push(s);
-            return {std::move(s)};
+          auto s = new detail::shared_request_state(
+            m_context, this, &(m_context->m_scheduled), src, tag, std::move(cb), req);
+            m_context->m_req_queue.enqueue(s);
         }
+
     }
     
     std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_scheduled.load(); }

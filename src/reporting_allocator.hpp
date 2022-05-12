@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <new>
 #include <limits>
-#include <iostream>
+//#include <iostream>
 //#include <vector>
 #include <functional>
 
@@ -48,7 +48,7 @@ struct reporting_allocator
 
         if (auto p = static_cast<T*>(std::malloc(n * sizeof(T))))
         {
-            report(p, n);
+            //report(p, n);
             _f(n * sizeof(T));
             return p;
         }
@@ -63,11 +63,11 @@ struct reporting_allocator
     }
 
   private:
-    void report(T* p, std::size_t n, bool alloc = true) const
-    {
-        std::cout << (alloc ? "Alloc: " : "Dealloc: ") << sizeof(T) * n << " bytes at " << std::hex
-                  << std::showbase << reinterpret_cast<void*>(p) << std::dec << '\n';
-    }
+    //void report(T* p, std::size_t n, bool alloc = true) const
+    //{
+    //    std::cout << (alloc ? "Alloc: " : "Dealloc: ") << sizeof(T) * n << " bytes at " << std::hex
+    //              << std::showbase << reinterpret_cast<void*>(p) << std::dec << '\n';
+    //}
 };
 
 template<class T, class U>
