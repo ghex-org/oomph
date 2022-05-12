@@ -321,11 +321,11 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
 //    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
 //}
 
-void
+shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
     rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
+    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
 }
 
 std::size_t

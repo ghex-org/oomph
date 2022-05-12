@@ -383,7 +383,8 @@ class communicator
     //}
 
     template<typename T, typename CallBack>
-    void shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
+    shared_recv_request
+    shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
         CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
@@ -401,7 +402,7 @@ class communicator
                 cb(std::move(m), r, t);
             }
         };
-        shared_recv(m_ptr, s * sizeof(T), src, tag,
+        return shared_recv(m_ptr, s * sizeof(T), src, tag,
             util::unique_function<void(rank_type, tag_type)>(
                 cb_{std::move(msg), std::forward<CallBack>(callback)}));
                 //[m = std::move(msg), cb = std::forward<CallBack>(callback)](rank_type r, tag_type t)
@@ -601,7 +602,8 @@ class communicator
     //    tag_type tag,
     //    util::unique_function<void(rank_type, tag_type)>&& cb);
 
-    void shared_recv(
+    //void shared_recv(
+    shared_recv_request shared_recv(
         detail::message_buffer::heap_ptr_impl* m_ptr,
         std::size_t size,
         rank_type src,

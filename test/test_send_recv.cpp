@@ -424,12 +424,12 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
-        env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        while (!sh.is_ready() || shared_received[env.thread_id].load() != (i+1)) { env.comm.progress(); }
-        //auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+        //env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         //auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        //while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
+        //while (!sh.is_ready() || shared_received[env.thread_id].load() != (i+1)) { env.comm.progress(); }
+        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.rmsg);
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();

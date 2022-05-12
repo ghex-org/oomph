@@ -114,12 +114,16 @@ class communicator_impl : public communicator_base<communicator_impl>
     //    }
     //}
 
-    void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+    shared_recv_request 
+    shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
     {
         auto req = recv(ptr, size, src, tag);
         if (req.is_ready())
+        {
             cb(src, tag);
+            return {};
+        }
         else
         {
             //auto s = new detail::shared_request_state(m_context, this, &(m_context->m_scheduled),
@@ -130,6 +134,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 &(m_context->m_scheduled), src, tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_context->m_req_queue.enqueue(s.get());
+            return {std::move(s)};
         }
 
     }
