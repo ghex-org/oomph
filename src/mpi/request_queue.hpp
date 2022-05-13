@@ -10,9 +10,9 @@
  */
 #pragma once
 
-#include "./request.hpp"
-#include <boost/lockfree/queue.hpp>
 #include <vector>
+#include <boost/lockfree/queue.hpp>
+#include "./request_state.hpp"
 
 namespace oomph
 {

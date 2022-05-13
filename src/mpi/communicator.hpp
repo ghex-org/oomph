@@ -11,11 +11,10 @@
 #pragma once
 
 #include <oomph/context.hpp>
-#include "./request.hpp"
-#include "./request_queue.hpp"
-#include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../device_guard.hpp"
+#include "./context.hpp"
+#include "./request_queue.hpp"
 
 namespace oomph
 {
