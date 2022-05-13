@@ -37,7 +37,11 @@ struct pool_allocator
     {
     }
 
+#ifdef NDEBUG
+    [[nodiscard]] T* allocate(std::size_t)
+#else
     [[nodiscard]] T* allocate(std::size_t n)
+#endif
     {
         assert(_p->get_requested_size() >= sizeof(T) * n);
         if (auto ptr = static_cast<T*>(_p->malloc())) return ptr;
