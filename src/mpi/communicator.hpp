@@ -11,7 +11,6 @@
 #pragma once
 
 #include <oomph/context.hpp>
-#include <oomph/communicator.hpp>
 #include "./request.hpp"
 #include "./request_queue.hpp"
 #include "./context.hpp"
@@ -24,13 +23,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 {
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    using pool_factory_type = util::pool_factory<detail::request_state>;
 
   public:
     context_impl*     m_context;
     request_queue     m_send_reqs;
     request_queue     m_recv_reqs;
-    pool_factory_type m_req_state_factory;
 
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
