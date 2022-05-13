@@ -11,19 +11,23 @@
 #include <gtest/gtest.h>
 #include <oomph/util/unsafe_shared_ptr.hpp>
 #include "./ctor_stats.hpp"
+#include "./reporting_allocator.hpp"
 
 struct my_int
 {
     ctor_stats m_stats;
-    int m_i;
+    int        m_i;
 
     my_int(ctor_stats_data& d, int i)
     : m_stats{d}
     , m_i(i)
-    {}
+    {
+    }
 
     int get() const noexcept { return m_i; }
 };
+
+using alloc_t = reporting_allocator<char>;
 
 TEST(unsafe_shared_ptr, ctor)
 {
@@ -31,7 +35,7 @@ TEST(unsafe_shared_ptr, ctor)
     {
         ctor_stats_data d;
         {
-            unsafe_shared_ptr<my_int> a(std::allocator<char>(), d, 42);
+            unsafe_shared_ptr<my_int> a(alloc_t(), d, 42);
             unsafe_shared_ptr<my_int> b;
 
             EXPECT_TRUE(a);
@@ -48,7 +52,7 @@ TEST(unsafe_shared_ptr, ctor)
     {
         ctor_stats_data d;
         {
-            auto a = oomph::util::allocate_shared<my_int>(std::allocator<char>(), d, 42);
+            auto a = oomph::util::allocate_shared<my_int>(alloc_t(), d, 42);
 
             EXPECT_TRUE(a);
             EXPECT_EQ(a.use_count(), 1);
@@ -81,7 +85,7 @@ TEST(unsafe_shared_ptr, assign)
     {
         ctor_stats_data d;
         {
-            unsafe_shared_ptr<my_int> a(std::allocator<char>(), d, 42);
+            unsafe_shared_ptr<my_int> a(alloc_t(), d, 42);
             unsafe_shared_ptr<my_int> b(a);
 
             EXPECT_TRUE(a);
@@ -90,14 +94,13 @@ TEST(unsafe_shared_ptr, assign)
             EXPECT_TRUE(b);
             EXPECT_EQ(b.use_count(), 2);
             EXPECT_EQ(b->get(), 42);
-
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
     }
     {
         ctor_stats_data d;
         {
-            unsafe_shared_ptr<my_int> a(std::allocator<char>(), d, 42);
+            unsafe_shared_ptr<my_int> a(alloc_t(), d, 42);
             unsafe_shared_ptr<my_int> b;
 
             EXPECT_FALSE(b);
@@ -111,7 +114,6 @@ TEST(unsafe_shared_ptr, assign)
             EXPECT_TRUE(b);
             EXPECT_EQ(b.use_count(), 2);
             EXPECT_EQ(b->get(), 42);
-
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
     }
@@ -123,7 +125,7 @@ TEST(unsafe_shared_ptr, move_assign)
     {
         ctor_stats_data d;
         {
-            unsafe_shared_ptr<my_int> a(std::allocator<char>(), d, 42);
+            unsafe_shared_ptr<my_int> a(alloc_t(), d, 42);
             unsafe_shared_ptr<my_int> b(std::move(a));
 
             EXPECT_FALSE(a);
@@ -131,14 +133,13 @@ TEST(unsafe_shared_ptr, move_assign)
             EXPECT_TRUE(b);
             EXPECT_EQ(b.use_count(), 1);
             EXPECT_EQ(b->get(), 42);
-
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
     }
     {
         ctor_stats_data d;
         {
-            unsafe_shared_ptr<my_int> a(std::allocator<char>(), d, 42);
+            unsafe_shared_ptr<my_int> a(alloc_t(), d, 42);
             unsafe_shared_ptr<my_int> b;
 
             EXPECT_FALSE(b);
@@ -151,7 +152,6 @@ TEST(unsafe_shared_ptr, move_assign)
             EXPECT_TRUE(b);
             EXPECT_EQ(b.use_count(), 1);
             EXPECT_EQ(b->get(), 42);
-
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
     }
