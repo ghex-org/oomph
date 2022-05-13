@@ -10,13 +10,12 @@
  */
 #pragma once
 
+#include <boost/lockfree/queue.hpp>
 #include <oomph/context.hpp>
-#include <oomph/communicator.hpp>
-#include "./request_data.hpp"
-#include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../device_guard.hpp"
-#include <boost/lockfree/queue.hpp>
+#include "./request_data.hpp"
+#include "./context.hpp"
 
 namespace oomph
 {
@@ -26,29 +25,27 @@ namespace oomph
 #define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
 
-struct detail::request_state::reserved_t
-{
-    void* m_data;
-};
-
 class communicator_impl : public communicator_base<communicator_impl>
 {
   public:
     using worker_type = worker_t;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    using lockfree_queue = boost::lockfree::queue<request_data*,
-        boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
+    template<typename T>
+    using lockfree_queue = boost::lockfree::queue<T, boost::lockfree::fixed_sized<false>,
+        boost::lockfree::allocator<std::allocator<void>>>;
+
+    using recv_req_queue_type = lockfree_queue<detail::request_state*>;
 
   public:
-    context_impl*              m_context;
-    bool const                 m_thread_safe;
-    worker_type*               m_recv_worker;
-    worker_type*               m_send_worker;
-    ucx_mutex&                 m_mutex;
-    lockfree_queue             m_recv_cb_queue;
-    lockfree_queue             m_cancel_recv_cb_queue;
-    std::vector<request_data*> m_cancel_recv_cb_vec;
+    context_impl*                        m_context;
+    bool const                           m_thread_safe;
+    worker_type*                         m_recv_worker;
+    worker_type*                         m_send_worker;
+    ucx_mutex&                           m_mutex;
+    recv_req_queue_type                  m_recv_req_queue;
+    recv_req_queue_type                  m_cancel_recv_req_queue;
+    std::vector<deetail::request_state*> m_cancel_recv_req_vec;
 
   public:
     communicator_impl(context_impl* ctxt, bool thread_safe, worker_type* recv_worker,
@@ -59,8 +56,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_recv_worker{recv_worker}
     , m_send_worker{send_worker}
     , m_mutex{mtx}
-    , m_recv_cb_queue(128)
-    , m_cancel_recv_cb_queue(128)
+    , m_recv_req_queue(128)
+    , m_cancel_recv_req_queue(128)
     {
     }
 
@@ -98,7 +95,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         // work through ready recv callbacks, which were pushed to the queue by other threads
         // (including this thread)
         if (m_thread_safe)
-            m_recv_cb_queue.consume_all(
+            m_recv_req_queue.consume_all(
                 [this](request_data* d)
                 {
                     d->m_cb();
@@ -249,20 +246,34 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (status == UCS_OK)
         {
             // return if early completion
-            // early completion is indicated by missing request data (null pointer)
-            if (!req_data.m_comm) return;
+            if (req_data.empty()) return;
 
-            // enqueue callback on the issuing communicator
-            // this guarantees that only the communicator on which the receive was executed will
-            // invoke the callback
-            if (req_data.m_comm->m_thread_safe) { req_data.m_comm->enqueue_recv(req_data); }
+            if (req_data.m_req)
+            {
+                // normal recv
+                auto req = req_data.m_req;
+                if (req->m_comm->m_thread_safe)
+                {
+                    // enqueue request on the issuing communicator
+                    // this guarantees that only the communicator on which the receive was issued
+                    // will invoke the callback
+                    req->m_comm->enqueue_recv(req);
+                }
+                else
+                {
+                    // call the callback directly from here
+                    req->m_cb(req->m_rank, req->m_tag);
+
+                    // destroy request
+                    auto ptr = std::move(req->m_self_ptr);
+                    req_data.destroy();
+                    ucp_request_free(ucx_req);
+                }
+            }
             else
             {
-                req_data.m_cb();
-
-                // destroy request
-                req_data.destroy();
-                ucp_request_free(ucx_req);
+                // shared recv
+                auto req = req_data.m_shared_req;
             }
         }
         else if (status == UCS_ERR_CANCELED)

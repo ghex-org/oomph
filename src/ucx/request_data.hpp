@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <oomph/util/unique_function.hpp>
+#include "./request_state.hpp"
 
 namespace oomph
 {
@@ -17,29 +17,36 @@ class communicator_impl;
 
 struct request_data
 {
-    using comm_ptr_t = communicator_impl*;
-    using cb_t = util::unique_function<void()>;
-
-    void*      m_ucx_ptr;
-    comm_ptr_t m_comm;
-    cb_t       m_cb;
+    detail::request_state*        m_req;
+    detail::shared_request_state* m_shared_req;
+    //bool                          m_empty;
 
     void destroy()
     {
-        m_comm = nullptr;
-        m_cb.~cb_t();
+        //m_comm = nullptr;
+        //m_cb.~cb_t();
+        //m_empty = true;
+        m_req = nullptr;
+        m_shared_req = nullptr;
     }
 
-    static request_data* construct(void* ptr, comm_ptr_t comm, cb_t&& cb)
+    bool empty() const noexcept { return !((bool)m_req || (bool)m_shared_req); }
+
+    static request_data* construct(detail::request_state* req)
     {
-        return ::new (get_impl(ptr)) request_data{ptr, comm, std::move(cb)};
+        return ::new (get_impl(ptr)) request_data{req, nullptr};
+    }
+
+    static request_data* construct(detail::shared_request_state* req)
+    {
+        return ::new (get_impl(ptr)) request_data{nullptr, req};
     }
 
     // return pointer to an instance from ucx provided storage pointer
     static request_data* get(void* ptr) { return std::launder(get_impl(ptr)); }
 
     // initialize request on pristine request data allocated by ucx
-    static void init(void* ptr) { get(ptr)->m_comm = nullptr; }
+    static void init(void* ptr) { get(ptr)->destroy(); }
 
   private:
     static request_data* get_impl(void* ptr)

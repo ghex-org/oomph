@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <oomph/detail/message_buffer.hpp>
 #include <oomph/util/unsafe_shared_ptr.hpp>
 
