@@ -88,9 +88,25 @@ class communicator
 
   public:
     communicator(communicator const&) = delete;
-    communicator(communicator&& other) noexcept = default;
+
+    communicator(communicator&& other) noexcept
+    : m_impl{std::exchange(other.m_impl, nullptr)}
+    , m_shared_scheduled_recvs{other.m_shared_scheduled_recvs}
+    , m_schedule{std::move(other.m_schedule)}
+    , m_mrs_factory{std::move(other.m_mrs_factory)}
+    {
+    }
+
     communicator& operator=(communicator const&) = delete;
-    communicator& operator=(communicator&& other) noexcept = default;
+
+    communicator& operator=(communicator&& other) noexcept
+    {
+        m_impl = std::exchange(other.m_impl, nullptr);
+        m_shared_scheduled_recvs = other.m_shared_scheduled_recvs;
+        m_schedule = std::move(other.m_schedule);
+        m_mrs_factory = std::move(other.m_mrs_factory);
+        return *this;
+    }
 
     ~communicator();
 
