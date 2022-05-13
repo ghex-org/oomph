@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include <oomph/detail/message_buffer.hpp>
 #include <cstddef>
+#include <oomph/detail/message_buffer.hpp>
 
 namespace oomph
 {

@@ -8,18 +8,20 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <hwmalloc/numa.hpp>
-#if HWMALLOC_ENABLE_DEVICE
-#include <hwmalloc/device.hpp>
-#endif
 #include <oomph/config.hpp>
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/util/stack_pimpl.hpp>
+
+#if HWMALLOC_ENABLE_DEVICE
+#   include <hwmalloc/device.hpp>
+#endif // HWMALLOC_ENABLE_DEVICE
+
 #if OOMPH_ENABLE_BARRIER
-#include <oomph/barrier.hpp>
-#include "./thread_id.hpp"
-#include <map>
-#include <set>
-#include <mutex>
+#   include <map>
+#   include <set>
+#   include <mutex>
+#   include <oomph/barrier.hpp>
+#   include "./thread_id.hpp"
 #endif // OOMPH_ENABLE_BARRIER
 
 namespace oomph

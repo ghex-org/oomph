@@ -9,9 +9,9 @@
  */
 #pragma once
 
+#include <memory>
 #include <oomph/detail/message_buffer.hpp>
 #include <oomph/util/unsafe_shared_ptr.hpp>
-#include <memory>
 
 namespace oomph
 {

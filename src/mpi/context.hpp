@@ -12,7 +12,6 @@
 #include "../context_base.hpp"
 #include "./rma_context.hpp"
 #include "./request_queue.hpp"
-#include <atomic>
 
 namespace oomph
 {

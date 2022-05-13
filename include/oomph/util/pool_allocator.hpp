@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include <boost/pool/pool.hpp>
 #include <cassert>
 #include <new>
+#include <boost/pool/pool.hpp>
 
 namespace oomph
 {

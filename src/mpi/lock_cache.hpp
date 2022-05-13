@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include <oomph/util/mpi_error.hpp>
-#include <oomph/communicator.hpp>
 #include <set>
 #include <mutex>
+#include <oomph/util/mpi_error.hpp>
+#include <oomph/communicator.hpp>
 
 namespace oomph
 {

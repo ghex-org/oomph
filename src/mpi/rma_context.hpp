@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include "./region.hpp"
-#include "./lock_cache.hpp"
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/heap.hpp>
+#include "./region.hpp"
+#include "./lock_cache.hpp"
 
 namespace oomph
 {

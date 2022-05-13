@@ -9,12 +9,12 @@
  */
 #pragma once
 
-#include <oomph/util/mpi_comm_holder.hpp>
-#include <oomph/util/heap_pimpl.hpp>
-#include <oomph/message_buffer.hpp>
-#include <oomph/communicator.hpp>
 #include <hwmalloc/config.hpp>
 #include <hwmalloc/device.hpp>
+#include <oomph/message_buffer.hpp>
+#include <oomph/communicator.hpp>
+#include <oomph/util/mpi_comm_holder.hpp>
+#include <oomph/util/heap_pimpl.hpp>
 
 namespace oomph
 {

@@ -10,11 +10,11 @@
  */
 #pragma once
 
+#include <iostream>
 #include <oomph/context.hpp>
 #include "./mpi_comm.hpp"
 #include "./unique_ptr_set.hpp"
 #include "./rank_topology.hpp"
-#include <iostream>
 
 namespace oomph
 {
