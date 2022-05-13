@@ -53,9 +53,9 @@ struct request_state : public request_state_base<false>
     {
     }
 
-    void progress();// { m_comm->progress(); }
+    void progress();
 
-    bool cancel();// { return m_comm->cancel_recv(this); }
+    bool cancel();
 };
 
 struct shared_request_state : public request_state_base<true>
@@ -72,9 +72,9 @@ struct shared_request_state : public request_state_base<true>
     {
     }
 
-    void progress();// { m_ctxt->progress(); }
+    void progress();
 
-    bool cancel();// { return m_ctxt->cancel_recv(this); }
+    bool cancel();
 };
 
 } // namespace detail

@@ -16,25 +16,6 @@ namespace oomph
 namespace detail
 {
 
-//struct request_state_base
-//{
-//    using rank_type = oomph::communicator::rank_type;
-//    using tag_type = oomph::communicator::tag_type;
-//    using cb_type = oomph::util::unique_function<void(rank_type, tag_type)>;
-//
-//    oomph::communicator_impl*  m_comm;
-//    std::size_t* m_scheduled;
-//    rank_type m_rank;
-//    tag_type m_tag;
-//    cb_type m_cb;
-//
-//    void invoke_cb()
-//    {
-//        m_cb(m_rank, m_tag);
-//        --m_scheduled;
-//    }
-//};
-
 template<bool>
 struct request_state_traits
 {
