@@ -14,11 +14,9 @@
 #include <oomph/communicator.hpp>
 #include "./request.hpp"
 #include "./request_queue.hpp"
-#include "./callback_queue.hpp"
 #include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../device_guard.hpp"
-#include "../pool_allocator.hpp"
 
 namespace oomph
 {
@@ -29,23 +27,16 @@ class communicator_impl : public communicator_base<communicator_impl>
     using pool_type = boost::pool<boost::default_user_allocator_malloc_free>;
 
   public:
-    context_impl*  m_context;
-    callback_queue m_send_callbacks;
-    callback_queue m_recv_callbacks;
-
+    context_impl* m_context;
     request_queue m_send_reqs;
     request_queue m_recv_reqs;
-    pool_type m_request_state_pool;
-
-    //pool_type m_request_pool;
+    pool_type     m_request_state_pool;
 
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
-    , m_request_state_pool(
-        util::unsafe_shared_ptr<detail::request_state2>::template
-            allocation_size<pool_allocator<char>>())
-    //, m_request_pool(ctxt->m_request_state_size)
+    , m_request_state_pool(util::unsafe_shared_ptr<detail::request_state>::template allocation_size<
+          util::pool_allocator<char>>())
     {
     }
 
@@ -69,25 +60,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         return {r};
     }
 
-    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& h)
-    {
-        auto req = send(ptr, size, dst, tag);
-        if (req.is_ready()) cb();
-        else
-            m_send_callbacks.enqueue(req, std::move(cb), std::move(h));
-    }
-
-    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& h)
-    {
-        auto req = recv(ptr, size, src, tag);
-        if (req.is_ready()) cb();
-        else
-            m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
-    }
-
-    send_request2 send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+    send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
     {
         auto req = send(ptr, size, dst, tag);
@@ -98,16 +71,16 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else
         {
-            auto s = util::allocate_shared<detail::request_state2>(
-                pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, dst, tag,
-                std::move(cb), req);
+            auto s = util::allocate_shared<detail::request_state>(
+                util::pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, dst,
+                tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_send_reqs.enqueue(s.get());
             return {std::move(s)};
         }
     }
 
-    recv_request2 recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+    recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
     {
         auto req = recv(ptr, size, src, tag);
@@ -118,52 +91,16 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else
         {
-            auto s = util::allocate_shared<detail::request_state2>(
-                pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, src, tag,
-                std::move(cb), req);
+            auto s = util::allocate_shared<detail::request_state>(
+                util::pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, src,
+                tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_recv_reqs.enqueue(s.get());
             return {std::move(s)};
         }
     }
 
-    //void shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-    //    tag_type tag, util::unique_function<void()>&& cb /*, communicator::shared_request_ptr&& h*/)
-    //{
-    //    //auto req = recv(ptr, size, src, tag);
-    //    //if (req.is_ready()) cb();
-    //    //else
-    //    //    //m_recv_callbacks.enqueue(req, std::move(cb), std::move(h));
-    //    //    m_context->m_cb_queue.enqueue(req, std::move(cb));
-    //}
-
-    //std::size_t scheduled_shared_recvs() const noexcept { return 0;/*m_context->m_cb_queue.size();*/ }
-
-    //shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-    //    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
-    //{
-    //    auto req = recv(ptr, size, src, tag);
-    //    if (req.is_ready())
-    //    {
-    //        cb(src, tag);
-    //        return {};
-    //    }
-    //    else
-    //    {
-    //        //auto s = std::make_shared<detail::shared_request_state>(m_context, this,
-    //        //    &(m_context->m_scheduled), src, tag, std::move(cb), req);
-
-    //        auto s = std::allocate_shared<detail::shared_request_state>(
-    //            ts_pool_allocator<char>(&(m_context->m_shared_request_pool), &(m_context->m_mtx)),
-    //            m_context, this, &(m_context->m_scheduled), src, tag, std::move(cb), req);
-
-    //        m_context->m_req_queue.push(s);
-    //        return {std::move(s)};
-    //    }
-    //}
-
-    shared_recv_request 
-    shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+    shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::atomic<std::size_t>* scheduled)
     {
@@ -175,35 +112,22 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else
         {
-            //auto s = new detail::shared_request_state(m_context, this, &(m_context->m_scheduled),
-            //    src, tag, std::move(cb), req);
-            //m_context->m_req_queue.enqueue(s);
-
-            auto s = std::make_shared<detail::shared_request_state>(m_context, this,
-                //&(m_context->m_scheduled)
-                scheduled, src, tag, std::move(cb), req);
+            auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
+                tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_context->m_req_queue.enqueue(s.get());
             return {std::move(s)};
         }
-
     }
-    
-    //std::size_t scheduled_shared_recvs() const noexcept { return m_context->m_scheduled.load(); }
 
     void progress()
     {
-        m_send_callbacks.progress();
-        m_recv_callbacks.progress();
-        //m_context->m_cb_queue.progress();
-        //m_context->m_req_queue.progress();
+        m_send_reqs.progress();
+        m_recv_reqs.progress();
         m_context->progress();
     }
 
-    bool cancel_recv_cb(recv_request const& req)
-    {
-        return m_recv_callbacks.cancel(req.m_data->reserved()->m_index);
-    }
+    bool cancel_recv(detail::request_state* s) { return m_recv_reqs.cancel(s); }
 };
 
 } // namespace oomph

@@ -415,8 +415,8 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     auto recv_callback = [&](message msg, rank_type, tag_type)
     {
         //std::cout << thread_id << " " << env.thread_id << std::endl;
-        if (thread_id != env.thread_id) std::cout << "other thread picked up callback" << std::endl;
-        else std::cout << "my thread picked up callback" << std::endl;
+        //if (thread_id != env.thread_id) std::cout << "other thread picked up callback" << std::endl;
+        //else std::cout << "my thread picked up callback" << std::endl;
         env.rmsg = std::move(msg);
         ++shared_received[env.thread_id];
     };
@@ -424,9 +424,6 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
-        //env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        //auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        //while (!sh.is_ready() || shared_received[env.thread_id].load() != (i+1)) { env.comm.progress(); }
         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
@@ -436,37 +433,34 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     }
     EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
     EXPECT_EQ(sent, NITERS);
-    std::cout << env.comm.scheduled_shared_recvs() << std::endl;
 
-    ////received = 0;
-    //shared_received[env.thread_id].store(0);
-    //sent = 0;
-    //// use test() -> communicator is progressed automatically
-    //for (int i = 0; i < NITERS; i++)
-    //{
-    //    env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-    //    auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-    //    while (!rh.test() || !sh.test()) {}
-    //    EXPECT_TRUE(env.check_recv_buffer());
-    //    env.fill_recv_buffer();
-    //}
-    ////EXPECT_EQ(received, NITERS);
-    ////EXPECT_EQ(sent, NITERS);
+    shared_received[env.thread_id].store(0);
+    sent = 0;
+    // use test() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        while (!rh.test() || !sh.test()) {}
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+    EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
+    EXPECT_EQ(sent, NITERS);
 
-    ////received = 0;
-    //shared_received[env.thread_id].store(0);
-    //sent = 0;
-    //// use wait() -> communicator is progressed automatically
-    //for (int i = 0; i < NITERS; i++)
-    //{
-    //    auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-    //    env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
-    //    rh.wait();
-    //    EXPECT_TRUE(env.check_recv_buffer());
-    //    env.fill_recv_buffer();
-    //}
-    //EXPECT_EQ(received, NITERS);
-    //EXPECT_EQ(sent, NITERS);
+    shared_received[env.thread_id].store(0);
+    sent = 0;
+    // use wait() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+        env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
+        rh.wait();
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
+    EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
+    EXPECT_EQ(sent, NITERS);
 }
 
 TEST_F(mpi_test_fixture, send_shared_recv_cb_disown)

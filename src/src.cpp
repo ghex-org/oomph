@@ -72,18 +72,12 @@ context::get_communicator()
 // communicator              //
 ///////////////////////////////
 
-communicator::communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs )
+communicator::communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs)
 : m_impl{impl_}
 , m_shared_scheduled_recvs{shared_scheduled_recvs}
-, m_pool{std::make_unique<pool_type>(
-      sizeof(detail::request_state) +
-          ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
-              sizeof(void*),
-      128)}
-, m_send_multi_pool_1{std::make_unique<pool_type>(sizeof(msg_ref_count<message_buffer<int>*>), 128)}
-, m_send_multi_pool_2{std::make_unique<pool_type>(sizeof(msg_ref_count<message_buffer<int>>), 128)}
-, m_send_multi_pool_3{std::make_unique<pool_type>(sizeof(int), 128)}
 , m_schedule{std::make_unique<schedule>()}
+, m_mrs_pool{std::make_unique<pool_type>(util::unsafe_shared_ptr<
+      detail::multi_request_state>::template allocation_size<util::pool_allocator<char>>())}
 {
 #if OOMPH_ENABLE_BARRIER
     get_comm_set(m_impl->m_context).insert(m_impl);
@@ -294,43 +288,14 @@ message_buffer::clear()
 ///////////////////////////////
 // communicator              //
 ///////////////////////////////
-
-void
-communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, tag_type tag, util::unique_function<void()> cb, shared_request_ptr req)
-{
-    m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), std::move(req));
-}
-
-void
-communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()> cb, shared_request_ptr req)
-{
-    m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(req));
-}
-
-//void
-//communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-//    tag_type tag, util::unique_function<void()> cb/*, shared_request_ptr req*/)
-//{
-//    m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb)/*, std::move(req)*/);
-//}
-
-//shared_recv_request
-//communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
-//    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
-//{
-//    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb));
-//}
-
-send_request2
+send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
     rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), &(m_schedule->scheduled_sends));
 }
 
-recv_request2
+recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
     tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
@@ -343,12 +308,6 @@ communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::siz
 {
     return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb), m_shared_scheduled_recvs);
 }
-
-//std::size_t
-//communicator::scheduled_shared_recvs() const noexcept
-//{
-//    return m_impl->scheduled_shared_recvs();
-//}
 
 ///////////////////////////////
 // make_buffer               //
@@ -421,54 +380,64 @@ communicator::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, in
 /////////////////////////////////
 //// request                   //
 /////////////////////////////////
+bool
+send_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return m->is_ready();
+}
 
 bool
 send_request::test()
 {
-    if (!m_data) return true;
-    if (m_data->m_ready) return true;
-    m_data->m_comm->progress();
-    return is_ready();
+    if (!m) return true;
+    m->progress();
+    return m->is_ready();
 }
 
 void
 send_request::wait()
 {
-    if (!m_data) return;
-    while (!m_data->m_ready) m_data->m_comm->progress();
+    if (!m) return;
+    while (!m->is_ready()) m->progress();
+}
+
+bool
+recv_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return m->is_ready();
+}
+
+bool
+recv_request::is_canceled() const noexcept
+{
+    if (!m) return true;
+    return m->is_canceled();
 }
 
 bool
 recv_request::test()
 {
-    if (!m_data) return true;
-    if (m_data->m_ready) return true;
-    m_data->m_comm->progress();
-    return is_ready();
+    if (!m) return true;
+    m->progress();
+    return m->is_ready();
 }
 
 void
 recv_request::wait()
 {
-    if (!m_data) return;
-    while (!m_data->m_ready) m_data->m_comm->progress();
+    if (!m) return;
+    while (!m->is_ready()) m->progress();
 }
 
 bool
 recv_request::cancel()
 {
-    if (!m_data) return false;
-    if (m_data->m_ready) return false;
-    const auto res = m_data->m_comm->cancel_recv_cb(*this);
-    if (res)
-    {
-        --(*(m_data->m_scheduled));
-        m_data.reset();
-    }
-    return res;
+    if (!m) return false;
+    if (m->is_ready()) return false;
+    return m->cancel();
 }
-
-
 
 bool
 shared_recv_request::is_ready() const noexcept
@@ -507,46 +476,52 @@ shared_recv_request::cancel()
     return m->cancel();
 }
 
-/////////////////////////////////
-//// send_channel_base         //
-/////////////////////////////////
-//
-//send_channel_base::~send_channel_base() = default;
-//
-//void
-//send_channel_base::connect()
-//{
-//    m_impl->connect();
-//}
-//
-/////////////////////////////////
-//// recv_channel_base         //
-/////////////////////////////////
-//
-//recv_channel_base::~recv_channel_base() = default;
-//
-//void
-//recv_channel_base::connect()
-//{
-//    m_impl->connect();
-//}
-//
-//std::size_t
-//recv_channel_base::capacity()
-//{
-//    return m_impl->capacity();
-//}
-//
-//void*
-//recv_channel_base::get(std::size_t& index)
-//{
-//    return m_impl->get(index);
-//}
-//
-//recv_channel_impl*
-//recv_channel_base::get_impl() noexcept
-//{
-//    return &(*m_impl);
-//}
+bool
+send_multi_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return (m->m_counter == 0);
+}
+
+bool
+send_multi_request::test()
+{
+    if (!m) return true;
+    if (m->m_counter == 0) return true;
+    m->m_comm->progress();
+    return (m->m_counter == 0);
+}
+
+void
+send_multi_request::wait()
+{
+    if (!m) return;
+    if (m->m_counter == 0) return;
+    while (m->m_counter > 0) m->m_comm->progress();
+}
+
+void
+detail::request_state::progress()
+{
+    m_comm->progress();
+}
+
+bool
+detail::request_state::cancel()
+{
+    return m_comm->cancel_recv(this);
+}
+
+void
+detail::shared_request_state::progress()
+{
+    m_ctxt->progress();
+}
+
+bool
+detail::shared_request_state::cancel()
+{
+    return m_ctxt->cancel_recv(this);
+}
 
 } // namespace oomph

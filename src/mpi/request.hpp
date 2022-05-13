@@ -39,23 +39,23 @@ struct mpi_request
 
 namespace detail
 {
-struct request_state2 : public request_state_base<false>
+struct request_state : public request_state_base<false>
 {
     using base = request_state_base<false>;
     mpi_request                             m_req;
-    util::unsafe_shared_ptr<request_state2> m_self_ptr;
+    util::unsafe_shared_ptr<request_state> m_self_ptr;
     std::size_t                             m_index;
 
-    request_state2(oomph::context_impl* ctxt, oomph::communicator_impl* comm,
-        std::size_t* scheduled, rank_type rank, tag_type tag, cb_type&& cb, mpi_request m)
+    request_state(oomph::context_impl* ctxt, oomph::communicator_impl* comm, std::size_t* scheduled,
+        rank_type rank, tag_type tag, cb_type&& cb, mpi_request m)
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{m}
     {
     }
 
-    void progress() {}
+    void progress();// { m_comm->progress(); }
 
-    bool cancel() { return true; }
+    bool cancel();// { return m_comm->cancel_recv(this); }
 };
 
 struct shared_request_state : public request_state_base<true>
@@ -72,9 +72,9 @@ struct shared_request_state : public request_state_base<true>
     {
     }
 
-    void progress();
+    void progress();// { m_ctxt->progress(); }
 
-    bool cancel() { return true; }
+    bool cancel();// { return m_ctxt->cancel_recv(this); }
 };
 
 } // namespace detail

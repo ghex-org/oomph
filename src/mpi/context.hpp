@@ -11,10 +11,8 @@
 
 #include "../context_base.hpp"
 #include "./rma_context.hpp"
-//#include "./shared_callback_queue.hpp"
 #include "./request_queue.hpp"
 #include <atomic>
-//#include "../reporting_allocator.hpp"
 
 namespace oomph
 {
@@ -33,12 +31,7 @@ class context_impl : public context_base
     rma_context m_rma_context;
 
   public:
-    shared_request_queue     m_req_queue;
-    //std::atomic<std::size_t> m_scheduled;
-    //std::size_t              m_request_state_size;
-    //std::size_t              m_shared_request_state_size;
-    //pool_type m_shared_request_pool;
-    //std::mutex m_mtx;
+    shared_request_queue m_req_queue;
 
   public:
     context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
@@ -46,26 +39,6 @@ class context_impl : public context_base
     : context_base(comm, thread_safe)
     , m_heap{this, message_pool_never_free, message_pool_reserve}
     , m_rma_context{m_mpi_comm}
-    //, m_scheduled(0ul)
-    //, m_request_state_size{[]() -> std::size_t
-    //      {
-    //          std::size_t size;
-    //          std::size_t c(0);
-    //          std::allocate_shared<detail::request_state2>(
-    //              reporting_allocator<char>([&size](std::size_t s) { size = s; }), nullptr, nullptr,
-    //              &c, 0, 0, util::unique_function<void(int, int)>{}, mpi_request{});
-    //          return size;
-    //      }()}
-    //, m_shared_request_state_size{[]() -> std::size_t
-    //      {
-    //          std::size_t              size;
-    //          std::atomic<std::size_t> c(0);
-    //          std::allocate_shared<detail::shared_request_state>(
-    //              reporting_allocator<char>([&size](std::size_t s) { size = s; }), nullptr, nullptr,
-    //              &c, 0, 0, util::unique_function<void(int, int)>{}, mpi_request{});
-    //          return size;
-    //      }()}
-    //, m_shared_request_pool(m_shared_request_state_size)
     {
     }
 
@@ -82,10 +55,9 @@ class context_impl : public context_base
 
     communicator_impl* get_communicator();
 
-    void progress()
-    {
-        m_req_queue.progress();
-    }
+    void progress() { m_req_queue.progress(); }
+
+    bool cancel_recv(detail::shared_request_state* r) { return m_req_queue.cancel(r); }
 };
 
 template<>
