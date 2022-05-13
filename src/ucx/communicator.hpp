@@ -274,6 +274,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 // shared recv
                 auto req = req_data.m_shared_req;
+
+                // TODO
             }
         }
         else if (status == UCS_ERR_CANCELED)
