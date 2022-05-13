@@ -24,19 +24,17 @@ class communicator_impl : public communicator_base<communicator_impl>
 {
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    using pool_type = boost::pool<boost::default_user_allocator_malloc_free>;
+    using pool_factory_type = util::pool_factory<detail::request_state>;
 
   public:
-    context_impl* m_context;
-    request_queue m_send_reqs;
-    request_queue m_recv_reqs;
-    pool_type     m_request_state_pool;
+    context_impl*     m_context;
+    request_queue     m_send_reqs;
+    request_queue     m_recv_reqs;
+    pool_factory_type m_req_state_factory;
 
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
-    , m_request_state_pool(util::unsafe_shared_ptr<detail::request_state>::template allocation_size<
-          util::pool_allocator<char>>())
     {
     }
 
@@ -71,9 +69,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else
         {
-            auto s = util::allocate_shared<detail::request_state>(
-                util::pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, dst,
-                tag, std::move(cb), req);
+            auto s =
+                m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_send_reqs.enqueue(s.get());
             return {std::move(s)};
@@ -91,9 +88,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         else
         {
-            auto s = util::allocate_shared<detail::request_state>(
-                util::pool_allocator<char>(&m_request_state_pool), m_context, this, scheduled, src,
-                tag, std::move(cb), req);
+            auto s =
+                m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb), req);
             s->m_self_ptr = s;
             m_recv_reqs.enqueue(s.get());
             return {std::move(s)};

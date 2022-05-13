@@ -24,7 +24,6 @@ class context_impl : public context_base
     using heap_type = hwmalloc::heap<context_impl>;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    using pool_type = boost::pool<boost::default_user_allocator_malloc_free>;
 
   private:
     heap_type   m_heap;

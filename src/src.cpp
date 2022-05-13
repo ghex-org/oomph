@@ -76,8 +76,6 @@ communicator::communicator(impl_type* impl_, std::atomic<std::size_t>* shared_sc
 : m_impl{impl_}
 , m_shared_scheduled_recvs{shared_scheduled_recvs}
 , m_schedule{std::make_unique<schedule>()}
-, m_mrs_pool{std::make_unique<pool_type>(util::unsafe_shared_ptr<
-      detail::multi_request_state>::template allocation_size<util::pool_allocator<char>>())}
 {
 #if OOMPH_ENABLE_BARRIER
     get_comm_set(m_impl->m_context).insert(m_impl);

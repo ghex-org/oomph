@@ -20,7 +20,7 @@
 #include <oomph/detail/communicator_helper.hpp>
 #include <oomph/util/mpi_error.hpp>
 #include <oomph/util/unique_function.hpp>
-#include <oomph/util/pool_allocator.hpp>
+#include <oomph/util/pool_factory.hpp>
 
 namespace oomph
 {
@@ -78,10 +78,10 @@ class communicator
     };
 
   private:
-    impl_type*                 m_impl;
-    std::atomic<std::size_t>*  m_shared_scheduled_recvs;
-    std::unique_ptr<schedule>  m_schedule;
-    std::unique_ptr<pool_type> m_mrs_pool;
+    impl_type*                                      m_impl;
+    std::atomic<std::size_t>*                       m_shared_scheduled_recvs;
+    std::unique_ptr<schedule>                       m_schedule;
+    util::pool_factory<detail::multi_request_state> m_mrs_factory;
 
   private:
     communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
@@ -192,8 +192,7 @@ class communicator
         std::size_t neighs_size, tag_type tag)
     {
         assert(msg);
-        auto mrs = util::allocate_shared<detail::multi_request_state>(
-            util::pool_allocator<char>(m_mrs_pool.get()), m_impl, neighs_size);
+        auto mrs = m_mrs_factory.make(m_impl, neighs_size);
         for (std::size_t i = 0; i < neighs_size; ++i)
         {
             send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), neighs[i], tag,
@@ -322,9 +321,8 @@ class communicator
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
         auto const ns = neighs.size();
-        auto       mrs = util::allocate_shared<detail::multi_request_state>(
-            util::pool_allocator<char>(m_mrs_pool.get()), m_impl, ns, std::move(neighs), msg.m_size,
-            nullptr, std::move(msg.m));
+        auto       mrs = m_mrs_factory.make(m_impl, ns, std::move(neighs), msg.m_size, nullptr,
+                  std::move(msg.m));
 
         for (auto dst : mrs->m_neighs)
         {
@@ -353,9 +351,7 @@ class communicator
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
         auto const ns = neighs.size();
-        auto       mrs = util::allocate_shared<detail::multi_request_state>(
-            util::pool_allocator<char>(m_mrs_pool.get()), m_impl, ns, std::move(neighs), msg.m_size,
-            &msg);
+        auto       mrs = m_mrs_factory.make(m_impl, ns, std::move(neighs), msg.m_size, &msg);
 
         for (auto dst : mrs->m_neighs)
         {
@@ -384,9 +380,7 @@ class communicator
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
         auto const ns = neighs.size();
-        auto       mrs = util::allocate_shared<detail::multi_request_state>(
-            util::pool_allocator<char>(m_mrs_pool.get()), m_impl, ns, std::move(neighs), msg.m_size,
-            &msg);
+        auto       mrs = m_mrs_factory.make(m_impl, ns, std::move(neighs), msg.m_size, &msg);
 
         for (auto dst : mrs->m_neighs)
         {
