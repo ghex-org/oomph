@@ -32,12 +32,12 @@ struct request_data
 
     bool empty() const noexcept { return !((bool)m_req || (bool)m_shared_req); }
 
-    static request_data* construct(detail::request_state* req)
+    static request_data* construct(void* ptr, detail::request_state* req)
     {
         return ::new (get_impl(ptr)) request_data{req, nullptr};
     }
 
-    static request_data* construct(detail::shared_request_state* req)
+    static request_data* construct(void* ptr, detail::shared_request_state* req)
     {
         return ::new (get_impl(ptr)) request_data{nullptr, req};
     }

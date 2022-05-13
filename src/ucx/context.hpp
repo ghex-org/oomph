@@ -10,15 +10,17 @@
  */
 #pragma once
 
+#include <vector>
+#include <memory>
+#include <boost/lockfree/queue.hpp>
 #include "../context_base.hpp"
 #include "./config.hpp"
 #include "./rma_context.hpp"
 #include "./region.hpp"
 #include "./worker.hpp"
+#include "./request_state.hpp"
 #include "./request_data.hpp"
 #include "./address_db.hpp"
-#include <vector>
-#include <memory>
 
 namespace oomph
 {
@@ -40,6 +42,12 @@ class context_impl : public context_base
 
     using worker_vector = std::vector<std::unique_ptr<worker_type>>;
 
+    template<typename T>
+    using lockfree_queue = boost::lockfree::queue<T, boost::lockfree::fixed_sized<false>,
+        boost::lockfree::allocator<std::allocator<void>>>;
+
+    using recv_req_queue_type = lockfree_queue<detail::shared_request_state*>;
+
   private: // members
     type_erased_address_db_t                  m_db;
     ucp_context_h_holder                      m_context;
@@ -49,6 +57,8 @@ class context_impl : public context_base
     std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
     std::vector<std::unique_ptr<worker_type>> m_workers;
     ucx_mutex                                 m_mutex;
+    recv_req_queue_type                       m_recv_req_queue;
+    recv_req_queue_type                       m_cancel_recv_req_queue;
 
     friend struct worker_t;
 
@@ -63,6 +73,8 @@ class context_impl : public context_base
 #endif
     , m_heap{this, message_pool_never_free, message_pool_reserve}
     , m_rma_context()
+    , m_recv_req_queue(128)
+    , m_cancel_recv_req_queue(128)
     {
         // read run-time context
         ucp_config_t* config_ptr;
@@ -147,6 +159,72 @@ class context_impl : public context_base
     auto& get_heap() noexcept { return m_heap; }
 
     communicator_impl* get_communicator();
+
+    void progress()
+    {
+        {
+            ucx_lock lock(m_mutex);
+            while (ucp_worker_progress(m_worker->get())) {}
+        }
+        m_recv_req_queue.consume_all(
+            [this](detail::shared_request_state* req)
+            {
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
+                //auto ucx_req = req->m_ucx_ptr;
+                //request_data::get(ucx_req)->destroy();
+                //m_mutex.lock();
+                //ucp_request_free(ucx_req);
+                //m_mutex.unlock();
+            });
+    }
+
+    void enqueue_recv(detail::shared_request_state* d)
+    {
+        while (!m_recv_req_queue.push(d)) {}
+    }
+
+    void enqueue_cancel_recv(detail::shared_request_state* d)
+    {
+        while (!m_cancel_recv_req_queue.push(d)) {}
+    }
+
+    bool cancel_recv(detail::shared_request_state* s)
+    {
+        if (m_thread_safe) m_mutex.lock();
+        ucp_request_cancel(m_worker->get(), s->m_ucx_ptr);
+        while (ucp_worker_progress(m_worker->get())) {}
+        if (m_thread_safe) m_mutex.unlock();
+        // check whether the cancelled callback was enqueued by consuming all queued cancelled
+        // callbacks and putting them in a temporary vector
+        bool                                                           found = false;
+        static thread_local std::vector<detail::shared_request_state*> m_cancel_recv_req_vec;
+        m_cancel_recv_req_vec.clear();
+        m_cancel_recv_req_queue.consume_all(
+            [this, s, &found](detail::shared_request_state* r)
+            {
+                if (r == s) found = true;
+                else
+                    m_cancel_recv_req_vec.push_back(r);
+            });
+        // re-enqueue all callbacks which were not identical with the current callback
+        for (auto x : m_cancel_recv_req_vec)
+            while (!m_cancel_recv_req_queue.push(x)) {}
+
+        // delete callback here if it was actually cancelled
+        if (found)
+        {
+            auto ptr = std::move(s->m_self_ptr);
+            s->set_canceled();
+            void* ucx_req = s->m_ucx_ptr;
+            // destroy request
+            request_data::get(ucx_req)->destroy();
+            if (m_thread_safe) m_mutex.lock();
+            ucp_request_free(ucx_req);
+            if (m_thread_safe) m_mutex.unlock();
+        }
+        return found;
+    }
 };
 
 template<>

@@ -212,7 +212,10 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     {
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
-        while (!(rreq.is_ready() && sreq.is_ready())) { env.comm.progress(); };
+        while (!(rreq.is_ready() && sreq.is_ready())) 
+        { 
+            env.comm.progress(); 
+        };
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
