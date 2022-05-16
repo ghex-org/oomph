@@ -65,7 +65,7 @@ struct request_state_base
     using cb_type = oomph::util::unique_function<void(rank_type, tag_type)>;
 
     template<typename T>
-    using type = typename traits::type<T>;
+    using type = typename traits::template type<T>;
 
     context_type*      m_ctxt;
     communicator_type* m_comm;

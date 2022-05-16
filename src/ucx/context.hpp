@@ -163,20 +163,20 @@ class context_impl : public context_base
 
     void progress()
     {
+        //{
+        //    ucx_lock lock(m_mutex);
+        //    while (ucp_worker_progress(m_worker->get())) {}
+        //}
+        if (m_mutex.try_lock())
         {
-            ucx_lock lock(m_mutex);
-            while (ucp_worker_progress(m_worker->get())) {}
+            ucp_worker_progress(m_worker->get());
+            m_mutex.unlock();
         }
         m_recv_req_queue.consume_all(
-            [this](detail::shared_request_state* req)
+            [](detail::shared_request_state* req)
             {
                 auto ptr = std::move(req->m_self_ptr);
                 req->invoke_cb();
-                //auto ucx_req = req->m_ucx_ptr;
-                //request_data::get(ucx_req)->destroy();
-                //m_mutex.lock();
-                //ucp_request_free(ucx_req);
-                //m_mutex.unlock();
             });
     }
 
