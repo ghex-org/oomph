@@ -10,16 +10,12 @@
  */
 #pragma once
 
-#include <oomph/util/moved_bit.hpp>
-//#include "../../common/moved_bit.hpp"
-//#include "./error.hpp"
-#include "./endpoint.hpp"
-#include "./address_db.hpp"
-//#include "../util/pthread_spin_mutex.hpp"
-//#include "../mpi/rank_topology.hpp"
 #include <map>
 #include <deque>
 #include <unordered_map>
+#include <oomph/util/moved_bit.hpp>
+#include "./endpoint.hpp"
+#include "./address_db.hpp"
 
 namespace oomph
 {

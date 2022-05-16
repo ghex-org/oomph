@@ -56,6 +56,7 @@ class context_impl : public context_base
     std::size_t                               m_req_size;
     std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
     std::vector<std::unique_ptr<worker_type>> m_workers;
+  public:
     ucx_mutex                                 m_mutex;
     recv_req_queue_type                       m_recv_req_queue;
     recv_req_queue_type                       m_cancel_recv_req_queue;

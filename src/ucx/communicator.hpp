@@ -96,18 +96,17 @@ class communicator_impl : public communicator_base<communicator_impl>
         // (including this thread)
         if (m_thread_safe)
             m_recv_req_queue.consume_all(
-                [this](detail::request_state* req)
+                [](detail::request_state* req)
                 {
                     auto ptr = std::move(req->m_self_ptr);
                     req->invoke_cb();
-                    //auto ucx_req = req->m_ucx_ptr;
-                    //request_data::get(ucx_req)->destroy();
-                    //m_mutex.lock();
-                    //ucp_request_free(ucx_req);
-                    //m_mutex.unlock();
                 });
-
-        m_context->progress();
+        m_context->m_recv_req_queue.consume_all(
+            [](detail::shared_request_state* req)
+            {
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
+            });
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
@@ -323,57 +322,40 @@ class communicator_impl : public communicator_base<communicator_impl>
                 auto req = req_data.m_req;
                 if (req->m_ctxt->thread_safe())
                 {
+                    // multi-threaded case
+                    // free request here
+                    req_data.destroy();
+                    ucp_request_free(ucx_req);
                     // enqueue request on the issuing communicator
                     // this guarantees that only the communicator on which the receive was issued
                     // will invoke the callback
-                    req_data.destroy();
-                    ucp_request_free(ucx_req);
                     req->m_comm->enqueue_recv(req);
-
-                    // cannot free ucx request here since the freeing is not thread-safe
                 }
                 else
                 {
-                    auto ptr = std::move(req->m_self_ptr);
-                    // call the callback directly from here
-                    req->invoke_cb(); //m_cb(req->m_rank, req->m_tag);
-
-                    // destroy request
+                    // single-threaded case
+                    // free request here
                     req_data.destroy();
                     ucp_request_free(ucx_req);
+                    // call the callback directly from here
+                    auto ptr = std::move(req->m_self_ptr);
+                    req->invoke_cb();
                 }
             }
             else
             {
                 // shared recv
                 auto req = req_data.m_shared_req;
-
+                // free request here
                 req_data.destroy();
                 ucp_request_free(ucx_req);
+                // enqueue request on the context
                 req->m_ctxt->enqueue_recv(req);
-                // TODO
-                //if (req->m_ctxt->thread_safe())
-                //{
-                //    // enqueue shared request on the context
-                //    req->m_ctxt->enqueue_recv(req);
-                //}
-                //else
-                //{
-                //    // call the callback directly from here
-                //    req->m_cb(req->m_rank, req->m_tag);
-
-                //    // destroy request
-                //    req_data.destroy();
-                //    ucp_request_free(ucx_req);
-                //    auto ptr = std::move(req->m_self_ptr);
-                //}
             }
         }
         else if (status == UCS_ERR_CANCELED)
         {
             // receive was cancelled
-            // enqueue callback on the issuing communicator
-
             if (req_data.m_req) req_data.m_req->m_comm->enqueue_cancel_recv(req_data.m_req);
             else
                 req_data.m_shared_req->m_ctxt->enqueue_cancel_recv(req_data.m_shared_req);
