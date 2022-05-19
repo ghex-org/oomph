@@ -198,7 +198,7 @@ class context_impl : public context_base
         if (m_thread_safe) m_mutex.unlock();
         // check whether the cancelled callback was enqueued by consuming all queued cancelled
         // callbacks and putting them in a temporary vector
-        bool                                                           found = false;
+        static thread_local bool                                       found = false;
         static thread_local std::vector<detail::shared_request_state*> m_cancel_recv_req_vec;
         m_cancel_recv_req_vec.clear();
         m_cancel_recv_req_queue.consume_all(
