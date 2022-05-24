@@ -6,11 +6,11 @@
 set(OOMPH_WITH_UCX OFF CACHE BOOL "Build with UCX backend")
 
 if (OOMPH_WITH_UCX)
-    find_package(UCP REQUIRED)
+    find_package(UCX REQUIRED)
     add_library(oomph_ucx SHARED)
     add_library(oomph::ucx ALIAS oomph_ucx)
     oomph_shared_lib_options(oomph_ucx)
-    target_link_libraries(oomph_ucx PUBLIC UCP::libucp)
+    target_link_libraries(oomph_ucx PUBLIC UCX::ucx)
 
     set(OOMPH_UCX_USE_PMI OFF CACHE BOOL "use PMIx library for out-of-band initialization")
     if (OOMPH_UCX_USE_PMI)

@@ -1,0 +1,22 @@
+!
+! ghex-org
+!
+! Copyright (c) 2014-2021, ETH Zurich
+! All rights reserved.
+!
+! Please, refer to the LICENSE file in the root directory.
+! SPDX-License-Identifier: BSD-3-Clause
+!
+MODULE oomph_defs
+  integer, public, parameter :: OOMPH_ANY_SOURCE = -1
+
+  integer, public, parameter :: oomph_fp_kind = @OOMPH_FORTRAN_FP_KIND@
+
+  integer, public, parameter :: OomphBarrierGlobal = 1
+  integer, public, parameter :: OomphBarrierThread = 2
+  integer, public, parameter :: OomphBarrierRank   = 3
+
+  integer, public, parameter :: OomphAllocatorHost    = 1
+  integer, public, parameter :: OomphAllocatorDevice  = 2
+END MODULE oomph_defs
+
