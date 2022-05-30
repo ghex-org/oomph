@@ -47,6 +47,7 @@ class context_impl : public context_base
     void  lock(communicator::rank_type r) { m_rma_context.lock(r); }
 
     communicator_impl* get_communicator();
+    const char *get_transport_option(const std::string &opt);
 };
 
 template<>
