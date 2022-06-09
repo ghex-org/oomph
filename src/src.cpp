@@ -125,6 +125,12 @@ communicator::progress()
     m_impl->progress();
 }
 
+communicator::tag_type
+communicator::max_tag() const noexcept
+{
+    return m_impl->max_tag();
+}
+
 #if OOMPH_ENABLE_BARRIER
 ///////////////////////////////
 // barrier                   //

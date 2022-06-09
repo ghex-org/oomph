@@ -417,6 +417,8 @@ class communicator
 
     void progress();
 
+    tag_type max_tag() const noexcept;
+
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
     detail::message_buffer make_buffer_core(void* ptr, std::size_t size);

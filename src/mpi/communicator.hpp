@@ -39,6 +39,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     mpi_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag)
     {
+        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         MPI_Request        r;
         const_device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Isend(dg.data(), size, MPI_BYTE, dst, tag, mpi_comm(), &r));
@@ -48,6 +49,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     mpi_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         tag_type tag)
     {
+        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         MPI_Request  r;
         device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Irecv(dg.data(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
@@ -120,6 +122,10 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     bool cancel_recv(detail::request_state* s) { return m_recv_reqs.cancel(s); }
+
+    unsigned int max_tag() const noexcept { return m_context->max_tag(); }
+    unsigned int reserved_tag() const noexcept { return m_context->reserved_tag(); }
+
 };
 
 } // namespace oomph
