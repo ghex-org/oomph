@@ -202,9 +202,9 @@ class context_impl : public context_base
         static thread_local std::vector<detail::shared_request_state*> m_cancel_recv_req_vec;
         m_cancel_recv_req_vec.clear();
         m_cancel_recv_req_queue.consume_all(
-            [this, s, &found](detail::shared_request_state* r)
+            [this, s, found_ptr = &found](detail::shared_request_state* r)
             {
-                if (r == s) found = true;
+                if (r == s) *found_ptr = true;
                 else
                     m_cancel_recv_req_vec.push_back(r);
             });
