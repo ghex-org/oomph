@@ -19,7 +19,7 @@
 #include <sstream>
 #include <vector>
 #include <cstring>
-#ifdef USE_OPENMP
+#ifdef OOMPH_BENCHMARKS_MT
 #include <omp.h>
 #endif
 
@@ -260,7 +260,8 @@ main(int argc, char* argv[])
 //                              << "\trecv: " << receives_posted);
 
         // barrier + progress here before final checks
-        b.thread_barrier();
+        b.rank_barrier();
+//        b.thread_barrier();
 
         // all ranks have completed sends/recvs : test is over, stop the clock
         // timing includes a few bits of synchronization overhead, but
