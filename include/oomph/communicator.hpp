@@ -16,16 +16,13 @@
 #include <boost/callable_traits.hpp>
 #include <hwmalloc/device.hpp>
 #include <oomph/message_buffer.hpp>
-#include <oomph/request.hpp>
 #include <oomph/detail/communicator_helper.hpp>
 #include <oomph/util/mpi_error.hpp>
 #include <oomph/util/unique_function.hpp>
-#include <oomph/util/pool_factory.hpp>
 
 namespace oomph
 {
 class context;
-class communicator_impl;
 
 class communicator
 {
@@ -42,14 +39,6 @@ class communicator
     static constexpr tag_type  any_tag = -1;
 
   private:
-    using pool_type = boost::pool<boost::default_user_allocator_malloc_free>;
-
-    struct schedule
-    {
-        std::size_t scheduled_sends = 0;
-        std::size_t scheduled_recvs = 0;
-    };
-
     template<typename T, typename CallBack>
     struct cb_rref
     {
@@ -78,46 +67,36 @@ class communicator
     };
 
   private:
-    impl_type*                                      m_impl;
-    std::atomic<std::size_t>*                       m_shared_scheduled_recvs;
-    std::unique_ptr<schedule>                       m_schedule;
-    util::pool_factory<detail::multi_request_state> m_mrs_factory;
+    util::unsafe_shared_ptr<detail::communicator_state> m_state;
 
   private:
-    communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
+    communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs)
+    : m_state{util::make_shared<detail::communicator_state>(impl_, shared_scheduled_recvs)}
+    {
+    }
+
+    communicator(util::unsafe_shared_ptr<detail::communicator_state> s) noexcept
+    : m_state{s}
+    {
+    }
 
   public:
     communicator(communicator const&) = delete;
-
-    communicator(communicator&& other) noexcept
-    : m_impl{std::exchange(other.m_impl, nullptr)}
-    , m_shared_scheduled_recvs{other.m_shared_scheduled_recvs}
-    , m_schedule{std::move(other.m_schedule)}
-    , m_mrs_factory{std::move(other.m_mrs_factory)}
-    {
-    }
-
+    communicator(communicator&& other) = default;
     communicator& operator=(communicator const&) = delete;
-
-    communicator& operator=(communicator&& other) noexcept
-    {
-        m_impl = std::exchange(other.m_impl, nullptr);
-        m_shared_scheduled_recvs = other.m_shared_scheduled_recvs;
-        m_schedule = std::move(other.m_schedule);
-        m_mrs_factory = std::move(other.m_mrs_factory);
-        return *this;
-    }
-
-    ~communicator();
+    communicator& operator=(communicator&& other) = default;
 
   public:
     rank_type   rank() const noexcept;
     rank_type   size() const noexcept;
     MPI_Comm    mpi_comm() const noexcept;
     bool        is_local(rank_type rank) const noexcept;
-    std::size_t scheduled_sends() const noexcept { return m_schedule->scheduled_sends; }
-    std::size_t scheduled_recvs() const noexcept { return m_schedule->scheduled_recvs; }
-    std::size_t scheduled_shared_recvs() const noexcept { return m_shared_scheduled_recvs->load(); }
+    std::size_t scheduled_sends() const noexcept { return m_state->scheduled_sends; }
+    std::size_t scheduled_recvs() const noexcept { return m_state->scheduled_recvs; }
+    std::size_t scheduled_shared_recvs() const noexcept
+    {
+        return m_state->m_shared_scheduled_recvs->load();
+    }
 
     bool is_ready() const noexcept
     {
@@ -208,7 +187,7 @@ class communicator
         std::size_t neighs_size, tag_type tag)
     {
         assert(msg);
-        auto mrs = m_mrs_factory.make(m_impl, neighs_size);
+        auto mrs = m_state->make_multi_request_state(neighs_size);
         for (std::size_t i = 0; i < neighs_size; ++i)
         {
             send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), neighs[i], tag,
@@ -333,13 +312,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
         assert(msg);
-
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
-        auto const ns = neighs.size();
-        auto       mrs = m_mrs_factory.make(m_impl, ns, std::move(neighs), msg.m_size, nullptr,
-                  std::move(msg.m));
-
+        auto       mrs = m_state->make_multi_request_state(std::move(neighs), std::move(msg));
         for (auto dst : mrs->m_neighs)
         {
             send(m_ptr, s * sizeof(T), dst, tag,
@@ -353,7 +328,6 @@ class communicator
                         }
                     }));
         }
-
         return {std::move(mrs)};
     }
 
@@ -363,12 +337,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
         assert(msg);
-
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
-        auto const ns = neighs.size();
-        auto       mrs = m_mrs_factory.make(m_impl, ns, std::move(neighs), msg.m_size, &msg);
-
+        auto       mrs = m_state->make_multi_request_state(std::move(neighs), msg);
         for (auto dst : mrs->m_neighs)
         {
             send(m_ptr, s * sizeof(T), dst, tag,
@@ -382,7 +353,6 @@ class communicator
                         }
                     }));
         }
-
         return {std::move(mrs)};
     }
 
@@ -392,12 +362,9 @@ class communicator
     {
         OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CallBack)
         assert(msg);
-
         const auto s = msg.size();
         auto       m_ptr = msg.m.m_heap_ptr.get();
-        auto const ns = neighs.size();
-        auto       mrs = m_mrs_factory.make(m_impl, ns, std::move(neighs), msg.m_size, &msg);
-
+        auto       mrs = m_state->make_multi_request_state(std::move(neighs), msg);
         for (auto dst : mrs->m_neighs)
         {
             send(m_ptr, s * sizeof(T), dst, tag,
@@ -411,7 +378,6 @@ class communicator
                         }
                     }));
         }
-
         return {std::move(mrs)};
     }
 

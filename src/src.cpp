@@ -71,64 +71,68 @@ context::get_communicator()
 }
 
 ///////////////////////////////
-// communicator              //
+// communicator_state        //
 ///////////////////////////////
 
-communicator::communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs)
+namespace detail
+{
+communicator_state::communicator_state(impl_type* impl_,
+    std::atomic<std::size_t>*                     shared_scheduled_recvs)
 : m_impl{impl_}
 , m_shared_scheduled_recvs{shared_scheduled_recvs}
-, m_schedule{std::make_unique<schedule>()}
 {
 #if OOMPH_ENABLE_BARRIER
     get_comm_set(m_impl->m_context).insert(m_impl);
 #endif // OOMPH_ENABLE_BARRIER
 }
 
-communicator::~communicator()
+communicator_state::~communicator_state()
 {
-    if (m_impl)
-    {
 #if OOMPH_ENABLE_BARRIER
-        get_comm_set(m_impl->m_context).erase(m_impl);
+    get_comm_set(m_impl->m_context).erase(m_impl);
 #endif // OOMPH_ENABLE_BARRIER
-        m_impl->release();
-    }
+    m_impl->release();
 }
+} // namespace detail
+
+///////////////////////////////
+// communicator              //
+///////////////////////////////
 
 communicator::rank_type
 communicator::rank() const noexcept
 {
-    return m_impl->rank();
+    return m_state->m_impl->rank();
 }
 
 communicator::rank_type
 communicator::size() const noexcept
 {
-    return m_impl->size();
+    return m_state->m_impl->size();
 }
 
 bool
 communicator::is_local(rank_type rank) const noexcept
 {
-    return m_impl->is_local(rank);
+    return m_state->m_impl->is_local(rank);
 }
 
 MPI_Comm
 communicator::mpi_comm() const noexcept
 {
-    return m_impl->mpi_comm();
+    return m_state->m_impl->mpi_comm();
 }
 
 void
 communicator::progress()
 {
-    m_impl->progress();
+    m_state->m_impl->progress();
 }
 
 communicator::tag_type
 communicator::max_tag() const noexcept
 {
-    return m_impl->max_tag();
+    return m_state->m_impl->max_tag();
 }
 
 #if OOMPH_ENABLE_BARRIER
@@ -298,21 +302,24 @@ send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
     rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    return m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), &(m_schedule->scheduled_sends));
+    return m_state->m_impl->send(m_ptr->m, size, dst, tag, std::move(cb),
+        &(m_state->scheduled_sends));
 }
 
 recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
     tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    return m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), &(m_schedule->scheduled_recvs));
+    return m_state->m_impl->recv(m_ptr->m, size, src, tag, std::move(cb),
+        &(m_state->scheduled_recvs));
 }
 
 shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
     rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    return m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb), m_shared_scheduled_recvs);
+    return m_state->m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb),
+        m_state->m_shared_scheduled_recvs);
 }
 
 ///////////////////////////////
@@ -354,32 +361,32 @@ context::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, int dev
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size)
 {
-    return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
+    return m_state->m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
 detail::message_buffer
 communicator::make_buffer_core(void* ptr, std::size_t size)
 {
-    return m_impl->get_heap().register_user_allocation(ptr, size);
+    return m_state->m_impl->get_heap().register_user_allocation(ptr, size);
 }
 
 #if HWMALLOC_ENABLE_DEVICE
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size, int id)
 {
-    return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
+    return m_state->m_impl->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
 }
 
 detail::message_buffer
 communicator::make_buffer_core(void* device_ptr, std::size_t size, int device_id)
 {
-    return m_impl->get_heap().register_user_allocation(device_ptr, device_id, size);
+    return m_state->m_impl->get_heap().register_user_allocation(device_ptr, device_id, size);
 }
 
 detail::message_buffer
 communicator::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, int device_id)
 {
-    return m_impl->get_heap().register_user_allocation(ptr, device_ptr, device_id, size);
+    return m_state->m_impl->get_heap().register_user_allocation(ptr, device_ptr, device_id, size);
 }
 #endif
 

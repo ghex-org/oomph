@@ -9,7 +9,6 @@
  */
 #pragma once
 
-#include <memory>
 #include <oomph/util/pool_allocator.hpp>
 #include <oomph/util/unsafe_shared_ptr.hpp>
 
@@ -29,23 +28,23 @@ struct pool_factory
     using allocator_type = pool_allocator<char>;
     using pool_type = typename allocator_type::pool_type;
 
-    std::unique_ptr<pool_type> m_pool;
+    pool_type m_pool;
 
   public:
     pool_factory()
-    : m_pool{std::make_unique<pool_type>(ptr_type::template allocation_size<allocator_type>())}
+    : m_pool{ptr_type::template allocation_size<allocator_type>()}
     {
     }
 
     pool_factory(pool_factory const&) = delete;
-    pool_factory(pool_factory&&) = default;
+    pool_factory(pool_factory&&) = delete;
     pool_factory& operator=(pool_factory const&) = delete;
-    pool_factory& operator=(pool_factory&&) = default;
+    pool_factory& operator=(pool_factory&&) = delete;
 
     template<typename... Args>
     ptr_type make(Args&&... args)
     {
-        return oomph::util::allocate_shared<value_type>(allocator_type(m_pool.get()),
+        return oomph::util::allocate_shared<value_type>(allocator_type(&m_pool),
             std::forward<Args>(args)...);
     }
 };
