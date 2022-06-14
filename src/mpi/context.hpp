@@ -11,6 +11,7 @@
 
 #include "../context_base.hpp"
 #include "./rma_context.hpp"
+#include "./request_queue.hpp"
 
 namespace oomph
 {
@@ -24,15 +25,44 @@ class context_impl : public context_base
     using tag_type = communicator::tag_type;
 
   private:
-    heap_type   m_heap;
-    rma_context m_rma_context;
+    heap_type    m_heap;
+    rma_context  m_rma_context;
+    unsigned int m_max_tag;
+    unsigned int m_reserved_tag;
 
   public:
-    context_impl(MPI_Comm comm, bool thread_safe)
+    shared_request_queue m_req_queue;
+
+  public:
+    context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+        std::size_t message_pool_reserve)
     : context_base(comm, thread_safe)
-    , m_heap{this}
+    , m_heap{this, message_pool_never_free, message_pool_reserve}
     , m_rma_context{m_mpi_comm}
     {
+        // get largest allowed tag value
+        int  flag;
+        int* tag_ub;
+        MPI_Comm_get_attr(this->get_comm(), MPI_TAG_UB, &tag_ub, &flag);
+        m_max_tag = flag ? *tag_ub : 32767;
+
+        // compute bit mask
+        unsigned long tmp = m_max_tag;
+        unsigned long mask = 1u;
+        while (tmp > 0)
+        {
+            tmp >>= 1;
+            mask <<= 1;
+        }
+        mask -= 1;
+
+        // If bit mask is larger than max tag value, then we have some strange upper bound which is
+        // not at a power of 2 boundary and we reduce the maximum to the next lower power of 2.
+        if (mask > m_max_tag) mask >>= 1;
+
+        // reduce max tag by 1 bit to make room for reserved tag
+        m_max_tag = (mask >> 1);
+        m_reserved_tag = m_max_tag + 1;
     }
 
     context_impl(context_impl const&) = delete;
@@ -47,6 +77,14 @@ class context_impl : public context_base
     void  lock(communicator::rank_type r) { m_rma_context.lock(r); }
 
     communicator_impl* get_communicator();
+
+    void progress() { m_req_queue.progress(); }
+
+    bool cancel_recv(detail::shared_request_state* r) { return m_req_queue.cancel(r); }
+
+    unsigned int max_tag() const noexcept { return m_max_tag; }
+    unsigned int reserved_tag() const noexcept { return m_reserved_tag; }
+
     const char *get_transport_option(const std::string &opt);
 };
 

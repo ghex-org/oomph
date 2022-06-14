@@ -8,18 +8,20 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <hwmalloc/numa.hpp>
-#if HWMALLOC_ENABLE_DEVICE
-#include <hwmalloc/device.hpp>
-#endif
 #include <oomph/config.hpp>
 #include <oomph/util/heap_pimpl.hpp>
 #include <oomph/util/stack_pimpl.hpp>
+
+#if HWMALLOC_ENABLE_DEVICE
+#   include <hwmalloc/device.hpp>
+#endif // HWMALLOC_ENABLE_DEVICE
+
 #if OOMPH_ENABLE_BARRIER
-#include <oomph/barrier.hpp>
-#include "./thread_id.hpp"
-#include <map>
-#include <set>
-#include <mutex>
+#   include <map>
+#   include <set>
+#   include <mutex>
+#   include <oomph/barrier.hpp>
+#   include "./thread_id.hpp"
 #endif // OOMPH_ENABLE_BARRIER
 
 namespace oomph
@@ -44,9 +46,11 @@ get_comm_set(context_impl const* ctxt)
 // context                   //
 ///////////////////////////////
 
-context::context(MPI_Comm comm, bool thread_safe)
+context::context(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+    std::size_t message_pool_reserve)
 : m_mpi_comm{comm}
-, m(m_mpi_comm.get(), thread_safe)
+, m(m_mpi_comm.get(), thread_safe, message_pool_never_free, message_pool_reserve)
+, m_schedule{std::make_unique<schedule>()}
 {
 }
 
@@ -63,7 +67,7 @@ context::~context() = default;
 communicator
 context::get_communicator()
 {
-    return {m->get_communicator()};
+    return {m->get_communicator(), &(m_schedule->scheduled_recvs)};
 }
 
 const char *context::get_transport_option(const std::string &opt)
@@ -72,62 +76,68 @@ const char *context::get_transport_option(const std::string &opt)
 }
 
 ///////////////////////////////
-// communicator              //
+// communicator_state        //
 ///////////////////////////////
 
-communicator::communicator(impl_type* impl_)
+namespace detail
+{
+communicator_state::communicator_state(impl_type* impl_,
+    std::atomic<std::size_t>*                     shared_scheduled_recvs)
 : m_impl{impl_}
-, m_pool{std::make_unique<boost::pool<>>(
-      sizeof(detail::request_state) +
-          ((sizeof(detail::request_state::reserved_t) + (sizeof(void*) - 1)) / sizeof(void*) - 1) *
-              sizeof(void*),
-      128)}
-, m_schedule{std::make_unique<schedule>()}
+, m_shared_scheduled_recvs{shared_scheduled_recvs}
 {
 #if OOMPH_ENABLE_BARRIER
     get_comm_set(m_impl->m_context).insert(m_impl);
 #endif // OOMPH_ENABLE_BARRIER
 }
 
-communicator::~communicator()
+communicator_state::~communicator_state()
 {
-    if (m_impl)
-    {
 #if OOMPH_ENABLE_BARRIER
-        get_comm_set(m_impl->m_context).erase(m_impl);
+    get_comm_set(m_impl->m_context).erase(m_impl);
 #endif // OOMPH_ENABLE_BARRIER
-        m_impl->release();
-    }
+    m_impl->release();
 }
+} // namespace detail
+
+///////////////////////////////
+// communicator              //
+///////////////////////////////
 
 communicator::rank_type
 communicator::rank() const noexcept
 {
-    return m_impl->rank();
+    return m_state->m_impl->rank();
 }
 
 communicator::rank_type
 communicator::size() const noexcept
 {
-    return m_impl->size();
+    return m_state->m_impl->size();
 }
 
 bool
 communicator::is_local(rank_type rank) const noexcept
 {
-    return m_impl->is_local(rank);
+    return m_state->m_impl->is_local(rank);
 }
 
 MPI_Comm
 communicator::mpi_comm() const noexcept
 {
-    return m_impl->mpi_comm();
+    return m_state->m_impl->mpi_comm();
 }
 
 void
 communicator::progress()
 {
-    m_impl->progress();
+    m_state->m_impl->progress();
+}
+
+communicator::tag_type
+communicator::max_tag() const noexcept
+{
+    return m_state->m_impl->max_tag();
 }
 
 #if OOMPH_ENABLE_BARRIER
@@ -293,19 +303,28 @@ message_buffer::clear()
 ///////////////////////////////
 // communicator              //
 ///////////////////////////////
-
-void
+send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, tag_type tag, util::unique_function<void()> cb, shared_request_ptr req)
+    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    m_impl->send(m_ptr->m, size, dst, tag, std::move(cb), std::move(req));
+    return m_state->m_impl->send(m_ptr->m, size, dst, tag, std::move(cb),
+        &(m_state->scheduled_sends));
 }
 
-void
+recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void()> cb, shared_request_ptr req)
+    tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
-    m_impl->recv(m_ptr->m, size, src, tag, std::move(cb), std::move(req));
+    return m_state->m_impl->recv(m_ptr->m, size, src, tag, std::move(cb),
+        &(m_state->scheduled_recvs));
+}
+
+shared_recv_request
+communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
+    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+{
+    return m_state->m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb),
+        m_state->m_shared_scheduled_recvs);
 }
 
 ///////////////////////////////
@@ -347,125 +366,180 @@ context::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, int dev
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size)
 {
-    return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
+    return m_state->m_impl->get_heap().allocate(size, hwmalloc::numa().local_node());
 }
 
 detail::message_buffer
 communicator::make_buffer_core(void* ptr, std::size_t size)
 {
-    return m_impl->get_heap().register_user_allocation(ptr, size);
+    return m_state->m_impl->get_heap().register_user_allocation(ptr, size);
 }
 
 #if HWMALLOC_ENABLE_DEVICE
 detail::message_buffer
 communicator::make_buffer_core(std::size_t size, int id)
 {
-    return m_impl->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
+    return m_state->m_impl->get_heap().allocate(size, hwmalloc::numa().local_node(), id);
 }
 
 detail::message_buffer
 communicator::make_buffer_core(void* device_ptr, std::size_t size, int device_id)
 {
-    return m_impl->get_heap().register_user_allocation(device_ptr, device_id, size);
+    return m_state->m_impl->get_heap().register_user_allocation(device_ptr, device_id, size);
 }
 
 detail::message_buffer
 communicator::make_buffer_core(void* ptr, void* device_ptr, std::size_t size, int device_id)
 {
-    return m_impl->get_heap().register_user_allocation(ptr, device_ptr, device_id, size);
+    return m_state->m_impl->get_heap().register_user_allocation(ptr, device_ptr, device_id, size);
 }
 #endif
 
 /////////////////////////////////
 //// request                   //
 /////////////////////////////////
+bool
+send_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return m->is_ready();
+}
 
 bool
 send_request::test()
 {
-    if (!m_data) return true;
-    if (m_data->m_ready) return true;
-    m_data->m_comm->progress();
-    return is_ready();
+    if (!m) return true;
+    m->progress();
+    return m->is_ready();
 }
 
 void
 send_request::wait()
 {
-    if (!m_data) return;
-    while (!m_data->m_ready) m_data->m_comm->progress();
+    if (!m) return;
+    while (!m->is_ready()) m->progress();
+}
+
+bool
+recv_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return m->is_ready();
+}
+
+bool
+recv_request::is_canceled() const noexcept
+{
+    if (!m) return true;
+    return m->is_canceled();
 }
 
 bool
 recv_request::test()
 {
-    if (!m_data) return true;
-    if (m_data->m_ready) return true;
-    m_data->m_comm->progress();
-    return is_ready();
+    if (!m) return true;
+    m->progress();
+    return m->is_ready();
 }
 
 void
 recv_request::wait()
 {
-    if (!m_data) return;
-    while (!m_data->m_ready) m_data->m_comm->progress();
+    if (!m) return;
+    while (!m->is_ready()) m->progress();
 }
 
 bool
 recv_request::cancel()
 {
-    if (!m_data) return false;
-    if (m_data->m_ready) return false;
-    const auto res = m_data->m_comm->cancel_recv_cb(*this);
-    if (res)
-    {
-        --(*(m_data->m_scheduled));
-        m_data.reset();
-    }
-    return res;
+    if (!m) return false;
+    if (m->is_ready()) return false;
+    return m->cancel();
 }
 
-/////////////////////////////////
-//// send_channel_base         //
-/////////////////////////////////
-//
-//send_channel_base::~send_channel_base() = default;
-//
-//void
-//send_channel_base::connect()
-//{
-//    m_impl->connect();
-//}
-//
-/////////////////////////////////
-//// recv_channel_base         //
-/////////////////////////////////
-//
-//recv_channel_base::~recv_channel_base() = default;
-//
-//void
-//recv_channel_base::connect()
-//{
-//    m_impl->connect();
-//}
-//
-//std::size_t
-//recv_channel_base::capacity()
-//{
-//    return m_impl->capacity();
-//}
-//
-//void*
-//recv_channel_base::get(std::size_t& index)
-//{
-//    return m_impl->get(index);
-//}
-//
-//recv_channel_impl*
-//recv_channel_base::get_impl() noexcept
-//{
-//    return &(*m_impl);
-//}
+bool
+shared_recv_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return m->is_ready();
+}
+
+bool
+shared_recv_request::is_canceled() const noexcept
+{
+    if (!m) return true;
+    return m->is_canceled();
+}
+
+bool
+shared_recv_request::test()
+{
+    if (!m) return true;
+    m->progress();
+    return m->is_ready();
+}
+
+void
+shared_recv_request::wait()
+{
+    if (!m) return;
+    while (!m->is_ready()) m->progress();
+}
+
+bool
+shared_recv_request::cancel()
+{
+    if (!m) return false;
+    if (m->is_ready()) return false;
+    return m->cancel();
+}
+
+bool
+send_multi_request::is_ready() const noexcept
+{
+    if (!m) return true;
+    return (m->m_counter == 0);
+}
+
+bool
+send_multi_request::test()
+{
+    if (!m) return true;
+    if (m->m_counter == 0) return true;
+    m->m_comm->progress();
+    return (m->m_counter == 0);
+}
+
+void
+send_multi_request::wait()
+{
+    if (!m) return;
+    if (m->m_counter == 0) return;
+    while (m->m_counter > 0) m->m_comm->progress();
+}
+
+void
+detail::request_state::progress()
+{
+    m_comm->progress();
+}
+
+bool
+detail::request_state::cancel()
+{
+    return m_comm->cancel_recv(this);
+}
+
+void
+detail::shared_request_state::progress()
+{
+    m_ctxt->progress();
+}
+
+bool
+detail::shared_request_state::cancel()
+{
+    return m_ctxt->cancel_recv(this);
+}
 
 } // namespace oomph

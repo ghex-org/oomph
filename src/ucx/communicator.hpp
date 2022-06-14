@@ -10,13 +10,12 @@
  */
 #pragma once
 
+#include <boost/lockfree/queue.hpp>
 #include <oomph/context.hpp>
-#include <oomph/communicator.hpp>
-#include "./request_data.hpp"
-#include "./context.hpp"
 #include "../communicator_base.hpp"
 #include "../device_guard.hpp"
-#include <boost/lockfree/queue.hpp>
+#include "./request_data.hpp"
+#include "./context.hpp"
 
 namespace oomph
 {
@@ -25,11 +24,8 @@ namespace oomph
 #define OOMPH_UCX_ANY_SOURCE_MASK      0x0000000000000000ul
 #define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
 #define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
-
-struct detail::request_state::reserved_t
-{
-    void* m_data;
-};
+#define OOMPH_UCX_MAX_TAG              0x000000007ffffffful
+#define OOMPH_UCX_RESERVED_TAG         0x0000000080000000ul
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
@@ -37,8 +33,11 @@ class communicator_impl : public communicator_base<communicator_impl>
     using worker_type = worker_t;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
-    using lockfree_queue = boost::lockfree::queue<request_data::cb_ptr_t,
-        boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
+    template<typename T>
+    using lockfree_queue = boost::lockfree::queue<T, boost::lockfree::fixed_sized<false>,
+        boost::lockfree::allocator<std::allocator<void>>>;
+
+    using recv_req_queue_type = lockfree_queue<detail::request_state*>;
 
   public:
     context_impl*                       m_context;
@@ -46,9 +45,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     worker_type*                        m_recv_worker;
     worker_type*                        m_send_worker;
     ucx_mutex&                          m_mutex;
-    lockfree_queue                      m_recv_cb_queue;
-    lockfree_queue                      m_cancel_recv_cb_queue;
-    std::vector<request_data::cb_ptr_t> m_cancel_recv_cb_vec;
+    recv_req_queue_type                 m_recv_req_queue;
+    recv_req_queue_type                 m_cancel_recv_req_queue;
+    std::vector<detail::request_state*> m_cancel_recv_req_vec;
 
   public:
     communicator_impl(context_impl* ctxt, bool thread_safe, worker_type* recv_worker,
@@ -59,8 +58,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_recv_worker{recv_worker}
     , m_send_worker{send_worker}
     , m_mutex{mtx}
-    , m_recv_cb_queue(128)
-    , m_cancel_recv_cb_queue(128)
+    , m_recv_req_queue(128)
+    , m_cancel_recv_req_queue(128)
     {
     }
 
@@ -87,8 +86,17 @@ class communicator_impl : public communicator_base<communicator_impl>
 #endif
             {
                 // progress recv worker in locked region
-                ucx_lock lock(m_mutex);
-                while (ucp_worker_progress(m_recv_worker->get())) {}
+                //ucx_lock lock(m_mutex);
+                //while (ucp_worker_progress(m_recv_worker->get())) {}
+                for (unsigned int i=0; i<10; ++i)
+                {
+                    if (m_mutex.try_lock())
+                    {
+                        auto p = ucp_worker_progress(m_recv_worker->get());
+                        m_mutex.unlock();
+                        if (!p) break;
+                    }
+                }
             }
         }
         else
@@ -98,17 +106,24 @@ class communicator_impl : public communicator_base<communicator_impl>
         // work through ready recv callbacks, which were pushed to the queue by other threads
         // (including this thread)
         if (m_thread_safe)
-            m_recv_cb_queue.consume_all(
-                [](request_data::cb_ptr_t cb)
+            m_recv_req_queue.consume_all(
+                [](detail::request_state* req)
                 {
-                    cb->invoke();
-                    delete cb;
+                    auto ptr = std::move(req->m_self_ptr);
+                    req->invoke_cb();
                 });
+        m_context->m_recv_req_queue.consume_all(
+            [](detail::shared_request_state* req)
+            {
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
+            });
     }
 
-    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
     {
+        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         const auto& ep = m_send_worker->connect(dst);
         const auto  stag =
             ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(rank());
@@ -130,18 +145,20 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             // send operation is completed immediately
             // call the callback
-            cb();
+            cb(dst, tag);
+            return {};
             // request is freed by ucx internally
         }
         else if (!UCS_PTR_IS_ERR(ret))
         {
             // send operation was scheduled
+            // allocate request_state
+            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb),
+                ret, m_mutex);
+            s->m_self_ptr = s;
             // attach necessary data to the request
-            auto& req_data = request_data::get(ret);
-            //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
-            req_data.m_comm = this;
-            req_data.m_cb = cb.release();
-            req->reserved()->m_data = &req_data;
+            request_data::construct(ret, s.get());
+            return {std::move(s)};
         }
         else
         {
@@ -150,9 +167,10 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
     }
 
-    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
     {
+        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         const auto rtag =
             (communicator::any_source == src)
                 ? ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS)
@@ -162,119 +180,199 @@ class communicator_impl : public communicator_base<communicator_impl>
                                    ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
                                    : (OOMPH_UCX_TAG_MASK | OOMPH_UCX_SPECIFIC_SOURCE_MASK);
 
-        // pointer to store callback in case of early completion
-        request_data::cb_ptr_t cb_ptr = nullptr;
+        if (m_thread_safe) m_mutex.lock();
+        ucs_status_ptr_t ret;
         {
-            // locked region
-            if (m_thread_safe) m_mutex.lock();
+            // device is set according to message memory: needed?
+            device_guard dg(ptr);
 
-            ucs_status_ptr_t ret;
+            ret = ucp_tag_recv_nb(m_recv_worker->get(), // worker
+                dg.data(),                              // buffer
+                size,                                   // buffer size
+                ucp_dt_make_contig(1),                  // data type
+                rtag,                                   // tag
+                rtag_mask,                              // tag mask
+                &communicator_impl::recv_callback);     // callback function pointer
+        }
+
+        if (!UCS_PTR_IS_ERR(ret))
+        {
+            if (UCS_INPROGRESS != ucp_request_check_status(ret))
             {
-                // device is set according to message memory: needed?
-                device_guard dg(ptr);
-
-                ret = ucp_tag_recv_nb(m_recv_worker->get(), // worker
-                    dg.data(),                              // buffer
-                    size,                                   // buffer size
-                    ucp_dt_make_contig(1),                  // data type
-                    rtag,                                   // tag
-                    rtag_mask,                              // tag mask
-                    &communicator_impl::recv_callback);     // callback function pointer
-            }
-
-            if (!UCS_PTR_IS_ERR(ret))
-            {
-                if (UCS_INPROGRESS != ucp_request_check_status(ret))
-                {
-                    // early completed
-                    // store callback for later: will be called outside locked region
-                    cb_ptr = cb.release();
-                    // destroy request
-                    request_data::get(ret).clear();
-                    ucp_request_free(ret);
-                }
-                else
-                {
-                    // recv operation was scheduled
-                    // attach necessary data to the request
-                    auto& req_data = request_data::get(ret);
-                    //req_data.m_ucx_ptr = ret; // probably not needed since set with request_init
-                    req_data.m_comm = this;
-                    req_data.m_cb = cb.release();
-                    req->reserved()->m_data = &req_data;
-                }
+                // early completed
+                ucp_request_free(ret);
+                if (m_thread_safe) m_mutex.unlock();
+                cb(src, tag);
+                return {};
             }
             else
             {
-                // an error occurred
-                throw std::runtime_error("oomph: ucx error - recv operation failed");
+                // recv operation was scheduled
+                // allocate request_state
+                auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag,
+                    std::move(cb), ret, m_mutex);
+                s->m_self_ptr = s;
+                // attach necessary data to the request
+                request_data::construct(ret, s.get());
+                if (m_thread_safe) m_mutex.unlock();
+                return {std::move(s)};
             }
-
-            if (m_thread_safe) m_mutex.unlock();
         }
-        // check for early completion
-        if (cb_ptr)
+        else
         {
-            cb_ptr->invoke();
-            delete cb_ptr;
+            // an error occurred
+            throw std::runtime_error("oomph: ucx error - recv operation failed");
         }
+    }
+
+    shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::atomic<std::size_t>* scheduled)
+    {
+        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
+        const auto rtag =
+            (communicator::any_source == src)
+                ? ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS)
+                : ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
+
+        const auto rtag_mask = (communicator::any_source == src)
+                                   ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
+                                   : (OOMPH_UCX_TAG_MASK | OOMPH_UCX_SPECIFIC_SOURCE_MASK);
+
+        if (m_thread_safe) m_mutex.lock();
+        ucs_status_ptr_t ret;
+        {
+            // device is set according to message memory: needed?
+            device_guard dg(ptr);
+
+            ret = ucp_tag_recv_nb(m_recv_worker->get(), // worker
+                dg.data(),                              // buffer
+                size,                                   // buffer size
+                ucp_dt_make_contig(1),                  // data type
+                rtag,                                   // tag
+                rtag_mask,                              // tag mask
+                &communicator_impl::recv_callback);     // callback function pointer
+        }
+
+        if (!UCS_PTR_IS_ERR(ret))
+        {
+            if (UCS_INPROGRESS != ucp_request_check_status(ret))
+            {
+                // early completed
+                ucp_request_free(ret);
+                if (m_thread_safe) m_mutex.unlock();
+                cb(src, tag);
+                return {};
+            }
+            else
+            {
+                // recv operation was scheduled
+                // allocate shared request_state
+                auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled,
+                    src, tag, std::move(cb), ret, m_mutex);
+                s->m_self_ptr = s;
+                // attach necessary data to the request
+                request_data::construct(ret, s.get());
+                if (m_thread_safe) m_mutex.unlock();
+                return {std::move(s)};
+            }
+        }
+        else
+        {
+            // an error occurred
+            throw std::runtime_error("oomph: ucx error - recv operation failed");
+        }
+    }
+
+    void enqueue_recv(detail::request_state* d)
+    {
+        while (!m_recv_req_queue.push(d)) {}
+    }
+
+    void enqueue_cancel_recv(detail::request_state* d)
+    {
+        while (!m_cancel_recv_req_queue.push(d)) {}
     }
 
     inline static void send_callback(void* ucx_req, ucs_status_t status)
     {
-        auto& req_data = request_data::get(ucx_req);
+        auto& req_data = *request_data::get(ucx_req);
         if (status == UCS_OK)
         {
             // invoke callback
-            req_data.m_cb->invoke();
-            delete req_data.m_cb;
+            if (req_data.m_req)
+            {
+                auto req = req_data.m_req;
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
+            }
+            else
+            {
+                auto req = req_data.m_shared_req;
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
+            }
         }
         // else: cancelled - do nothing - cancel for sends does not exist
 
         // destroy request
-        req_data.clear();
+        req_data.destroy();
         ucp_request_free(ucx_req);
     }
 
-    void enqueue_recv(request_data::cb_ptr_t cb)
-    {
-        while (!m_recv_cb_queue.push(cb)) {}
-    }
-
-    void enqueue_cancel_recv(request_data::cb_ptr_t cb)
-    {
-        while (!m_cancel_recv_cb_queue.push(cb)) {}
-    }
-
+    // this callback is called within a locked region
     inline static void recv_callback(void* ucx_req, ucs_status_t status,
         ucp_tag_recv_info_t* /*info*/)
     {
-        auto& req_data = request_data::get(ucx_req);
+        auto& req_data = *request_data::get(ucx_req);
         if (status == UCS_OK)
         {
             // return if early completion
-            // early completion is indicated by missing request data (null pointer)
-            if (!req_data.m_comm) return;
+            if (req_data.empty()) return;
 
-            // enqueue callback on the issuing communicator
-            // this guarantees that only the communicator on which the receive was executed will
-            // invoke the callback
-            if (req_data.m_comm->m_thread_safe) { req_data.m_comm->enqueue_recv(req_data.m_cb); }
+            if (req_data.m_req)
+            {
+                // normal recv
+                auto req = req_data.m_req;
+                if (req->m_ctxt->thread_safe())
+                {
+                    // multi-threaded case
+                    // free request here
+                    req_data.destroy();
+                    ucp_request_free(ucx_req);
+                    // enqueue request on the issuing communicator
+                    // this guarantees that only the communicator on which the receive was issued
+                    // will invoke the callback
+                    req->m_comm->enqueue_recv(req);
+                }
+                else
+                {
+                    // single-threaded case
+                    // free request here
+                    req_data.destroy();
+                    ucp_request_free(ucx_req);
+                    // call the callback directly from here
+                    auto ptr = std::move(req->m_self_ptr);
+                    req->invoke_cb();
+                }
+            }
             else
             {
-                req_data.m_cb->invoke();
-                delete req_data.m_cb;
+                // shared recv
+                auto req = req_data.m_shared_req;
+                // free request here
+                req_data.destroy();
+                ucp_request_free(ucx_req);
+                // enqueue request on the context
+                req->m_ctxt->enqueue_recv(req);
             }
-
-            // destroy request
-            req_data.clear();
-            ucp_request_free(ucx_req);
         }
         else if (status == UCS_ERR_CANCELED)
         {
             // receive was cancelled
-            // enqueue callback on the issuing communicator
-            req_data.m_comm->enqueue_cancel_recv(req_data.m_cb);
+            if (req_data.m_req) req_data.m_req->m_comm->enqueue_cancel_recv(req_data.m_req);
+            else
+                req_data.m_shared_req->m_ctxt->enqueue_cancel_recv(req_data.m_shared_req);
         }
         else
         {
@@ -285,48 +383,50 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     // Note: at this time, send requests cannot be canceled in UCX (1.7.0rc1)
     // https://github.com/openucx/ucx/issues/1162
-    bool cancel_recv_cb(recv_request const& req)
+    //bool cancel_recv_cb(recv_request const& req)
+    bool cancel_recv(detail::request_state* s)
     {
-        auto& req_data = request_data::get(req.m_data->reserved()->m_data);
-        {
-            // locked region
-            if (m_thread_safe) m_mutex.lock();
-            ucp_request_cancel(m_recv_worker->get(), req_data.m_ucx_ptr);
-            if (m_thread_safe) m_mutex.unlock();
-        }
+        if (m_thread_safe) m_mutex.lock();
+        ucp_request_cancel(m_recv_worker->get(), s->m_ucx_ptr);
+        //if (m_thread_safe) m_mutex.unlock();
         // The ucx callback will still be executed after the cancel. However, the status argument
         // will indicate whether the cancel was successful.
         // Progress the receive worker in order to execute the ucx callback
-        if (m_thread_safe) m_mutex.lock();
+        //if (m_thread_safe) m_mutex.lock();
         while (ucp_worker_progress(m_recv_worker->get())) {}
         if (m_thread_safe) m_mutex.unlock();
         // check whether the cancelled callback was enqueued by consuming all queued cancelled
         // callbacks and putting them in a temporary vector
         bool found = false;
-        m_cancel_recv_cb_vec.clear();
-        m_cancel_recv_cb_queue.consume_all(
-            [this, cmp = req_data.m_cb, &found](request_data::cb_ptr_t cb)
+        m_cancel_recv_req_vec.clear();
+        m_cancel_recv_req_queue.consume_all(
+            [this, s, &found](detail::request_state* r)
             {
-                if (cb == cmp) found = true;
+                if (r == s) found = true;
                 else
-                    m_cancel_recv_cb_vec.push_back(cb);
+                    m_cancel_recv_req_vec.push_back(r);
             });
         // re-enqueue all callbacks which were not identical with the current callback
-        for (auto x : m_cancel_recv_cb_vec)
-            while (!m_cancel_recv_cb_queue.push(x)) {}
+        for (auto x : m_cancel_recv_req_vec)
+            while (!m_cancel_recv_req_queue.push(x)) {}
 
         // delete callback here if it was actually cancelled
         if (found)
         {
-            delete req_data.m_cb;
+            auto ptr = std::move(s->m_self_ptr);
+            s->set_canceled();
+            void* ucx_req = s->m_ucx_ptr;
             // destroy request
-            req_data.clear();
+            request_data::get(ucx_req)->destroy();
             if (m_thread_safe) m_mutex.lock();
-            ucp_request_free(req_data.m_ucx_ptr);
+            ucp_request_free(ucx_req);
             if (m_thread_safe) m_mutex.unlock();
         }
         return found;
     }
+
+    unsigned int max_tag() const noexcept { return OOMPH_UCX_MAX_TAG; }
+    unsigned int reserved_tag() const noexcept { return OOMPH_UCX_RESERVED_TAG; }
 };
 
 } // namespace oomph

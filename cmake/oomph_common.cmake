@@ -5,12 +5,22 @@ set(OOMPH_USE_FAST_PIMPL OFF CACHE BOOL "store private implementations on stack"
 set(OOMPH_ENABLE_BARRIER ON CACHE BOOL "enable thread barrier (disable for task based runtime)")
 mark_as_advanced(OOMPH_USE_FAST_PIMPL)
 
+set(cxx_lang "$<COMPILE_LANGUAGE:CXX>")
+set(cxx_lang_clang "$<COMPILE_LANG_AND_ID:CXX,Clang>")
+set(fortran_lang "$<COMPILE_LANGUAGE:Fortran>")
+set(fortran_lang_gnu "$<COMPILE_LANG_AND_ID:Fortran,GNU>")
+
 # ---------------------------------------------------------------------
 # compiler and linker flags
 # ---------------------------------------------------------------------
 function(oomph_target_compile_options target)
     set_target_properties(${target} PROPERTIES INTERFACE_POSITION_INDEPENDENT_CODE ON)
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    #target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(${target} PRIVATE
+        $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic>>
+        #$<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
+        #$<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>
+    )
 endfunction()
 
 function(oomph_target_link_options target)

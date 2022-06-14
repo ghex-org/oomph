@@ -9,7 +9,10 @@
  */
 #pragma once
 
+#include <atomic>
 #include <boost/callable_traits.hpp>
+#include <oomph/request.hpp>
+#include <oomph/util/pool_factory.hpp>
 
 #define OOMPH_CHECK_CALLBACK_F(CALLBACK, RANK_TYPE)                                                \
     using args_t = boost::callable_traits::args_t<std::remove_reference_t<CALLBACK>>;              \
@@ -71,3 +74,49 @@
         OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>)                                   \
         OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
     }
+
+namespace oomph
+{
+class communicator_impl;
+
+namespace detail
+{
+struct communicator_state
+{
+    using impl_type = communicator_impl;
+    impl_type*                              m_impl;
+    std::atomic<std::size_t>*               m_shared_scheduled_recvs;
+    util::pool_factory<multi_request_state> m_mrs_factory;
+    std::size_t                             scheduled_sends = 0;
+    std::size_t                             scheduled_recvs = 0;
+
+    communicator_state(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
+    ~communicator_state();
+    communicator_state(communicator_state const&) = delete;
+    communicator_state(communicator_state&&) = delete;
+    communicator_state& operator=(communicator_state const&) = delete;
+    communicator_state& operator=(communicator_state&&) = delete;
+
+    auto make_multi_request_state(std::size_t ns) { return m_mrs_factory.make(m_impl, ns); }
+
+    template<typename T>
+    auto make_multi_request_state(std::vector<int>&& neighs, oomph::message_buffer<T> const& msg)
+    {
+        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), msg.size(), &msg);
+    }
+
+    template<typename T>
+    auto make_multi_request_state(std::vector<int>&& neighs, oomph::message_buffer<T>& msg)
+    {
+        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), msg.size(), &msg);
+    }
+
+    template<typename T>
+    auto make_multi_request_state(std::vector<int>&& neighs, oomph::message_buffer<T>&& msg)
+    {
+        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), msg.size(), nullptr,
+            std::move(msg.m));
+    }
+};
+} // namespace detail
+} // namespace oomph

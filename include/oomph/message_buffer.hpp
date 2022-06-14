@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include <oomph/detail/message_buffer.hpp>
 #include <cstddef>
+#include <oomph/detail/message_buffer.hpp>
 
 namespace oomph
 {
@@ -23,6 +23,7 @@ class message_buffer
   private:
     friend class context;
     friend class communicator;
+    friend class detail::communicator_state;
 
   private:
     detail::message_buffer m;

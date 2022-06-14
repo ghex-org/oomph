@@ -9,7 +9,6 @@
  */
 #pragma once
 
-#include <oomph/request.hpp>
 #include <oomph/util/mpi_error.hpp>
 
 namespace oomph

@@ -10,11 +10,11 @@
  */
 #pragma once
 
+#include <iostream>
 #include <oomph/context.hpp>
 #include "./mpi_comm.hpp"
 #include "./unique_ptr_set.hpp"
 #include "./rank_topology.hpp"
-#include <iostream>
 
 namespace oomph
 {
@@ -48,6 +48,7 @@ class context_base
     rank_type            size() const noexcept { return m_mpi_comm.size(); }
     rank_topology const& topology() const noexcept { return m_rank_topology; }
     MPI_Comm             get_comm() const noexcept { return m_mpi_comm; }
+    bool                 thread_safe() const noexcept { return m_thread_safe; }
 
     void deregister_communicator(communicator_impl* c) { m_comms_set.remove(c); }
 };

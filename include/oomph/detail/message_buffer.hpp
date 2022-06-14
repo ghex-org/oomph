@@ -17,6 +17,8 @@ namespace oomph
 {
 namespace detail
 {
+struct communicator_state;
+
 class message_buffer
 {
   public:

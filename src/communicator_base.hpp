@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <oomph/communicator.hpp>
 #include "./context_base.hpp"
 
 namespace oomph
@@ -19,9 +20,11 @@ class communicator_base
 {
   public:
     using rank_type = communicator::rank_type;
+    using pool_factory_type = util::pool_factory<detail::request_state>;
 
   protected:
-    context_base* m_context;
+    context_base*     m_context;
+    pool_factory_type m_req_state_factory;
 
     communicator_base(context_base* ctxt)
     : m_context(ctxt)

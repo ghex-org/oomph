@@ -12,8 +12,8 @@
 #include <oomph/config.hpp>
 
 #if OOMPH_ENABLE_BARRIER
-#include <oomph/context.hpp>
 #include <atomic>
+#include <oomph/context.hpp>
 
 namespace oomph
 {
