@@ -70,6 +70,11 @@ context::get_communicator()
     return {m->get_communicator(), &(m_schedule->scheduled_recvs)};
 }
 
+const char *context::get_transport_option(const std::string &opt)
+{
+    return m->get_transport_option(opt);
+}
+
 ///////////////////////////////
 // communicator_state        //
 ///////////////////////////////

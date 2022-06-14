@@ -92,6 +92,8 @@ class context
 
     communicator get_communicator();
 
+    const char *get_transport_option(const std::string &opt);
+
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
     detail::message_buffer make_buffer_core(void* ptr, std::size_t size);

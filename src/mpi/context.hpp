@@ -84,6 +84,8 @@ class context_impl : public context_base
 
     unsigned int max_tag() const noexcept { return m_max_tag; }
     unsigned int reserved_tag() const noexcept { return m_reserved_tag; }
+
+    const char *get_transport_option(const std::string &opt);
 };
 
 template<>

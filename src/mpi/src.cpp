@@ -19,6 +19,16 @@ context_impl::get_communicator()
     m_comms_set.insert(comm);
     return comm;
 }
+
+const char *context_impl::get_transport_option(const std::string &opt) {
+    if (opt == "name") {
+        return "mpi";
+    }
+    else {
+        return "unspecified";
+    }
+}
+
 } // namespace oomph
 
 #include "../src.cpp"

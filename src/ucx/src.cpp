@@ -95,6 +95,15 @@ context_impl::~context_impl()
     MPI_Barrier(m_mpi_comm);
 }
 
+const char *context_impl::get_transport_option(const std::string &opt) {
+    if (opt == "name") {
+        return "ucx";
+    }
+    else {
+        return "unspecified";
+    }
+}
+
 } // namespace oomph
 
 #include "../src.cpp"

@@ -226,6 +226,8 @@ class context_impl : public context_base
         }
         return found;
     }
+
+    const char *get_transport_option(const std::string &opt);
 };
 
 template<>
