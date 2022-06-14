@@ -146,6 +146,7 @@ class context_impl : public context_base
     auto& get_heap() noexcept { return m_heap; }
 
     communicator_impl* get_communicator();
+    const char *get_transport_option(const std::string &opt);
 };
 
 template<>
