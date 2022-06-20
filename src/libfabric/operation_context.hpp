@@ -44,56 +44,17 @@ struct operation_context : public operation_context_base<operation_context>
         //[[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
     }
 
-    //~operation_context()
-    //{
-    //    assert(std::this_thread::get_id() == thread_id_);
-    //    delete user_cb_;
-    //}
-
     // --------------------------------------------------------------------
     // When a completion returns FI_ECANCELED, this is called
     void handle_cancelled();
-    //{
-    //    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
-    //    // enqueue the cancelled/callback
-    //    while (!cancel_queue_->push(queue_data{this, user_cb_})) {}
-    //}
 
     // --------------------------------------------------------------------
     // Called when a recv completes
     int handle_tagged_recv_completion_impl(void* user_data);
-    //{
-    //    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
-    //    if (std::this_thread::get_id() == thread_id_)
-    //    {
-    //        user_cb_->invoke();
-    //        delete user_cb_;
-    //    }
-    //    else
-    //    {
-    //        // enqueue the callback
-    //        while (!callback_queue_->push(queue_data{this, user_cb_})) {}
-    //    }
-    //    return 1;
-    //}
 
     // --------------------------------------------------------------------
     // Called when a send completes
     int handle_tagged_send_completion_impl(void* user_data);
-    //{
-    //    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
-    //    if (std::this_thread::get_id() == thread_id_)
-    //    {
-    //        user_cb_->invoke();
-    //        delete user_cb_;
-    //    }
-    //    else
-    //    {
-    //        // enqueue the callback
-    //        while (!callback_queue_->push(queue_data{this, user_cb_})) {}
-    //    }
-    //    return 1;
-    //}
 };
 
 } // namespace libfabric
