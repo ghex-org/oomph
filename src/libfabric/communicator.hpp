@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <stack>
 
+#include <boost/lockfree/queue.hpp>
+
 #include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
 //
@@ -20,6 +22,7 @@
 #include "../device_guard.hpp"
 //
 #include "./operation_context.hpp"
+#include "./request_state.hpp"
 #include "./controller.hpp"
 #include "./context.hpp"
 
@@ -27,11 +30,6 @@ namespace oomph
 {
 
 using operation_context = oomph::libfabric::operation_context;
-
-struct detail::request_state::reserved_t
-{
-    operation_context operation_context_;
-};
 
 using tag_disp = oomph::debug::detail::hex<12, uintptr_t>;
 
@@ -47,8 +45,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     using segment_type = libfabric::memory_segment;
     using region_type = segment_type::handle_type;
 
-    using cb_ptr_t = operation_context::cb_ptr_t;
-    using callback_queue = operation_context::lockfree_queue;
+    using callback_queue = boost::lockfree::queue<detail::request_state*,
+        boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
 
   public:
     context_impl*               m_context;
@@ -130,7 +128,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 com_deb.error("Reposting", msg);
                 // no point stressing the system
-                m_context->get_controller()->poll_for_work_completions();
+                m_context->get_controller()->poll_for_work_completions(this);
             }
             else if (ret == -FI_ENOENT)
             {
@@ -193,11 +191,11 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     // --------------------------------------------------------------------
-    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+        int tag, util::unique_function<void(rank_type, int)>&& cb, std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
+        //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
+        //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
         std::uint64_t         stag = make_tag64(tag, this->rank());
 
         auto& reg = ptr.handle_ref();
@@ -215,16 +213,13 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (size <= m_context->get_controller()->get_tx_inject_size())
         {
             inject_tagged_region(reg, size, fi_addr_t(dst), stag);
-            cb();
-            return;
+            cb(dst, tag);
+            return {};
         }
-
-        // construct operation context in space reserved in request object
-        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
-        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
-            operation_context(cb_ptr, &m_send_cb_queue, nullptr);
-        assert(reinterpret_cast<void*>(op_ctx) ==
-               reinterpret_cast<void*>(&req->reserved()->operation_context_));
+        
+        // construct request which is also an operation context
+        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
+        s->m_self_ptr = s;
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
@@ -237,18 +232,70 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  //"op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
-        send_tagged_region(reg, size, fi_addr_t(dst), stag, op_ctx);
-        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq());
+        send_tagged_region(reg, size, fi_addr_t(dst), stag, &(s->m_operation_context));
+        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq(), this);
+        return {std::move(s)};
     }
+//    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+//        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+//    {
+//        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
+//            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
+//        std::uint64_t         stag = make_tag64(tag, this->rank());
+//
+//        auto& reg = ptr.handle_ref();
+//#ifdef EXTRA_SIZE_CHECKS
+//        if (size != reg.get_size())
+//        {
+//            OOMPH_DP_ONLY(com_err,
+//                error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
+//                    NS_DEBUG::hex<6>(reg.get_size())));
+//        }
+//#endif
+//        m_context->get_controller()->sends_posted_++;
+//
+//        // use optimized inject if msg is very small
+//        if (size <= m_context->get_controller()->get_tx_inject_size())
+//        {
+//            inject_tagged_region(reg, size, fi_addr_t(dst), stag);
+//            cb();
+//            return;
+//        }
+//
+//        // construct operation context in space reserved in request object
+//        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
+//        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
+//            operation_context(cb_ptr, &m_send_cb_queue, nullptr);
+//        assert(reinterpret_cast<void*>(op_ctx) ==
+//               reinterpret_cast<void*>(&req->reserved()->operation_context_));
+//
+//        // clang-format off
+//        OOMPH_DP_ONLY(com_deb,
+//            debug(NS_DEBUG::str<>("Send"),
+//                  "thisrank", NS_DEBUG::dec<>(rank()),
+//                  "rank", NS_DEBUG::dec<>(dst),
+//                  "tag", tag_disp(std::uint64_t(tag)),
+//                  "ctag", tag_disp(m_ctag),
+//                  "stag", tag_disp(stag),
+//                  "addr", NS_DEBUG::ptr(reg.get_address()),
+//                  "size", NS_DEBUG::hex<6>(size),
+//                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
+//                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
+//        // clang-format on
+//
+//        send_tagged_region(reg, size, fi_addr_t(dst), stag, op_ctx);
+//        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq());
+//    }
 
-    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+        int tag, util::unique_function<void(rank_type, int)>&& cb, std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
+        //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
+        //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
         std::uint64_t         stag = make_tag64(tag, src);
 
         auto& reg = ptr.handle_ref();
@@ -262,12 +309,9 @@ class communicator_impl : public communicator_base<communicator_impl>
 #endif
         m_context->get_controller()->recvs_posted_++;
 
-        // construct operation context in space reserved in request object
-        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
-        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
-            operation_context(cb_ptr, &m_recv_cb_queue, &m_recv_cb_cancel);
-        assert(reinterpret_cast<void*>(op_ctx) ==
-               reinterpret_cast<void*>(&req->reserved()->operation_context_));
+        // construct request which is also an operation context
+        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb));
+        s->m_self_ptr = s;
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
@@ -280,16 +324,104 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  //"op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
-        recv_tagged_region(reg, size, fi_addr_t(src), stag, op_ctx);
-        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
+        recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
+        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
+        return {std::move(s)};
+    }
+//    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+//        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+//    {
+//        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
+//            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
+//        std::uint64_t         stag = make_tag64(tag, src);
+//
+//        auto& reg = ptr.handle_ref();
+//#ifdef EXTRA_SIZE_CHECKS
+//        if (size != reg.get_size())
+//        {
+//            OOMPH_DP_ONLY(com_err,
+//                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
+//                    NS_DEBUG::hex<6>(reg.get_size())));
+//        }
+//#endif
+//        m_context->get_controller()->recvs_posted_++;
+//
+//        // construct operation context in space reserved in request object
+//        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
+//        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
+//            operation_context(cb_ptr, &m_recv_cb_queue, &m_recv_cb_cancel);
+//        assert(reinterpret_cast<void*>(op_ctx) ==
+//               reinterpret_cast<void*>(&req->reserved()->operation_context_));
+//
+//        // clang-format off
+//        OOMPH_DP_ONLY(com_deb,
+//            debug(NS_DEBUG::str<>("Recv"),
+//                  "thisrank", NS_DEBUG::dec<>(rank()),
+//                  "rank", NS_DEBUG::dec<>(src),
+//                  "tag", tag_disp(std::uint64_t(tag)),
+//                  "ctag", tag_disp(m_ctag),
+//                  "stag", tag_disp(stag),
+//                  "addr", NS_DEBUG::ptr(reg.get_address()),
+//                  "size", NS_DEBUG::hex<6>(size),
+//                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
+//                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
+//        // clang-format on
+//
+//        recv_tagged_region(reg, size, fi_addr_t(src), stag, op_ctx);
+//        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
+//    }
+
+    shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::atomic<std::size_t>* scheduled)
+    {
+        //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
+        //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
+        std::uint64_t         stag = make_tag64(tag, src);
+
+        auto& reg = ptr.handle_ref();
+#ifdef EXTRA_SIZE_CHECKS
+        if (size != reg.get_size())
+        {
+            OOMPH_DP_ONLY(com_err,
+                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
+                    NS_DEBUG::hex<6>(reg.get_size())));
+        }
+#endif
+        m_context->get_controller()->recvs_posted_++;
+
+        // construct request which is also an operation context
+        auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
+            tag, std::move(cb));
+        s->m_self_ptr = s;
+
+        // clang-format off
+        OOMPH_DP_ONLY(com_deb,
+            debug(NS_DEBUG::str<>("Recv"),
+                  "thisrank", NS_DEBUG::dec<>(rank()),
+                  "rank", NS_DEBUG::dec<>(src),
+                  "tag", tag_disp(std::uint64_t(tag)),
+                  "ctag", tag_disp(m_ctag),
+                  "stag", tag_disp(stag),
+                  "addr", NS_DEBUG::ptr(reg.get_address()),
+                  "size", NS_DEBUG::hex<6>(size),
+                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
+                  //"op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "req", NS_DEBUG::ptr(s.get())));
+        // clang-format on
+
+        recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
+        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
+        return {std::move(s)};
     }
 
     void progress()
     {
-        m_context->get_controller()->poll_for_work_completions();
+        m_context->get_controller()->poll_for_work_completions(this);
         clear_callback_queues();
     }
 
@@ -298,21 +430,21 @@ class communicator_impl : public communicator_base<communicator_impl>
         // work through ready callbacks, which were pushed to the queue
         // (by other threads)
         m_send_cb_queue.consume_all(
-            [](libfabric::queue_data& q)
+            [](oomph::detail::request_state* req)
             {
-                [[maybe_unused]] auto scp =
-                    com_deb.scope("m_send_cb_queue.consume_all", q.user_cb_);
-                q.user_cb_->invoke();
-                delete q.user_cb_;
+                //[[maybe_unused]] auto scp =
+                //    com_deb.scope("m_send_cb_queue.consume_all", q.user_cb_);
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
             });
 
         m_recv_cb_queue.consume_all(
-            [](libfabric::queue_data& q)
+            [](oomph::detail::request_state* req)
             {
-                [[maybe_unused]] auto scp =
-                    com_deb.scope("m_recv_cb_queue.consume_all", q.user_cb_);
-                q.user_cb_->invoke();
-                delete q.user_cb_;
+                //[[maybe_unused]] auto scp =
+                //    com_deb.scope("m_recv_cb_queue.consume_all", q.user_cb_);
+                auto ptr = std::move(req->m_self_ptr);
+                req->invoke_cb();
             });
     }
 
@@ -323,16 +455,10 @@ class communicator_impl : public communicator_base<communicator_impl>
     // We can only be certain if we poll until the completion happens
     // or attach a callback to the cancel notification which is not supported
     // by oomph.
-    bool cancel_recv_cb(recv_request const& req)
+    bool cancel_recv(detail::request_state* s)
     {
         // get the original message operation context
-        operation_context* op_ctx =
-            reinterpret_cast<operation_context*>(&req.m_data->reserved()->operation_context_);
-
-        // replace the callback in the original message context with a cancel one
-        //        mutable bool found = false;
-        //        util::unique_function<void(void)> temp = [&](){ found = true; };
-        //        auto orig_cb = std::exchange(op_ctx->user_cb_, temp.release());
+        operation_context* op_ctx = &(s->m_operation_context);
 
         // submit the cancellation request
         bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
@@ -345,19 +471,20 @@ class communicator_impl : public communicator_base<communicator_impl>
         bool found = false;
         while (!found)
         {
-            m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
+            m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
             // otherwise, poll until we know if it worked
-            std::stack<libfabric::queue_data> temp_stack;
-            libfabric::queue_data             temp;
+            std::stack<detail::request_state*> temp_stack;
+            detail::request_state*             temp;
             while (!found && m_recv_cb_cancel.pop(temp))
             {
-                if (temp.ctxt == op_ctx)
+                if (temp == s)
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    delete op_ctx->user_cb_;
                     OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
                                                NS_DEBUG::ptr(op_ctx)));
+                    auto ptr = std::move(s->m_self_ptr);
+                    s->set_canceled();
                 }
                 else
                 {
@@ -368,13 +495,67 @@ class communicator_impl : public communicator_base<communicator_impl>
             // return any weird unhandled cancels back to the queue
             while (!temp_stack.empty())
             {
-                libfabric::queue_data temp = temp_stack.top();
+                auto temp = temp_stack.top();
                 temp_stack.pop();
                 m_recv_cb_cancel.push(temp);
             }
         }
         return found;
     }
+    //bool cancel_recv_cb(recv_request const& req)
+    //{
+    //    // get the original message operation context
+    //    operation_context* op_ctx =
+    //        reinterpret_cast<operation_context*>(&req.m_data->reserved()->operation_context_);
+
+    //    // replace the callback in the original message context with a cancel one
+    //    //        mutable bool found = false;
+    //    //        util::unique_function<void(void)> temp = [&](){ found = true; };
+    //    //        auto orig_cb = std::exchange(op_ctx->user_cb_, temp.release());
+
+    //    // submit the cancellation request
+    //    bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
+    //    OOMPH_DP_ONLY(com_deb,
+    //        debug(NS_DEBUG::str<>("Cancel"), "ok", ok, "op_ctx", NS_DEBUG::ptr(op_ctx)));
+
+    //    // if the cancel operation failed completely, return
+    //    if (!ok) return false;
+
+    //    bool found = false;
+    //    while (!found)
+    //    {
+    //        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
+    //        // otherwise, poll until we know if it worked
+    //        std::stack<libfabric::queue_data> temp_stack;
+    //        libfabric::queue_data             temp;
+    //        while (!found && m_recv_cb_cancel.pop(temp))
+    //        {
+    //            if (temp.ctxt == op_ctx)
+    //            {
+    //                // our recv was cancelled correctly
+    //                found = true;
+    //                delete op_ctx->user_cb_;
+    //                OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
+    //                                           NS_DEBUG::ptr(op_ctx)));
+    //            }
+    //            else
+    //            {
+    //                // a different cancel operation
+    //                temp_stack.push(temp);
+    //            }
+    //        }
+    //        // return any weird unhandled cancels back to the queue
+    //        while (!temp_stack.empty())
+    //        {
+    //            libfabric::queue_data temp = temp_stack.top();
+    //            temp_stack.pop();
+    //            m_recv_cb_cancel.push(temp);
+    //        }
+    //    }
+    //    return found;
+    //}
+    unsigned int max_tag() const noexcept { return 0x00000000007FFFFF; }
+    unsigned int reserved_tag() const noexcept { return 0x0000000000800000; }
 };
 
 } // namespace oomph

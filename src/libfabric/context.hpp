@@ -31,6 +31,8 @@ class context_impl : public context_base
     using heap_type = hwmalloc::heap<context_impl>;
     using rank_type = communicator::rank_type;
     using tag_type = communicator::tag_type;
+    using callback_queue = boost::lockfree::queue<detail::shared_request_state*,
+        boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
 
   private:
     heap_type                        m_heap;
@@ -44,8 +46,12 @@ class context_impl : public context_base
     static std::shared_ptr<controller_type> init_libfabric_controller(oomph::context_impl* ctx,
         MPI_Comm comm, int rank, int size, int threads);
 
+    // queue for canceled shared recv requests
+    callback_queue m_recv_cb_cancel;
+
   public:
-    context_impl(MPI_Comm comm, bool thread_safe);
+    context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+        std::size_t message_pool_reserve);
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
@@ -61,6 +67,56 @@ class context_impl : public context_base
 
     inline controller_type* get_controller() /*const */ { return m_controller.get(); }
     const char*             get_transport_option(const std::string& opt);
+
+    void progress() { get_controller()->poll_for_work_completions(nullptr); }
+
+    bool cancel_recv(detail::shared_request_state* s)
+    {
+        return false;
+        // get the original message operation context
+        auto op_ctx = &(s->m_operation_context);
+
+        // submit the cancellation request
+        bool ok = (fi_cancel(&(get_controller()->get_rx_endpoint().get_ep()->fid), op_ctx) == 0);
+
+        // if the cancel operation failed completely, return
+        if (!ok) return false;
+
+        bool found = false;
+        while (!found)
+        {
+            get_controller()->poll_recv_queue(get_controller()->get_rx_endpoint().get_rx_cq(),
+                nullptr);
+            // otherwise, poll until we know if it worked
+            std::stack<detail::shared_request_state*> temp_stack;
+            detail::shared_request_state*             temp;
+            while (!found && m_recv_cb_cancel.pop(temp))
+            {
+                if (temp == s)
+                {
+                    // our recv was cancelled correctly
+                    found = true;
+                    //OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
+                    //                           NS_DEBUG::ptr(op_ctx)));
+                    auto ptr = std::move(s->m_self_ptr);
+                    s->set_canceled();
+                }
+                else
+                {
+                    // a different cancel operation
+                    temp_stack.push(temp);
+                }
+            }
+            // return any weird unhandled cancels back to the queue
+            while (!temp_stack.empty())
+            {
+                auto temp = temp_stack.top();
+                temp_stack.pop();
+                m_recv_cb_cancel.push(temp);
+            }
+        }
+        return found;
+    }
 };
 
 // --------------------------------------------------------------------

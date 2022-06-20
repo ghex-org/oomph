@@ -1167,17 +1167,17 @@ class controller_base
     }
 
     // --------------------------------------------------------------------
-    progress_status poll_for_work_completions()
+    progress_status poll_for_work_completions(void* user_data)
     {
         progress_status p{0, 0};
         bool            retry = false;
         do {
             // sends
-            int nsend = static_cast<Derived*>(this)->poll_send_queue(get_tx_endpoint().get_tx_cq());
+            int nsend = static_cast<Derived*>(this)->poll_send_queue(get_tx_endpoint().get_tx_cq(), user_data);
             p.m_num_sends += nsend;
             retry = (nsend == max_completions_per_poll_);
             // recvs
-            int nrecv = static_cast<Derived*>(this)->poll_recv_queue(get_rx_endpoint().get_rx_cq());
+            int nrecv = static_cast<Derived*>(this)->poll_recv_queue(get_rx_endpoint().get_rx_cq(), user_data);
             p.m_num_recvs += nrecv;
             retry |= (nrecv == max_completions_per_poll_);
         } while (retry);
@@ -1185,15 +1185,15 @@ class controller_base
     }
 
     // --------------------------------------------------------------------
-    inline int poll_send_queue(fid_cq* tx_cq)
+    inline int poll_send_queue(fid_cq* tx_cq, void* user_data)
     {
-        return static_cast<Derived*>(this)->poll_send_queue(tx_cq);
+        return static_cast<Derived*>(this)->poll_send_queue(tx_cq, user_data);
     }
 
     // --------------------------------------------------------------------
-    inline int poll_recv_queue(fid_cq* rx_cq)
+    inline int poll_recv_queue(fid_cq* rx_cq, void* user_data)
     {
-        return static_cast<Derived*>(this)->poll_recv_queue(rx_cq);
+        return static_cast<Derived*>(this)->poll_recv_queue(rx_cq, user_data);
     }
 
     // --------------------------------------------------------------------
