@@ -240,56 +240,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq(), this);
         return {std::move(s)};
     }
-//    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-//        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
-//    {
-//        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-//            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-//        std::uint64_t         stag = make_tag64(tag, this->rank());
-//
-//        auto& reg = ptr.handle_ref();
-//#ifdef EXTRA_SIZE_CHECKS
-//        if (size != reg.get_size())
-//        {
-//            OOMPH_DP_ONLY(com_err,
-//                error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
-//                    NS_DEBUG::hex<6>(reg.get_size())));
-//        }
-//#endif
-//        m_context->get_controller()->sends_posted_++;
-//
-//        // use optimized inject if msg is very small
-//        if (size <= m_context->get_controller()->get_tx_inject_size())
-//        {
-//            inject_tagged_region(reg, size, fi_addr_t(dst), stag);
-//            cb();
-//            return;
-//        }
-//
-//        // construct operation context in space reserved in request object
-//        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
-//        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
-//            operation_context(cb_ptr, &m_send_cb_queue, nullptr);
-//        assert(reinterpret_cast<void*>(op_ctx) ==
-//               reinterpret_cast<void*>(&req->reserved()->operation_context_));
-//
-//        // clang-format off
-//        OOMPH_DP_ONLY(com_deb,
-//            debug(NS_DEBUG::str<>("Send"),
-//                  "thisrank", NS_DEBUG::dec<>(rank()),
-//                  "rank", NS_DEBUG::dec<>(dst),
-//                  "tag", tag_disp(std::uint64_t(tag)),
-//                  "ctag", tag_disp(m_ctag),
-//                  "stag", tag_disp(stag),
-//                  "addr", NS_DEBUG::ptr(reg.get_address()),
-//                  "size", NS_DEBUG::hex<6>(size),
-//                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-//                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
-//        // clang-format on
-//
-//        send_tagged_region(reg, size, fi_addr_t(dst), stag, op_ctx);
-//        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq());
-//    }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         int tag, util::unique_function<void(rank_type, int)>&& cb, std::size_t* scheduled)
@@ -332,48 +282,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
         return {std::move(s)};
     }
-//    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-//        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
-//    {
-//        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-//            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-//        std::uint64_t         stag = make_tag64(tag, src);
-//
-//        auto& reg = ptr.handle_ref();
-//#ifdef EXTRA_SIZE_CHECKS
-//        if (size != reg.get_size())
-//        {
-//            OOMPH_DP_ONLY(com_err,
-//                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
-//                    NS_DEBUG::hex<6>(reg.get_size())));
-//        }
-//#endif
-//        m_context->get_controller()->recvs_posted_++;
-//
-//        // construct operation context in space reserved in request object
-//        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
-//        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
-//            operation_context(cb_ptr, &m_recv_cb_queue, &m_recv_cb_cancel);
-//        assert(reinterpret_cast<void*>(op_ctx) ==
-//               reinterpret_cast<void*>(&req->reserved()->operation_context_));
-//
-//        // clang-format off
-//        OOMPH_DP_ONLY(com_deb,
-//            debug(NS_DEBUG::str<>("Recv"),
-//                  "thisrank", NS_DEBUG::dec<>(rank()),
-//                  "rank", NS_DEBUG::dec<>(src),
-//                  "tag", tag_disp(std::uint64_t(tag)),
-//                  "ctag", tag_disp(m_ctag),
-//                  "stag", tag_disp(stag),
-//                  "addr", NS_DEBUG::ptr(reg.get_address()),
-//                  "size", NS_DEBUG::hex<6>(size),
-//                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-//                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
-//        // clang-format on
-//
-//        recv_tagged_region(reg, size, fi_addr_t(src), stag, op_ctx);
-//        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
-//    }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
@@ -502,58 +410,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         return found;
     }
-    //bool cancel_recv_cb(recv_request const& req)
-    //{
-    //    // get the original message operation context
-    //    operation_context* op_ctx =
-    //        reinterpret_cast<operation_context*>(&req.m_data->reserved()->operation_context_);
 
-    //    // replace the callback in the original message context with a cancel one
-    //    //        mutable bool found = false;
-    //    //        util::unique_function<void(void)> temp = [&](){ found = true; };
-    //    //        auto orig_cb = std::exchange(op_ctx->user_cb_, temp.release());
-
-    //    // submit the cancellation request
-    //    bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
-    //    OOMPH_DP_ONLY(com_deb,
-    //        debug(NS_DEBUG::str<>("Cancel"), "ok", ok, "op_ctx", NS_DEBUG::ptr(op_ctx)));
-
-    //    // if the cancel operation failed completely, return
-    //    if (!ok) return false;
-
-    //    bool found = false;
-    //    while (!found)
-    //    {
-    //        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
-    //        // otherwise, poll until we know if it worked
-    //        std::stack<libfabric::queue_data> temp_stack;
-    //        libfabric::queue_data             temp;
-    //        while (!found && m_recv_cb_cancel.pop(temp))
-    //        {
-    //            if (temp.ctxt == op_ctx)
-    //            {
-    //                // our recv was cancelled correctly
-    //                found = true;
-    //                delete op_ctx->user_cb_;
-    //                OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
-    //                                           NS_DEBUG::ptr(op_ctx)));
-    //            }
-    //            else
-    //            {
-    //                // a different cancel operation
-    //                temp_stack.push(temp);
-    //            }
-    //        }
-    //        // return any weird unhandled cancels back to the queue
-    //        while (!temp_stack.empty())
-    //        {
-    //            libfabric::queue_data temp = temp_stack.top();
-    //            temp_stack.pop();
-    //            m_recv_cb_cancel.push(temp);
-    //        }
-    //    }
-    //    return found;
-    //}
     unsigned int max_tag() const noexcept { return 0x00000000007FFFFF; }
     unsigned int reserved_tag() const noexcept { return 0x0000000000800000; }
 };
