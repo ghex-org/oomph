@@ -65,6 +65,7 @@ using namespace NS_LIBFABRIC;
 #endif
 
 //#define DISABLE_FI_INJECT
+// #define EXCESSIVE_POLLING_BACKOFF_MICRO_S 50
 
 // ------------------------------------------------------------------
 
@@ -74,15 +75,11 @@ using namespace NS_LIBFABRIC;
 static fi_progress
 libfabric_progress_type()
 {
-#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP)
-    return FI_PROGRESS_AUTO;
-#else
     if (std::getenv("LIBFABRIC_AUTO_PROGRESS") == nullptr) return FI_PROGRESS_MANUAL;
     return FI_PROGRESS_AUTO;
-#endif
 }
 
-static const char *
+static const char*
 libfabric_progress_string()
 {
     if (libfabric_progress_type() == FI_PROGRESS_AUTO) return "auto";
@@ -113,17 +110,17 @@ libfabric_endpoint_type()
 {
     auto env_str = std::getenv("LIBFABRIC_ENDPOINT_TYPE");
     if (env_str == nullptr) return endpoint_type::single;
-    if (std::string(env_str) == std::string("multiple")
-            || std::atoi(env_str) == int(endpoint_type::multiple))
+    if (std::string(env_str) == std::string("multiple") ||
+        std::atoi(env_str) == int(endpoint_type::multiple))
         return endpoint_type::multiple;
-    if (std::string(env_str) == std::string("threadlocal")
-            || std::atoi(env_str) == int(endpoint_type::threadlocalTx))
+    if (std::string(env_str) == std::string("threadlocal") ||
+        std::atoi(env_str) == int(endpoint_type::threadlocalTx))
         return endpoint_type::threadlocalTx;
-    if (std::string(env_str) == std::string("scalableTx")
-            || std::atoi(env_str) == int(endpoint_type::scalableTx))
+    if (std::string(env_str) == std::string("scalableTx") ||
+        std::atoi(env_str) == int(endpoint_type::scalableTx))
         return endpoint_type::scalableTx;
-    if (std::string(env_str) == std::string("scalableTxRx")
-            || std::atoi(env_str) == int(endpoint_type::scalableTxRx))
+    if (std::string(env_str) == std::string("scalableTxRx") ||
+        std::atoi(env_str) == int(endpoint_type::scalableTxRx))
         return endpoint_type::scalableTxRx;
     // default is single endpoint type
     return endpoint_type::single;
@@ -133,14 +130,10 @@ static const char*
 libfabric_endpoint_string()
 {
     auto lf_ep_type = libfabric_endpoint_type();
-    if (lf_ep_type == endpoint_type::multiple)
-        return "multiple";
-    if (lf_ep_type == endpoint_type::threadlocalTx)
-        return "threadlocal";
-    if (lf_ep_type == endpoint_type::scalableTx)
-        return "scalableTx";
-    if (lf_ep_type == endpoint_type::scalableTxRx)
-        return "scalableTxRx";
+    if (lf_ep_type == endpoint_type::multiple) return "multiple";
+    if (lf_ep_type == endpoint_type::threadlocalTx) return "threadlocal";
+    if (lf_ep_type == endpoint_type::scalableTx) return "scalableTx";
+    if (lf_ep_type == endpoint_type::scalableTxRx) return "scalableTxRx";
     return "single";
 }
 
@@ -152,10 +145,13 @@ libfabric_completions_per_poll()
 {
     auto env_str = std::getenv("LIBFABRIC_POLL_SIZE");
     if (env_str == nullptr) return 1;
-    try {
+    try
+    {
         return std::atoi(env_str);
     }
-    catch (...) {}
+    catch (...)
+    {
+    }
     return 1;
 }
 
@@ -176,7 +172,7 @@ namespace NS_DEBUG
 {
 // cppcheck-suppress ConfigurationNotChecked
 static NS_DEBUG::enable_print<false> cnb_deb("CONBASE");
-static NS_DEBUG::enable_print<true> cnb_err("CONBASE");
+static NS_DEBUG::enable_print<true>  cnb_err("CONBASE");
 } // namespace NS_DEBUG
 
 /** @brief a class to return the number of progressed callbacks */
@@ -327,8 +323,8 @@ template<typename Derived>
 class controller_base
 {
   public:
-    typedef std::mutex                  mutex_type;
-    typedef std::lock_guard<mutex_type> scoped_lock;
+    typedef std::mutex                   mutex_type;
+    typedef std::lock_guard<mutex_type>  scoped_lock;
     typedef std::unique_lock<mutex_type> unique_lock;
 
   protected:
@@ -468,7 +464,8 @@ class controller_base
         [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
 
         max_completions_per_poll_ = libfabric_completions_per_poll();
-        DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("Poll completions"), debug::dec<3>(max_completions_per_poll_)));
+        DEBUG(NS_DEBUG::cnb_err,
+            debug(debug::str<>("Poll completions"), debug::dec<3>(max_completions_per_poll_)));
 
         endpoint_type_ = static_cast<endpoint_type>(libfabric_endpoint_type());
         DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("Endpoints"), libfabric_endpoint_string()));
@@ -489,8 +486,8 @@ class controller_base
 
             // thread slots might not be same as what we asked for
             size_t threads_allocated = 0;
-            auto   ep_sx =
-                new_endpoint_scalable(fabric_domain_, fabric_info_, true /*Tx*/, threads, threads_allocated);
+            auto   ep_sx = new_endpoint_scalable(fabric_domain_, fabric_info_, true /*Tx*/, threads,
+                  threads_allocated);
             if (!ep_sx)
                 throw NS_LIBFABRIC::fabric_error(FI_EOTHER, "fi_scalable endpoint creation failed");
 
@@ -647,12 +644,11 @@ class controller_base
     }
 
     // --------------------------------------------------------------------
-    constexpr uint64_t caps_flags() {
-        return static_cast<Derived*>(this)->caps_flags();
-    }
+    constexpr uint64_t caps_flags() { return static_cast<Derived*>(this)->caps_flags(); }
 
     // --------------------------------------------------------------------
-    constexpr fi_threading threadlevel_flags() {
+    constexpr fi_threading threadlevel_flags()
+    {
         return static_cast<Derived*>(this)->threadlevel_flags();
     }
 
@@ -759,12 +755,13 @@ class controller_base
         {
             [[maybe_unused]] auto scp =
                 NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), "GNI memory registration block");
-                // set GNI mem reg to be either none, internal or udreg
-                DEBUG(
-                    NS_DEBUG::cnb_deb, debug(debug::str<>("setting GNI_MR_CACHE ="), OOMPH_GNI_REG));
-                ret = _set_check_domain_op_value<char*>(GNI_MR_CACHE, const_cast<char*>(OOMPH_GNI_REG), "GNI_MR_CACHE");
-                if (ret)
-                    throw NS_LIBFABRIC::fabric_error(ret, std::string("setting GNI_MR_CACHE = ") + OOMPH_GNI_REG);
+            // set GNI mem reg to be either none, internal or udreg
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting GNI_MR_CACHE ="), OOMPH_GNI_REG));
+            ret = _set_check_domain_op_value<char*>(GNI_MR_CACHE, const_cast<char*>(OOMPH_GNI_REG),
+                "GNI_MR_CACHE");
+            if (ret)
+                throw NS_LIBFABRIC::fabric_error(ret,
+                    std::string("setting GNI_MR_CACHE = ") + OOMPH_GNI_REG);
 
             // Experiments showed default value of 2048 too high if
             // launching multiple clients on one node
@@ -802,36 +799,32 @@ class controller_base
     // Special GNI extensions to disable memory registration cache
 
     template<typename T>
-        int _set_check_domain_op_value(int op, T value, const char* info)
+    int _set_check_domain_op_value(int op, T value, const char* info)
     {
-            [[maybe_unused]] auto scp =
-                NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+        [[maybe_unused]] auto     scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
         struct fi_gni_ops_domain* gni_domain_ops;
 
-            int ret = fi_open_ops(&fabric_domain_->fid, FI_GNI_DOMAIN_OPS_1, 0,
-                (void**) &gni_domain_ops, nullptr);
+        int ret = fi_open_ops(&fabric_domain_->fid, FI_GNI_DOMAIN_OPS_1, 0, (void**)&gni_domain_ops,
+            nullptr);
 
-            DEBUG(NS_DEBUG::cnb_deb,
-                debug(debug::str<>("gni open ops"), (ret == 0 ? "OK" : "FAIL"),
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("gni open ops"), (ret == 0 ? "OK" : "FAIL"),
                                      NS_DEBUG::ptr(gni_domain_ops)));
 
         // if open was ok, then set value
         if (ret == 0)
         {
-                ret = gni_domain_ops->set_val(&fabric_domain_->fid,
-                    (dom_ops_val_t) (op), reinterpret_cast<void*>(&value));
+            ret = gni_domain_ops->set_val(&fabric_domain_->fid, (dom_ops_val_t)(op),
+                reinterpret_cast<void*>(&value));
 
-                DEBUG(NS_DEBUG::cnb_deb,
-                    debug(debug::str<>("gni set ops val"),
-                        (ret == 0 ? "OK" : "FAIL")));
+            DEBUG(NS_DEBUG::cnb_deb,
+                debug(debug::str<>("gni set ops val"), (ret == 0 ? "OK" : "FAIL")));
         }
 
         // check that the value we set is now returned by get
         T new_value;
-            ret = gni_domain_ops->get_val(
-                &fabric_domain_->fid, (dom_ops_val_t) (op), &new_value);
-            DEBUG(NS_DEBUG::cnb_deb,
-                debug(debug::str<>("gni op set"), (ret == 0 ? "OK" : "FAIL"), info, new_value));
+        ret = gni_domain_ops->get_val(&fabric_domain_->fid, (dom_ops_val_t)(op), &new_value);
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("gni op set"), (ret == 0 ? "OK" : "FAIL"), info, new_value));
         //
         return ret;
     }
@@ -863,8 +856,8 @@ class controller_base
     }
 
     // --------------------------------------------------------------------
-    struct fid_ep* new_endpoint_scalable(struct fid_domain* domain, struct fi_info* info,
-        bool tx, size_t threads, size_t& threads_allocated)
+    struct fid_ep* new_endpoint_scalable(struct fid_domain* domain, struct fi_info* info, bool tx,
+        size_t threads, size_t& threads_allocated)
     {
         // don't allow multiple threads to call endpoint create at the same time
         scoped_lock lock(controller_mutex_);
@@ -883,19 +876,14 @@ class controller_base
 
         // Check the optimal number of TX/RX contexts supported by the provider
         size_t context_count = 0;
-        if (tx) {
-            context_count = std::min(new_hints->domain_attr->tx_ctx_cnt, threads);
-        }
-        else {
-            context_count = std::min(new_hints->domain_attr->rx_ctx_cnt, threads);
-        }
+        if (tx) { context_count = std::min(new_hints->domain_attr->tx_ctx_cnt, threads); }
+        else { context_count = std::min(new_hints->domain_attr->rx_ctx_cnt, threads); }
 
         DEBUG(NS_DEBUG::cnb_deb,
-            trace(debug::str<>("scalable endpoint"), "Tx", tx,
-                  "Threads", debug::dec<3>(threads),
-                  "tx_ctx_cnt", debug::dec<3>(new_hints->domain_attr->tx_ctx_cnt),
-                  "rx_ctx_cnt", debug::dec<3>(new_hints->domain_attr->rx_ctx_cnt),
-                  "context_count", debug::dec<3>(context_count)));
+            trace(debug::str<>("scalable endpoint"), "Tx", tx, "Threads", debug::dec<3>(threads),
+                "tx_ctx_cnt", debug::dec<3>(new_hints->domain_attr->tx_ctx_cnt), "rx_ctx_cnt",
+                debug::dec<3>(new_hints->domain_attr->rx_ctx_cnt), "context_count",
+                debug::dec<3>(context_count)));
 
         //            if (context_count < threads || context_count <= 1)
         //            {
@@ -989,7 +977,7 @@ class controller_base
             return eps_->tl_tx_.endpoint_;
         }
         else if (endpoint_type_ == endpoint_type::scalableTx ||
-                endpoint_type_ == endpoint_type::scalableTxRx)
+                 endpoint_type_ == endpoint_type::scalableTxRx)
         {
             if (eps_->tl_stx_.get_ep() == nullptr)
             {
@@ -1012,9 +1000,7 @@ class controller_base
             }
             return eps_->tl_stx_.endpoint_;
         }
-        else if (endpoint_type_ == endpoint_type::multiple) {
-            return eps_->ep_tx_;
-        }
+        else if (endpoint_type_ == endpoint_type::multiple) { return eps_->ep_tx_; }
         else if (endpoint_type_ == endpoint_type::single)
         {
             // shared tx/rx endpoint
@@ -1085,7 +1071,8 @@ class controller_base
         int                     ret = fi_getname(id, local_addr.data(), &addrlen);
         if (ret || (addrlen > locality_defs::array_size))
         {
-            std::string err = std::to_string(addrlen) + "=" + std::to_string(locality_defs::array_size);
+            std::string err =
+                std::to_string(addrlen) + "=" + std::to_string(locality_defs::array_size);
             NS_LIBFABRIC::fabric_error(ret, "fi_getname - size error or other problem " + err);
         }
 
@@ -1182,8 +1169,8 @@ class controller_base
     // --------------------------------------------------------------------
     progress_status poll_for_work_completions()
     {
-        progress_status p{0,0};
-        bool retry = false;
+        progress_status p{0, 0};
+        bool            retry = false;
         do {
             // sends
             int nsend = static_cast<Derived*>(this)->poll_send_queue(get_tx_endpoint().get_tx_cq());
@@ -1191,7 +1178,7 @@ class controller_base
             retry = (nsend == max_completions_per_poll_);
             // recvs
             int nrecv = static_cast<Derived*>(this)->poll_recv_queue(get_rx_endpoint().get_rx_cq());
-            p.m_num_recvs  += nrecv;
+            p.m_num_recvs += nrecv;
             retry |= (nrecv == max_completions_per_poll_);
         } while (retry);
         return p;

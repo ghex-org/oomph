@@ -60,8 +60,7 @@ class context_impl : public context_base
     communicator_impl* get_communicator();
 
     inline controller_type* get_controller() /*const */ { return m_controller.get(); }
-    const char *get_transport_option(const std::string &opt);
-
+    const char*             get_transport_option(const std::string& opt);
 };
 
 // --------------------------------------------------------------------

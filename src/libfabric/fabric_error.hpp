@@ -49,20 +49,6 @@ class fabric_error : public std::runtime_error
         std::terminate();
     }
 
-    // --------------------------------------------------------------------
-    int error_code() const { return error_; }
-
-    // --------------------------------------------------------------------
-    static inline char* error_string(int err)
-    {
-        char buffer[256];
-#if (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && !_GNU_SOURCE
-        return strerror_r(err, buffer, sizeof(buf)) ? nullptr : buffer;
-#else
-        return strerror_r(err, buffer, 256);
-#endif
-    }
-
     int error_;
 };
 

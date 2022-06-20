@@ -48,10 +48,10 @@ struct operation_context : public operation_context_base<operation_context>
     using lockfree_queue = boost::lockfree::queue<queue_data, boost::lockfree::fixed_sized<false>,
         boost::lockfree::allocator<std::allocator<void>>>;
     //
-    cb_ptr_t               user_cb_;
-    lockfree_queue * const callback_queue_;
-    lockfree_queue * const cancel_queue_;
-    std::thread::id  const thread_id_;
+    cb_ptr_t              user_cb_;
+    lockfree_queue* const callback_queue_;
+    lockfree_queue* const cancel_queue_;
+    std::thread::id const thread_id_;
 
     operation_context(cb_ptr_t user_cb, lockfree_queue* queue, lockfree_queue* cancelq)
     : operation_context_base(ctx_any)
@@ -63,7 +63,8 @@ struct operation_context : public operation_context_base<operation_context>
         [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
     }
 
-    ~operation_context() {
+    ~operation_context()
+    {
         assert(std::this_thread::get_id() == thread_id_);
         delete user_cb_;
     }

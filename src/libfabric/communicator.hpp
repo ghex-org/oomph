@@ -37,7 +37,7 @@ using tag_disp = oomph::debug::detail::hex<12, uintptr_t>;
 
 // cppcheck-suppress ConfigurationNotChecked
 static NS_DEBUG::enable_print<false> com_deb("COMMUNI");
-static NS_DEBUG::enable_print<true> com_err("COMMUNI");
+static NS_DEBUG::enable_print<true>  com_err("COMMUNI");
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
@@ -81,8 +81,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (rank() == 0)
         {
             m_ctag = reinterpret_cast<std::uintptr_t>(this);
-            OOMPH_DP_ONLY(com_deb,
-                debug(NS_DEBUG::str<>("MPI send tag"), tag_disp(m_ctag)));
+            OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI send tag"), tag_disp(m_ctag)));
             for (int i = 1; i < size(); ++i)
             {
                 MPI_Send(&m_ctag, sizeof(std::uintptr_t), MPI_CHAR, i, random_msg_tag, mpi_comm());
@@ -93,8 +92,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             MPI_Status status;
             MPI_Recv(&m_ctag, sizeof(std::uintptr_t), MPI_CHAR, 0, random_msg_tag, mpi_comm(),
                 &status);
-            OOMPH_DP_ONLY(com_deb,
-                debug(NS_DEBUG::str<>("MPI recv tag"), tag_disp(m_ctag)));
+            OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI recv tag"), tag_disp(m_ctag)));
         }
 #endif
     }
@@ -120,17 +118,14 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     // --------------------------------------------------------------------
-    template <typename Func, typename... Args>
-    inline void execute_fi_function(Func F, const char *msg, Args &&... args)
+    template<typename Func, typename... Args>
+    inline void execute_fi_function(Func F, const char* msg, Args&&... args)
     {
         bool ok = false;
         while (!ok)
         {
             ssize_t ret = F(std::forward<Args>(args)...);
-            if (ret == 0)
-            {
-                return;
-            }
+            if (ret == 0) { return; }
             else if (ret == -FI_EAGAIN)
             {
                 com_deb.error("Reposting", msg);
@@ -150,61 +145,50 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     // --------------------------------------------------------------------
     // this takes a pinned memory region and sends it
-    void send_tagged_region(region_type const& send_region,
-                            std::size_t size,
-                            fi_addr_t dst_addr_,
-                            uint64_t tag_,
-                            operation_context* ctxt)
+    void send_tagged_region(region_type const& send_region, std::size_t size, fi_addr_t dst_addr_,
+        uint64_t tag_, operation_context* ctxt)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
         OOMPH_DP_ONLY(com_deb,
             debug(NS_DEBUG::str<>("send message buffer"), "->", NS_DEBUG::dec<2>(dst_addr_),
-                send_region, "tag", tag_disp(tag_), "context", NS_DEBUG::ptr(ctxt),
-                "endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+                send_region, "tag", tag_disp(tag_), "context", NS_DEBUG::ptr(ctxt), "endpoint",
+                NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
 
-        execute_fi_function(fi_tsend, "fi_tsend",
-                            m_tx_endpoint.get_ep(), send_region.get_address(), size,
-                            send_region.get_local_key(), dst_addr_, tag_, ctxt);
+        execute_fi_function(fi_tsend, "fi_tsend", m_tx_endpoint.get_ep(), send_region.get_address(),
+            size, send_region.get_local_key(), dst_addr_, tag_, ctxt);
     }
 
     // --------------------------------------------------------------------
     // this takes a pinned memory region and sends it using inject instead of send
-    void inject_tagged_region(region_type const& send_region,
-                              std::size_t size,
-                              fi_addr_t dst_addr_,
-                              uint64_t tag_)
+    void inject_tagged_region(region_type const& send_region, std::size_t size, fi_addr_t dst_addr_,
+        uint64_t tag_)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
         OOMPH_DP_ONLY(com_deb,
-            debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_),
-                send_region, "tag", tag_disp(tag_),
-                "endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+            debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_), send_region,
+                "tag", tag_disp(tag_), "endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
         execute_fi_function(fi_tinject, "fi_tinject", m_tx_endpoint.get_ep(),
-                            send_region.get_address(), size, dst_addr_, tag_);
+            send_region.get_address(), size, dst_addr_, tag_);
     }
 
     // --------------------------------------------------------------------
     // the receiver posts a single receive buffer to the queue, attaching
     // itself as the context, so that when a message is received
     // the owning receiver is called to handle processing of the buffer
-    void recv_tagged_region(region_type const& recv_region,
-                            std::size_t size,
-                            fi_addr_t src_addr_,
-                            uint64_t tag_,
-                            operation_context* ctxt)
+    void recv_tagged_region(region_type const& recv_region, std::size_t size, fi_addr_t src_addr_,
+        uint64_t tag_, operation_context* ctxt)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
 
         OOMPH_DP_ONLY(com_deb,
             debug(NS_DEBUG::str<>("recv message buffer"), "<-", NS_DEBUG::dec<2>(src_addr_),
-                recv_region, "tag", tag_disp(tag_), "context", NS_DEBUG::ptr(ctxt),
-                "rx endpoint", NS_DEBUG::ptr(m_rx_endpoint.get_ep())));
+                recv_region, "tag", tag_disp(tag_), "context", NS_DEBUG::ptr(ctxt), "rx endpoint",
+                NS_DEBUG::ptr(m_rx_endpoint.get_ep())));
 
         // auto l = std::move(m_context->get_controller()->get_rx_lock());
         constexpr uint64_t ignore = 0;
-        execute_fi_function(fi_trecv, "fi_trecv",
-                            m_rx_endpoint.get_ep(), recv_region.get_address(), size,
-                            recv_region.get_local_key(), src_addr_, tag_, ignore, ctxt);
+        execute_fi_function(fi_trecv, "fi_trecv", m_rx_endpoint.get_ep(), recv_region.get_address(),
+            size, recv_region.get_local_key(), src_addr_, tag_, ignore, ctxt);
         // if (l.owns_lock()) l.unlock();
     }
 
@@ -218,17 +202,18 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
-        if (size != reg.get_size()) {
+        if (size != reg.get_size())
+        {
             OOMPH_DP_ONLY(com_err,
-                error(NS_DEBUG::str<>("send mismatch"),
-                      "size", NS_DEBUG::hex<6>(size),
-                      "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+                error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
+                    NS_DEBUG::hex<6>(reg.get_size())));
         }
 #endif
         m_context->get_controller()->sends_posted_++;
 
         // use optimized inject if msg is very small
-        if (size <= m_context->get_controller()->get_tx_inject_size()) {
+        if (size <= m_context->get_controller()->get_tx_inject_size())
+        {
             inject_tagged_region(reg, size, fi_addr_t(dst), stag);
             cb();
             return;
@@ -259,8 +244,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq());
     }
 
-    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
+        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
             NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
@@ -268,11 +253,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
-        if (size != reg.get_size()) {
+        if (size != reg.get_size())
+        {
             OOMPH_DP_ONLY(com_err,
-                error(NS_DEBUG::str<>("recv mismatch"),
-                      "size", NS_DEBUG::hex<6>(size),
-                      "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
+                    NS_DEBUG::hex<6>(reg.get_size())));
         }
 #endif
         m_context->get_controller()->recvs_posted_++;
@@ -341,8 +326,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     bool cancel_recv_cb(recv_request const& req)
     {
         // get the original message operation context
-        operation_context* op_ctx = reinterpret_cast<operation_context*>(
-            &req.m_data->reserved()->operation_context_);
+        operation_context* op_ctx =
+            reinterpret_cast<operation_context*>(&req.m_data->reserved()->operation_context_);
 
         // replace the callback in the original message context with a cancel one
         //        mutable bool found = false;

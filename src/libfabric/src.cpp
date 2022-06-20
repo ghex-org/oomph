@@ -30,7 +30,7 @@ context_impl::context_impl(MPI_Comm comm, bool thread_safe)
     OOMPH_CHECK_MPI_RESULT(MPI_Comm_rank(comm, &rank));
     OOMPH_CHECK_MPI_RESULT(MPI_Comm_size(comm, &size));
     // @TODO Fix number of threads, anything N>1 is ok for now
-    int threads = std::thread::hardware_concurrency()/2;
+    int threads = std::thread::hardware_concurrency() / 2;
     m_controller = init_libfabric_controller(this, comm, rank, size, threads);
     m_domain = m_controller->get_domain();
 }
@@ -43,19 +43,13 @@ context_impl::get_communicator()
     return comm;
 }
 
-const char *context_impl::get_transport_option(const std::string &opt) {
-    if (opt == "name") {
-        return "libfabric";
-    }
-    else if (opt == "progress") {
-        return libfabric_progress_string();
-    }
-    else if (opt == "endpoint") {
-        return libfabric_endpoint_string();
-    }
-    else {
-        return "unspecified";
-    }
+const char*
+context_impl::get_transport_option(const std::string& opt)
+{
+    if (opt == "name") { return "libfabric"; }
+    else if (opt == "progress") { return libfabric_progress_string(); }
+    else if (opt == "endpoint") { return libfabric_endpoint_string(); }
+    else { return "unspecified"; }
 }
 
 //send_channel_base::send_channel_base(communicator& comm, std::size_t size, std::size_t T_size,
@@ -83,10 +77,8 @@ context_impl::init_libfabric_controller(oomph::context_impl* /*ctx*/, MPI_Comm c
     static std::shared_ptr<controller_type> instance(nullptr);
     if (!instance.get())
     {
-        OOMPH_DP_ONLY(src_deb, debug(NS_DEBUG::str<>("New Controller"),
-                                     "rank", debug::dec<3>(rank),
-                                     "size", debug::dec<3>(size),
-                                     "threads", debug::dec<3>(threads)));
+        OOMPH_DP_ONLY(src_deb, debug(NS_DEBUG::str<>("New Controller"), "rank", debug::dec<3>(rank),
+                                   "size", debug::dec<3>(size), "threads", debug::dec<3>(threads)));
         instance.reset(new controller_type());
         instance->initialize(HAVE_LIBFABRIC_PROVIDER, rank == 0, size, threads, comm);
     }

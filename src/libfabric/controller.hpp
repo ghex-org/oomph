@@ -54,7 +54,7 @@ namespace NS_DEBUG
 {
 // cppcheck-suppress ConfigurationNotChecked
 static debug::enable_print<false> cnt_deb("CONTROL");
-static debug::enable_print<true> cnt_err("CONTROL");
+static debug::enable_print<true>  cnt_err("CONTROL");
 } // namespace NS_DEBUG
 
 namespace oomph::libfabric
@@ -88,9 +88,7 @@ class controller : public controller_base<controller>
     }
 
     // --------------------------------------------------------------------
-    constexpr uint64_t caps_flags() {
-        return FI_MSG | FI_TAGGED;
-    }
+    constexpr uint64_t caps_flags() { return FI_MSG | FI_TAGGED; }
 
     // --------------------------------------------------------------------
     // we do not need to perform any special actions on init (to contact root node)
@@ -184,8 +182,8 @@ class controller : public controller_base<controller>
 #ifdef HAVE_LIBFABRIC_GNI
         return true;
 #else
-        return (threadlevel_flags()==FI_THREAD_SAFE ||
-            endpoint_type_ == endpoint_type::threadlocalTx);
+        return (threadlevel_flags() == FI_THREAD_SAFE ||
+                endpoint_type_ == endpoint_type::threadlocalTx);
 #endif
     }
 
@@ -209,8 +207,8 @@ class controller : public controller_base<controller>
 #ifdef HAVE_LIBFABRIC_GNI
         return true;
 #else
-        return (threadlevel_flags()==FI_THREAD_SAFE ||
-            endpoint_type_ == endpoint_type::scalableTxRx);
+        return (
+            threadlevel_flags() == FI_THREAD_SAFE || endpoint_type_ == endpoint_type::scalableTxRx);
 #endif
     }
 
@@ -231,9 +229,10 @@ class controller : public controller_base<controller>
     // --------------------------------------------------------------------
     int poll_send_queue(fid_cq* send_cq)
     {
-#ifdef EXCESSIVE_POLLING_BACKOFF
+#ifdef EXCESSIVE_POLLING_BACKOFF_MICRO_S
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::microseconds>(now - send_poll_stamp).count() < 500)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(now - send_poll_stamp).count() <
+            EXCESSIVE_POLLING_BACKOFF_MICRO_S)
             return 0;
         send_poll_stamp = now;
 #endif
@@ -264,20 +263,18 @@ class controller : public controller_base<controller>
                 if (e.flags == (FI_MSG | FI_SEND))
                 {
                     NS_DEBUG::cnt_err.error("txcq Error FI_EAVAIL for "
-                                            "FI_SEND with len", debug::hex<6>(e.len),
-                                            "context", NS_DEBUG::ptr(e.op_context),
-                                            "code", NS_DEBUG::dec<3>(e.err),
-                                            "flags", debug::bin<16>(e.flags),
-                                            "error", fi_cq_strerror(send_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
+                                            "FI_SEND with len",
+                        debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context), "code",
+                        NS_DEBUG::dec<3>(e.err), "flags", debug::bin<16>(e.flags), "error",
+                        fi_cq_strerror(send_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
                 }
                 else if (e.flags & FI_RMA)
                 {
                     NS_DEBUG::cnt_err.error("txcq Error FI_EAVAIL for "
-                                            "FI_RMA with len", debug::hex<6>(e.len),
-                                            "context", NS_DEBUG::ptr(e.op_context),
-                                            "code", NS_DEBUG::dec<3>(e.err),
-                                            "flags", debug::bin<16>(e.flags),
-                                            "error", fi_cq_strerror(send_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
+                                            "FI_RMA with len",
+                        debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context), "code",
+                        NS_DEBUG::dec<3>(e.err), "flags", debug::bin<16>(e.flags), "error",
+                        fi_cq_strerror(send_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
                 }
                 operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);
                 handler->handle_error(e);
@@ -321,18 +318,17 @@ class controller : public controller_base<controller>
         {
             // do nothing, we will try again on the next check
         }
-        else {
-            NS_DEBUG::cnt_err.error("unknown error in completion txcq read");
-        }
+        else { NS_DEBUG::cnt_err.error("unknown error in completion txcq read"); }
         return 0;
     }
 
     // --------------------------------------------------------------------
     int poll_recv_queue(fid_cq* rx_cq)
     {
-#ifdef EXCESSIVE_POLLING_BACKOFF
+#ifdef EXCESSIVE_POLLING_BACKOFF_MICRO_S
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::microseconds>(now - recv_poll_stamp).count() < 500)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(now - recv_poll_stamp).count() <
+            EXCESSIVE_POLLING_BACKOFF_MICRO_S)
             return 0;
         recv_poll_stamp = now;
 #endif
