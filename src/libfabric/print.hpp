@@ -49,7 +49,7 @@ extern char** environ;
 // This file provides a simple to use printf style debugging
 // tool that can be used on a per file basis to enable output.
 // It is not intended to be exposed to users, but rather as
-// an aid for hpx development.
+// an aid for development.
 // ------------------------------------------------------------
 // Usage: Instantiate a debug print object at the top of a file
 // using a template param of true/false to enable/disable output.
