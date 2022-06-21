@@ -39,7 +39,6 @@ static NS_DEBUG::enable_print<true>  com_err("COMMUNI");
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
-    using rank_type = communicator::rank_type;
     using tag_type = std::uint64_t;
     //
     using segment_type = libfabric::memory_segment;
@@ -192,7 +191,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     // --------------------------------------------------------------------
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        int tag, util::unique_function<void(rank_type, int)>&& cb, std::size_t* scheduled)
+        oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        std::size_t* scheduled)
     {
         //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
         //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
@@ -242,7 +242,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        int tag, util::unique_function<void(rank_type, int)>&& cb, std::size_t* scheduled)
+        oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        std::size_t* scheduled)
     {
         //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
         //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
@@ -284,8 +285,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::atomic<std::size_t>* scheduled)
+        rank_type src, oomph::tag_type tag,
+        util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        std::atomic<std::size_t>*                                 scheduled)
     {
         //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
         //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));

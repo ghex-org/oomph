@@ -20,8 +20,6 @@ namespace oomph
 
 struct endpoint_t
 {
-    using rank_type = communicator::rank_type;
-
     rank_type       m_rank;
     ucp_ep_h        m_ep;
     ucp_worker_h    m_worker;

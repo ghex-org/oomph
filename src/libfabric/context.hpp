@@ -29,8 +29,6 @@ class context_impl : public context_base
     using domain_type = region_type::provider_domain;
     using device_region_type = oomph::libfabric::memory_segment;
     using heap_type = hwmalloc::heap<context_impl>;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
     using callback_queue = boost::lockfree::queue<detail::shared_request_state*,
         boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
 

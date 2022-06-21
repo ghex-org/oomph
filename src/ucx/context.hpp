@@ -30,7 +30,6 @@ class context_impl : public context_base
     using region_type = region;
     using device_region_type = region;
     using heap_type = hwmalloc::heap<context_impl>;
-    using rank_type = communicator::rank_type;
     using worker_type = worker_t;
 
   private: // member types

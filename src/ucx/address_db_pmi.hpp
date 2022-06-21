@@ -26,7 +26,7 @@ struct address_db_pmi
     // per-communicator instance used to store/query connections
     pmi pmi_impl;
 
-    using key_t = endpoint_t::rank_type;
+    using key_t = rank_type;
     using value_t = address_t;
 
     MPI_Comm           m_mpi_comm;

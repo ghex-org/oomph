@@ -20,9 +20,6 @@ namespace oomph
 {
 class communicator_impl : public communicator_base<communicator_impl>
 {
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
-
   public:
     context_impl*     m_context;
     request_queue     m_send_reqs;

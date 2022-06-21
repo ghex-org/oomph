@@ -17,9 +17,6 @@ namespace oomph
 {
 class mpi_comm
 {
-  public:
-    using rank_type = communicator::rank_type;
-
   private:
     MPI_Comm  m_comm;
     rank_type m_rank;

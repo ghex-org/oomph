@@ -20,9 +20,6 @@ namespace oomph
 {
 class context_base
 {
-  public:
-    using rank_type = communicator::rank_type;
-
   protected:
     mpi_comm                          m_mpi_comm;
     bool const                        m_thread_safe;

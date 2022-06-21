@@ -19,7 +19,6 @@ template<typename Communicator>
 class communicator_base
 {
   public:
-    using rank_type = communicator::rank_type;
     using pool_factory_type = util::pool_factory<detail::request_state>;
 
   protected:

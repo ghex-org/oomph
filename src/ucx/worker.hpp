@@ -21,9 +21,6 @@ namespace oomph
 {
 struct worker_t
 {
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
-
     struct ucp_worker_handle
     {
         ucp_worker_h    m_worker;

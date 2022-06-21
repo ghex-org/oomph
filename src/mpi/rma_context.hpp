@@ -22,8 +22,6 @@ class rma_context
     using region_type = rma_region;
     using device_region_type = rma_region;
     using heap_type = hwmalloc::heap<rma_context>;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
 
   private:
     struct mpi_win_holder
@@ -61,7 +59,7 @@ class rma_context
 
     auto  get_window() const noexcept { return m_win.m; }
     auto& get_heap() noexcept { return m_heap; }
-    void  lock(communicator::rank_type r) { m_lock_cache->lock(r); }
+    void  lock(rank_type r) { m_lock_cache->lock(r); }
 };
 
 template<>

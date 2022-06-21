@@ -29,8 +29,8 @@ void reset_counters()
 
 struct test_environment_base
 {
-    using rank_type = oomph::communicator::rank_type;
-    using tag_type = oomph::communicator::tag_type;
+    using rank_type = oomph::rank_type;
+    using tag_type = oomph::tag_type;
     using message = oomph::message_buffer<rank_type>;
 
     oomph::context&     ctxt;

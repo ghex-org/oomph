@@ -21,8 +21,6 @@ class context_impl : public context_base
     using region_type = region;
     using device_region_type = region;
     using heap_type = hwmalloc::heap<context_impl>;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
 
   private:
     heap_type    m_heap;
@@ -74,7 +72,7 @@ class context_impl : public context_base
 
     auto  get_window() const noexcept { return m_rma_context.get_window(); }
     auto& get_rma_heap() noexcept { return m_rma_context.get_heap(); }
-    void  lock(communicator::rank_type r) { m_rma_context.lock(r); }
+    void  lock(rank_type r) { m_rma_context.lock(r); }
 
     communicator_impl* get_communicator();
 

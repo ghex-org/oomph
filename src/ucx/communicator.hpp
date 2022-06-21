@@ -31,8 +31,6 @@ class communicator_impl : public communicator_base<communicator_impl>
 {
   public:
     using worker_type = worker_t;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
     template<typename T>
     using lockfree_queue = boost::lockfree::queue<T, boost::lockfree::fixed_sized<false>,
         boost::lockfree::allocator<std::allocator<void>>>;

@@ -18,9 +18,6 @@ namespace oomph
 {
 class lock_cache
 {
-  public:
-    using rank_type = communicator::rank_type;
-
   private:
     MPI_Win             m_win;
     std::set<rank_type> m_ranks;

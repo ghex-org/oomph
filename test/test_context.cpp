@@ -20,8 +20,6 @@ const int         num_threads = 4;
 TEST_F(mpi_test_fixture, context_ordered)
 {
     using namespace oomph;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
     auto ctxt = context(MPI_COMM_WORLD, true);
 
     auto func = [&ctxt](int tid)
@@ -80,8 +78,6 @@ TEST_F(mpi_test_fixture, context_ordered)
 TEST_F(mpi_test_fixture, context_multi)
 {
     using namespace oomph;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
     auto ctxt_1 = context(MPI_COMM_WORLD, true);
     auto ctxt_2 = context(MPI_COMM_WORLD, true);
 

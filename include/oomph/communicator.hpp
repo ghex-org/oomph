@@ -30,8 +30,6 @@ class communicator
     friend class context;
 
   public:
-    using rank_type = int;
-    using tag_type = int;
     using impl_type = communicator_impl;
 
   public:

@@ -60,8 +60,6 @@ struct request_state_base
     using traits = request_state_traits<Threadsafe>;
     using context_type = oomph::context_impl;
     using communicator_type = oomph::communicator_impl;
-    using rank_type = oomph::communicator::rank_type;
-    using tag_type = oomph::communicator::tag_type;
     using cb_type = oomph::util::unique_function<void(rank_type, tag_type)>;
 
     template<typename T>

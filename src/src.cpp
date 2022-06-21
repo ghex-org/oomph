@@ -104,13 +104,13 @@ communicator_state::~communicator_state()
 // communicator              //
 ///////////////////////////////
 
-communicator::rank_type
+rank_type
 communicator::rank() const noexcept
 {
     return m_state->m_impl->rank();
 }
 
-communicator::rank_type
+rank_type
 communicator::size() const noexcept
 {
     return m_state->m_impl->size();
@@ -134,7 +134,7 @@ communicator::progress()
     m_state->m_impl->progress();
 }
 
-communicator::tag_type
+tag_type
 communicator::max_tag() const noexcept
 {
     return m_state->m_impl->max_tag();
