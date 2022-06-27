@@ -24,13 +24,8 @@ function(compile_test t_)
     target_link_libraries(${t} PUBLIC oomph)
 endfunction()
 
-## compile an object library for each test
-## tests will be compiled only once and then linked against all enabled oomph backends
-#foreach(t ${parallel_tests})
-#    compile_test(${t})
-#endforeach()
-
 # compile an object library for each test
+# tests will be compiled only once and then linked against all enabled oomph backends
 list(APPEND all_tests ${serial_tests} ${parallel_tests})
 list(REMOVE_DUPLICATES all_tests)
 foreach(t ${all_tests})
