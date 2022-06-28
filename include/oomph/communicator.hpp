@@ -22,6 +22,13 @@
 
 namespace oomph
 {
+
+inline detail::reserved_tag
+reserved(tag_type t) noexcept
+{
+    return {t};
+}
+
 class context;
 
 class communicator
@@ -148,8 +155,8 @@ class communicator
     // recv
     // ----
 
-    template<typename T>
-    recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag)
+    template<typename T, typename Tag>
+    recv_request recv(message_buffer<T>& msg, rank_type src, Tag tag)
     {
         assert(msg);
         return recv(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), src, wrap(tag),
@@ -159,8 +166,8 @@ class communicator
     // shared_recv
     // -----------
 
-    template<typename T>
-    shared_recv_request shared_recv(message_buffer<T>& msg, rank_type src, tag_type tag)
+    template<typename T, typename Tag>
+    shared_recv_request shared_recv(message_buffer<T>& msg, rank_type src, Tag tag)
     {
         assert(msg);
         return shared_recv(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), src, wrap(tag),
@@ -170,8 +177,8 @@ class communicator
     // send
     // ----
 
-    template<typename T>
-    send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag)
+    template<typename T, typename Tag>
+    send_request send(message_buffer<T> const& msg, rank_type dst, Tag tag)
     {
         assert(msg);
         return send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), dst, wrap(tag),
@@ -181,9 +188,9 @@ class communicator
     // send_multi
     // ----------
 
-    template<typename T>
+    template<typename T, typename Tag>
     send_multi_request send_multi(message_buffer<T> const& msg, rank_type const* neighs,
-        std::size_t neighs_size, tag_type tag)
+        std::size_t neighs_size, Tag tag)
     {
         assert(msg);
         auto       mrs = m_state->make_multi_request_state(neighs_size);
@@ -197,9 +204,9 @@ class communicator
         return {std::move(mrs)};
     }
 
-    template<typename T>
+    template<typename T, typename Tag>
     send_multi_request send_multi(message_buffer<T> const& msg,
-        std::vector<rank_type> const& neighs, tag_type tag)
+        std::vector<rank_type> const& neighs, Tag tag)
     {
         return send_multi(msg, neighs.data(), neighs.size(), tag);
     }
@@ -210,8 +217,8 @@ class communicator
     // recv
     // ----
 
-    template<typename T, typename CallBack>
-    recv_request recv(message_buffer<T>&& msg, rank_type src, tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    recv_request recv(message_buffer<T>&& msg, rank_type src, Tag tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
@@ -222,8 +229,8 @@ class communicator
                 cb_rref<T, CallBack>{std::forward<CallBack>(callback), std::move(msg)}));
     }
 
-    template<typename T, typename CallBack>
-    recv_request recv(message_buffer<T>& msg, rank_type src, tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    recv_request recv(message_buffer<T>& msg, rank_type src, Tag tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
@@ -237,8 +244,8 @@ class communicator
     // shared_recv
     // -----------
 
-    template<typename T, typename CallBack>
-    shared_recv_request shared_recv(message_buffer<T>&& msg, rank_type src, tag_type tag,
+    template<typename T, typename CallBack, typename Tag>
+    shared_recv_request shared_recv(message_buffer<T>&& msg, rank_type src, Tag tag,
         CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
@@ -250,8 +257,8 @@ class communicator
                 cb_rref<T, CallBack>{std::forward<CallBack>(callback), std::move(msg)}));
     }
 
-    template<typename T, typename CallBack>
-    shared_recv_request shared_recv(message_buffer<T>& msg, rank_type src, tag_type tag,
+    template<typename T, typename CallBack, typename Tag>
+    shared_recv_request shared_recv(message_buffer<T>& msg, rank_type src, Tag tag,
         CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
@@ -266,8 +273,8 @@ class communicator
     // send
     // ----
 
-    template<typename T, typename CallBack>
-    send_request send(message_buffer<T>&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    send_request send(message_buffer<T>&& msg, rank_type dst, Tag tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK(CallBack)
         assert(msg);
@@ -278,8 +285,8 @@ class communicator
                 cb_rref<T, CallBack>{std::forward<CallBack>(callback), std::move(msg)}));
     }
 
-    template<typename T, typename CallBack>
-    send_request send(message_buffer<T>& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    send_request send(message_buffer<T>& msg, rank_type dst, Tag tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_REF(CallBack)
         assert(msg);
@@ -290,9 +297,8 @@ class communicator
                 cb_lref<T, CallBack>{std::forward<CallBack>(callback), &msg}));
     }
 
-    template<typename T, typename CallBack>
-    send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag,
-        CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    send_request send(message_buffer<T> const& msg, rank_type dst, Tag tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
         assert(msg);
@@ -306,9 +312,9 @@ class communicator
     // send_multi
     // ----------
 
-    template<typename T, typename CallBack>
-    send_multi_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> neighs,
-        tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    send_multi_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> neighs, Tag tag,
+        CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
         assert(msg);
@@ -332,9 +338,9 @@ class communicator
         return {std::move(mrs)};
     }
 
-    template<typename T, typename CallBack>
-    send_multi_request send_multi(message_buffer<T>& msg, std::vector<rank_type> neighs,
-        tag_type tag, CallBack&& callback)
+    template<typename T, typename CallBack, typename Tag>
+    send_multi_request send_multi(message_buffer<T>& msg, std::vector<rank_type> neighs, Tag tag,
+        CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
         assert(msg);
@@ -358,9 +364,9 @@ class communicator
         return {std::move(mrs)};
     }
 
-    template<typename T, typename CallBack>
+    template<typename T, typename CallBack, typename Tag>
     send_multi_request send_multi(message_buffer<T> const& msg, std::vector<rank_type> neighs,
-        tag_type tag, CallBack&& callback)
+        Tag tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CallBack)
         assert(msg);
@@ -409,11 +415,16 @@ class communicator
         rank_type src, util::wrapped_tag tag,
         util::unique_function<void(rank_type, tag_type)>&& cb);
 
-    util::wrapped_tag wrap(tag_type t /*, bool reserved = false*/) const noexcept
+    util::wrapped_tag wrap(tag_type t) const noexcept
     {
-        //auto const tr = reserved ? m_state->m_reserved_tag_range : m_state->m_tag_range;
         auto const tr = m_state->m_tag_range;
         return tr.wrap(t);
+    }
+
+    util::wrapped_tag wrap(detail::reserved_tag t) const noexcept
+    {
+        auto const tr = m_state->m_reserved_tag_range;
+        return tr.wrap(t.m);
     }
 };
 

@@ -24,7 +24,7 @@ class context_impl : public context_base
 
   private:
     heap_type    m_heap;
-    rma_context  m_rma_context;
+    //rma_context  m_rma_context;
     unsigned int m_n_tag_bits;
 
   public:
@@ -35,7 +35,7 @@ class context_impl : public context_base
         std::size_t message_pool_reserve)
     : context_base(comm, thread_safe)
     , m_heap{this, message_pool_never_free, message_pool_reserve}
-    , m_rma_context{m_mpi_comm}
+    //, m_rma_context{m_mpi_comm}
     {
         // get largest allowed tag value
         int  flag;
@@ -67,9 +67,9 @@ class context_impl : public context_base
 
     auto& get_heap() noexcept { return m_heap; }
 
-    auto  get_window() const noexcept { return m_rma_context.get_window(); }
-    auto& get_rma_heap() noexcept { return m_rma_context.get_heap(); }
-    void  lock(rank_type r) { m_rma_context.lock(r); }
+    //auto  get_window() const noexcept { return m_rma_context.get_window(); }
+    //auto& get_rma_heap() noexcept { return m_rma_context.get_heap(); }
+    //void  lock(rank_type r) { m_rma_context.lock(r); }
 
     communicator_impl* get_communicator();
 

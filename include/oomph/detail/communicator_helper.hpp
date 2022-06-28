@@ -122,5 +122,10 @@ struct communicator_state
             std::move(msg.m));
     }
 };
+
+struct reserved_tag
+{
+    tag_type m;
+};
 } // namespace detail
 } // namespace oomph
