@@ -3,7 +3,8 @@ set(benchmarks
     bench_p2p_bi_ft_wait
     bench_p2p_bi_ft_avail
     bench_p2p_bi_cb_wait
-    bench_p2p_bi_cb_avail)
+    bench_p2p_bi_cb_avail
+    bench_p2p_pp_ft_avail)
 
 set(mpi_avail_benchmarks
     mpi_p2p_bi_avail)

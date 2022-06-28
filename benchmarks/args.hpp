@@ -27,11 +27,12 @@ struct args
 {
     bool is_valid = true;
     int  n_iter = 0;
+    int  n_secs = 5;
     int  buff_size = 0;
     int  inflight = 0;
     int  num_threads = 1;
 
-    args(int argc, char** argv)
+    args(int argc, char** argv, bool timed = false)
     {
         if (argc != 4)
         {
@@ -42,7 +43,12 @@ struct args
         }
         else
         {
-            n_iter = std::atoi(argv[1]);
+            if (timed) {
+                n_secs = std::atoi(argv[1]);
+            }
+            else {
+                n_iter = std::atoi(argv[1]);
+            }
             buff_size = std::atoi(argv[2]);
             inflight = std::atoi(argv[3]);
 
