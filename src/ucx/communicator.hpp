@@ -19,13 +19,6 @@
 
 namespace oomph
 {
-#define OOMPH_UCX_TAG_BITS             32
-#define OOMPH_UCX_RANK_BITS            32
-#define OOMPH_UCX_ANY_SOURCE_MASK      0x0000000000000000ul
-#define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
-#define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
-#define OOMPH_UCX_MAX_TAG              0x000000007ffffffful
-#define OOMPH_UCX_RESERVED_TAG         0x0000000080000000ul
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
@@ -86,7 +79,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // progress recv worker in locked region
                 //ucx_lock lock(m_mutex);
                 //while (ucp_worker_progress(m_recv_worker->get())) {}
-                for (unsigned int i=0; i<10; ++i)
+                for (unsigned int i = 0; i < 10; ++i)
                 {
                     if (m_mutex.try_lock())
                     {
@@ -119,12 +112,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::size_t* scheduled)
     {
-        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         const auto& ep = m_send_worker->connect(dst);
         const auto  stag =
-            ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(rank());
+            ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(rank());
 
         ucs_status_ptr_t ret;
         {
@@ -143,7 +136,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             // send operation is completed immediately
             // call the callback
-            cb(dst, tag);
+            cb(dst, tag.unwrap());
             return {};
             // request is freed by ucx internally
         }
@@ -151,8 +144,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             // send operation was scheduled
             // allocate request_state
-            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb),
-                ret, m_mutex);
+            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+                std::move(cb), ret, m_mutex);
             s->m_self_ptr = s;
             // attach necessary data to the request
             request_data::construct(ret, s.get());
@@ -166,13 +159,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::size_t* scheduled)
     {
-        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         const auto rtag =
             (communicator::any_source == src)
-                ? ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS)
-                : ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
+                ? ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS)
+                : ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
 
         const auto rtag_mask = (communicator::any_source == src)
                                    ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
@@ -200,14 +193,14 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // early completed
                 ucp_request_free(ret);
                 if (m_thread_safe) m_mutex.unlock();
-                cb(src, tag);
+                cb(src, tag.unwrap());
                 return {};
             }
             else
             {
                 // recv operation was scheduled
                 // allocate request_state
-                auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag,
+                auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
                     std::move(cb), ret, m_mutex);
                 s->m_self_ptr = s;
                 // attach necessary data to the request
@@ -224,14 +217,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        rank_type src, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::atomic<std::size_t>* scheduled)
     {
-        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         const auto rtag =
             (communicator::any_source == src)
-                ? ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS)
-                : ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
+                ? ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS)
+                : ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
 
         const auto rtag_mask = (communicator::any_source == src)
                                    ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
@@ -259,7 +251,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // early completed
                 ucp_request_free(ret);
                 if (m_thread_safe) m_mutex.unlock();
-                cb(src, tag);
+                cb(src, tag.unwrap());
                 return {};
             }
             else
@@ -267,7 +259,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // recv operation was scheduled
                 // allocate shared request_state
                 auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled,
-                    src, tag, std::move(cb), ret, m_mutex);
+                    src, tag.unwrap(), std::move(cb), ret, m_mutex);
                 s->m_self_ptr = s;
                 // attach necessary data to the request
                 request_data::construct(ret, s.get());
@@ -422,9 +414,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         return found;
     }
-
-    unsigned int max_tag() const noexcept { return OOMPH_UCX_MAX_TAG; }
-    unsigned int reserved_tag() const noexcept { return OOMPH_UCX_RESERVED_TAG; }
 };
 
 } // namespace oomph

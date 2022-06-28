@@ -115,6 +115,8 @@ class context_impl : public context_base
         }
         return found;
     }
+
+    unsigned int num_tag_bits() const noexcept { return 32; }
 };
 
 // --------------------------------------------------------------------

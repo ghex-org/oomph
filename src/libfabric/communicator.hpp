@@ -49,7 +49,6 @@ class communicator_impl : public communicator_base<communicator_impl>
 
   public:
     context_impl*               m_context;
-    std::uintptr_t              m_ctag;
     libfabric::endpoint_wrapper m_tx_endpoint;
     libfabric::endpoint_wrapper m_rx_endpoint;
     //
@@ -61,7 +60,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
-    , m_ctag(0)
     , m_send_cb_queue(128)
     , m_recv_cb_queue(128)
     , m_recv_cb_cancel(8)
@@ -69,29 +67,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI_comm"), NS_DEBUG::ptr(mpi_comm())));
         m_tx_endpoint = m_context->get_controller()->get_tx_endpoint();
         m_rx_endpoint = m_context->get_controller()->get_rx_endpoint();
-
-        // seems like we don't need this any more, I don't want to delete it yet ...
-        // this chunk of code might be needed if the same tag is used
-        // simultaneously on differnt communicators
-#ifdef ADD_COMM_ID_TO_TAG
-        const int random_msg_tag = 65535;
-        if (rank() == 0)
-        {
-            m_ctag = reinterpret_cast<std::uintptr_t>(this);
-            OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI send tag"), tag_disp(m_ctag)));
-            for (int i = 1; i < size(); ++i)
-            {
-                MPI_Send(&m_ctag, sizeof(std::uintptr_t), MPI_CHAR, i, random_msg_tag, mpi_comm());
-            }
-        }
-        else
-        {
-            MPI_Status status;
-            MPI_Recv(&m_ctag, sizeof(std::uintptr_t), MPI_CHAR, 0, random_msg_tag, mpi_comm(),
-                &status);
-            OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI recv tag"), tag_disp(m_ctag)));
-        }
-#endif
     }
 
     // --------------------------------------------------------------------
@@ -101,17 +76,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
     // --------------------------------------------------------------------
-    /// generate a tag with 0xaaaaaaRRRRtttttt commmunicator  address, rank, tag.
-    /// original tag can be 24bits, then we add 16bits of rank info,
-    /// and 24bits of commmunicator address (currently unset).
-    /// if different MPI communicators were used and shared tag values/ranges, then
-    /// we would need to add back the oomph communicator address as a way
-    /// of discriminating diffferent messages with the same tag
+    /// generate a tag with 0xRRRRRRRRtttttttt rank, tag.
+    /// original tag can be 32bits, then we add 32bits of rank info.
     inline std::uint64_t make_tag64(std::uint32_t tag, std::uint32_t rank)
     {
-        return (((std::uint64_t(m_ctag) & 0x0000000000FFFFFF) << 40) |
-                ((std::uint64_t(rank) & 0x000000000000FFFF) << 24) |
-                ((std::uint64_t(tag) & 0x0000000000FFFFFF)));
+        return (((std::uint64_t(rank) & 0x00000000FFFFFFFF) << 32) |
+                ((std::uint64_t(tag) & 0x00000000FFFFFFFF)));
     }
 
     // --------------------------------------------------------------------
@@ -136,7 +106,10 @@ class communicator_impl : public communicator_base<communicator_impl>
                 com_err.error("No destination endpoint, terminating.");
                 std::terminate();
             }
-            else if (ret) { throw libfabric::fabric_error(int(ret), msg); }
+            else if (ret)
+            {
+                throw libfabric::fabric_error(int(ret), msg);
+            }
         }
     }
 
@@ -191,12 +164,12 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     // --------------------------------------------------------------------
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
         //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
         //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t         stag = make_tag64(tag, this->rank());
+        std::uint64_t stag = make_tag64(tag.get(), this->rank());
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -213,12 +186,13 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (size <= m_context->get_controller()->get_tx_inject_size())
         {
             inject_tagged_region(reg, size, fi_addr_t(dst), stag);
-            cb(dst, tag);
+            cb(dst, tag.unwrap());
             return {};
         }
-        
+
         // construct request which is also an operation context
-        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
+        auto s =
+            m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(), std::move(cb));
         s->m_self_ptr = s;
 
         // clang-format off
@@ -226,8 +200,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             debug(NS_DEBUG::str<>("Send"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(dst),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  "ctag", tag_disp(m_ctag),
+                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
+                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
@@ -242,12 +216,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
         //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
         //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t         stag = make_tag64(tag, src);
+        std::uint64_t stag = make_tag64(tag.get(), src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -261,7 +235,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_context->get_controller()->recvs_posted_++;
 
         // construct request which is also an operation context
-        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb));
+        auto s =
+            m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(), std::move(cb));
         s->m_self_ptr = s;
 
         // clang-format off
@@ -269,8 +244,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             debug(NS_DEBUG::str<>("Recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  "ctag", tag_disp(m_ctag),
+                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
+                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
@@ -285,13 +260,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, oomph::tag_type tag,
+        rank_type src, oomph::util::wrapped_tag tag,
         util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::atomic<std::size_t>*                                 scheduled)
     {
         //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
         //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t         stag = make_tag64(tag, src);
+        std::uint64_t stag = make_tag64(tag.get(), src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -306,7 +281,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         // construct request which is also an operation context
         auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
-            tag, std::move(cb));
+            tag.unwrap(), std::move(cb));
         s->m_self_ptr = s;
 
         // clang-format off
@@ -314,8 +289,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             debug(NS_DEBUG::str<>("Recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  "ctag", tag_disp(m_ctag),
+                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
+                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
@@ -412,9 +387,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
         return found;
     }
-
-    unsigned int max_tag() const noexcept { return 0x00000000007FFFFF; }
-    unsigned int reserved_tag() const noexcept { return 0x0000000000800000; }
 };
 
 } // namespace oomph

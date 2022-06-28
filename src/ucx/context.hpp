@@ -24,6 +24,12 @@
 
 namespace oomph
 {
+#define OOMPH_UCX_TAG_BITS             32
+#define OOMPH_UCX_RANK_BITS            32
+#define OOMPH_UCX_ANY_SOURCE_MASK      0x0000000000000000ul
+#define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
+#define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
+
 class context_impl : public context_base
 {
   public: // member types
@@ -227,6 +233,8 @@ class context_impl : public context_base
     }
 
     const char *get_transport_option(const std::string &opt);
+
+    unsigned int num_tag_bits() const noexcept { return OOMPH_UCX_TAG_BITS; }
 };
 
 template<>

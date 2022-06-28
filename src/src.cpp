@@ -46,11 +46,12 @@ get_comm_set(context_impl const* ctxt)
 // context                   //
 ///////////////////////////////
 
-context::context(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-    std::size_t message_pool_reserve)
+context::context(MPI_Comm comm, bool thread_safe, unsigned int num_tag_ranges,
+    bool message_pool_never_free, std::size_t message_pool_reserve)
 : m_mpi_comm{comm}
 , m(m_mpi_comm.get(), thread_safe, message_pool_never_free, message_pool_reserve)
 , m_schedule{std::make_unique<schedule>()}
+, m_tag_range_factory(num_tag_ranges, m->num_tag_bits())
 {
 }
 
@@ -65,12 +66,14 @@ context::~context() = default;
 #endif
 
 communicator
-context::get_communicator()
+context::get_communicator(unsigned int tr)
 {
-    return {m->get_communicator(), &(m_schedule->scheduled_recvs)};
+    return {m->get_communicator(), &(m_schedule->scheduled_recvs), m_tag_range_factory.create(tr),
+        m_tag_range_factory.create(tr, true)};
 }
 
-const char *context::get_transport_option(const std::string &opt)
+const char*
+context::get_transport_option(const std::string& opt)
 {
     return m->get_transport_option(opt);
 }
@@ -82,9 +85,11 @@ const char *context::get_transport_option(const std::string &opt)
 namespace detail
 {
 communicator_state::communicator_state(impl_type* impl_,
-    std::atomic<std::size_t>*                     shared_scheduled_recvs)
+    std::atomic<std::size_t>* shared_scheduled_recvs, util::tag_range tr, util::tag_range rtr)
 : m_impl{impl_}
 , m_shared_scheduled_recvs{shared_scheduled_recvs}
+, m_tag_range(tr)
+, m_reserved_tag_range(rtr)
 {
 #if OOMPH_ENABLE_BARRIER
     get_comm_set(m_impl->m_context).insert(m_impl);
@@ -132,12 +137,6 @@ void
 communicator::progress()
 {
     m_state->m_impl->progress();
-}
-
-tag_type
-communicator::max_tag() const noexcept
-{
-    return m_state->m_impl->max_tag();
 }
 
 #if OOMPH_ENABLE_BARRIER
@@ -305,7 +304,7 @@ message_buffer::clear()
 ///////////////////////////////
 send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    rank_type dst, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_state->m_impl->send(m_ptr->m, size, dst, tag, std::move(cb),
         &(m_state->scheduled_sends));
@@ -313,7 +312,7 @@ communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size
 
 recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_state->m_impl->recv(m_ptr->m, size, src, tag, std::move(cb),
         &(m_state->scheduled_recvs));
@@ -321,7 +320,7 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
 
 shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
-    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    rank_type src, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_state->m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb),
         m_state->m_shared_scheduled_recvs);

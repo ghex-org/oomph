@@ -25,8 +25,7 @@ class context_impl : public context_base
   private:
     heap_type    m_heap;
     rma_context  m_rma_context;
-    unsigned int m_max_tag;
-    unsigned int m_reserved_tag;
+    unsigned int m_n_tag_bits;
 
   public:
     shared_request_queue m_req_queue;
@@ -42,13 +41,15 @@ class context_impl : public context_base
         int  flag;
         int* tag_ub;
         MPI_Comm_get_attr(this->get_comm(), MPI_TAG_UB, &tag_ub, &flag);
-        m_max_tag = flag ? *tag_ub : 32767;
+        unsigned int max_tag = flag ? *tag_ub : 32767;
 
         // compute bit mask
-        unsigned long tmp = m_max_tag;
+        unsigned long tmp = max_tag;
         unsigned long mask = 1u;
+        m_n_tag_bits = 0;
         while (tmp > 0)
         {
+            ++m_n_tag_bits;
             tmp >>= 1;
             mask <<= 1;
         }
@@ -56,11 +57,7 @@ class context_impl : public context_base
 
         // If bit mask is larger than max tag value, then we have some strange upper bound which is
         // not at a power of 2 boundary and we reduce the maximum to the next lower power of 2.
-        if (mask > m_max_tag) mask >>= 1;
-
-        // reduce max tag by 1 bit to make room for reserved tag
-        m_max_tag = (mask >> 1);
-        m_reserved_tag = m_max_tag + 1;
+        if (mask > max_tag) --m_n_tag_bits;
     }
 
     context_impl(context_impl const&) = delete;
@@ -80,8 +77,7 @@ class context_impl : public context_base
 
     bool cancel_recv(detail::shared_request_state* r) { return m_req_queue.cancel(r); }
 
-    unsigned int max_tag() const noexcept { return m_max_tag; }
-    unsigned int reserved_tag() const noexcept { return m_reserved_tag; }
+    unsigned int num_tag_bits() const noexcept { return m_n_tag_bits; }
 
     const char *get_transport_option(const std::string &opt);
 };

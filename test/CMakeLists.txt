@@ -10,7 +10,7 @@ add_subdirectory(mpi_runner)
 set(serial_tests test_unique_function test_unsafe_shared_ptr)
 
 # list of parallel tests to be executed
-set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality)
+set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality test_tag_range)
 if (OOMPH_ENABLE_BARRIER)
     list(APPEND parallel_tests test_barrier)
 endif()
@@ -26,9 +26,6 @@ endfunction()
 
 # compile an object library for each test
 # tests will be compiled only once and then linked against all enabled oomph backends
-#foreach(t ${parallel_tests})
-#    compile_test(${t})
-#endforeach()
 list(APPEND all_tests ${serial_tests} ${parallel_tests})
 list(REMOVE_DUPLICATES all_tests)
 foreach(t ${all_tests})
@@ -43,13 +40,11 @@ endforeach()
 function(reg_serial_test t)
     add_executable(${t} $<TARGET_OBJECTS:${t}_obj>)
     oomph_target_compile_options(${t})
-    target_link_libraries(${t} PRIVATE gtest_main_mpi)
-    #target_link_libraries(${t} PRIVATE oomph_${lib})
+    target_link_libraries(${t} PRIVATE gtest_main)
+    target_link_libraries(${t} PRIVATE oomph_common)
     add_test(
         NAME ${t}
         COMMAND $<TARGET_FILE:${t}>)
-        #COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-        #    $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
 endfunction()
 
 foreach(t ${serial_tests})

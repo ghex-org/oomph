@@ -21,9 +21,9 @@ namespace oomph
 class communicator_impl : public communicator_base<communicator_impl>
 {
   public:
-    context_impl*     m_context;
-    request_queue     m_send_reqs;
-    request_queue     m_recv_reqs;
+    context_impl* m_context;
+    request_queue m_send_reqs;
+    request_queue m_recv_reqs;
 
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
@@ -36,7 +36,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     mpi_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag)
     {
-        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         MPI_Request        r;
         const_device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Isend(dg.data(), size, MPI_BYTE, dst, tag, mpi_comm(), &r));
@@ -46,7 +45,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     mpi_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         tag_type tag)
     {
-        assert((tag >= 0) && (tag <= (tag_type)max_tag()) && "tag has invalid value");
         MPI_Request  r;
         device_guard dg(ptr);
         OOMPH_CHECK_MPI_RESULT(MPI_Irecv(dg.data(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
@@ -54,18 +52,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::size_t* scheduled)
     {
-        auto req = send(ptr, size, dst, tag);
+        auto req = send(ptr, size, dst, tag.get());
         if (req.is_ready())
         {
-            cb(dst, tag);
+            cb(dst, tag.unwrap());
             return {};
         }
         else
         {
-            auto s =
-                m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb), req);
+            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+                std::move(cb), req);
             s->m_self_ptr = s;
             m_send_reqs.enqueue(s.get());
             return {std::move(s)};
@@ -73,18 +72,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        std::size_t* scheduled)
     {
-        auto req = recv(ptr, size, src, tag);
+        auto req = recv(ptr, size, src, tag.get());
         if (req.is_ready())
         {
-            cb(src, tag);
+            cb(src, tag.unwrap());
             return {};
         }
         else
         {
-            auto s =
-                m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb), req);
+            auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
+                std::move(cb), req);
             s->m_self_ptr = s;
             m_recv_reqs.enqueue(s.get());
             return {std::move(s)};
@@ -92,19 +92,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        rank_type src, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::atomic<std::size_t>* scheduled)
     {
-        auto req = recv(ptr, size, src, tag);
+        auto req = recv(ptr, size, src, tag.get());
         if (req.is_ready())
         {
-            cb(src, tag);
+            cb(src, tag.unwrap());
             return {};
         }
         else
         {
             auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
-                tag, std::move(cb), req);
+                tag.unwrap(), std::move(cb), req);
             s->m_self_ptr = s;
             m_context->m_req_queue.enqueue(s.get());
             return {std::move(s)};
@@ -119,10 +119,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     bool cancel_recv(detail::request_state* s) { return m_recv_reqs.cancel(s); }
-
-    unsigned int max_tag() const noexcept { return m_context->max_tag(); }
-    unsigned int reserved_tag() const noexcept { return m_context->reserved_tag(); }
-
 };
 
 } // namespace oomph
