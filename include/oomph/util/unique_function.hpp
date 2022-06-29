@@ -19,7 +19,7 @@ namespace oomph
 {
 namespace util
 {
-template<typename Signature, std::size_t S = 128>
+template<typename Signature, std::size_t S = 40>
 class unique_function;
 
 namespace detail
