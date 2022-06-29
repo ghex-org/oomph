@@ -100,13 +100,13 @@ class communicator_impl : public communicator_base<communicator_impl>
             m_recv_req_queue.consume_all(
                 [](detail::request_state* req)
                 {
-                    auto ptr = std::move(req->m_self_ptr);
+                    auto ptr = req->release_self_ref();
                     req->invoke_cb();
                 });
         m_context->m_recv_req_queue.consume_all(
             [](detail::shared_request_state* req)
             {
-                auto ptr = std::move(req->m_self_ptr);
+                auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
     }
@@ -146,7 +146,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             // allocate request_state
             auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
                 std::move(cb), ret, m_mutex);
-            s->m_self_ptr = s;
+            s->create_self_ref();
             // attach necessary data to the request
             request_data::construct(ret, s.get());
             return {std::move(s)};
@@ -202,7 +202,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // allocate request_state
                 auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
                     std::move(cb), ret, m_mutex);
-                s->m_self_ptr = s;
+                s->create_self_ref();
                 // attach necessary data to the request
                 request_data::construct(ret, s.get());
                 if (m_thread_safe) m_mutex.unlock();
@@ -260,7 +260,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // allocate shared request_state
                 auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled,
                     src, tag.unwrap(), std::move(cb), ret, m_mutex);
-                s->m_self_ptr = s;
+                s->create_self_ref();
                 // attach necessary data to the request
                 request_data::construct(ret, s.get());
                 if (m_thread_safe) m_mutex.unlock();
@@ -293,13 +293,13 @@ class communicator_impl : public communicator_base<communicator_impl>
             if (req_data.m_req)
             {
                 auto req = req_data.m_req;
-                auto ptr = std::move(req->m_self_ptr);
+                auto ptr = req->release_self_ref();
                 req->invoke_cb();
             }
             else
             {
                 auto req = req_data.m_shared_req;
-                auto ptr = std::move(req->m_self_ptr);
+                auto ptr = req->release_self_ref();
                 req->invoke_cb();
             }
         }
@@ -342,7 +342,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     req_data.destroy();
                     ucp_request_free(ucx_req);
                     // call the callback directly from here
-                    auto ptr = std::move(req->m_self_ptr);
+                    auto ptr = req->release_self_ref();
                     req->invoke_cb();
                 }
             }
@@ -403,7 +403,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         // delete callback here if it was actually cancelled
         if (found)
         {
-            auto ptr = std::move(s->m_self_ptr);
+            auto ptr = s->release_self_ref();
             s->set_canceled();
             void* ucx_req = s->m_ucx_ptr;
             // destroy request

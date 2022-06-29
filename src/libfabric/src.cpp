@@ -120,7 +120,7 @@ operation_context::handle_tagged_recv_completion_impl(void* user_data)
         //if (std::this_thread::get_id() == thread_id_)
         if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
         {
-            auto ptr = std::move(s->m_self_ptr);
+            auto ptr = s->release_self_ref();
             s->invoke_cb();
         }
         else
@@ -133,7 +133,7 @@ operation_context::handle_tagged_recv_completion_impl(void* user_data)
     {
         // shared recv
         auto s = std::get<1>(m_req);
-        auto ptr = std::move(s->m_self_ptr);
+        auto ptr = s->release_self_ref();
         s->invoke_cb();
     }
     return 1;
@@ -145,7 +145,7 @@ operation_context::handle_tagged_send_completion_impl(void* user_data)
     auto s = std::get<0>(m_req);
     if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
     {
-        auto ptr = std::move(s->m_self_ptr);
+        auto ptr = s->release_self_ref();
         s->invoke_cb();
     }
     else

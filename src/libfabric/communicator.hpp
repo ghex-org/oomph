@@ -193,7 +193,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         // construct request which is also an operation context
         auto s =
             m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(), std::move(cb));
-        s->m_self_ptr = s;
+        s->create_self_ref();
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
@@ -237,7 +237,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         // construct request which is also an operation context
         auto s =
             m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(), std::move(cb));
-        s->m_self_ptr = s;
+        s->create_self_ref();
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
@@ -282,7 +282,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         // construct request which is also an operation context
         auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
             tag.unwrap(), std::move(cb));
-        s->m_self_ptr = s;
+        s->create_self_ref();
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
@@ -319,7 +319,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 //[[maybe_unused]] auto scp =
                 //    com_deb.scope("m_send_cb_queue.consume_all", q.user_cb_);
-                auto ptr = std::move(req->m_self_ptr);
+                auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
 
@@ -328,7 +328,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 //[[maybe_unused]] auto scp =
                 //    com_deb.scope("m_recv_cb_queue.consume_all", q.user_cb_);
-                auto ptr = std::move(req->m_self_ptr);
+                auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
     }
@@ -368,7 +368,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     found = true;
                     OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
                                                NS_DEBUG::ptr(op_ctx)));
-                    auto ptr = std::move(s->m_self_ptr);
+                    auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }
                 else

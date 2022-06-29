@@ -180,7 +180,7 @@ class context_impl : public context_base
         m_recv_req_queue.consume_all(
             [](detail::shared_request_state* req)
             {
-                auto ptr = std::move(req->m_self_ptr);
+                auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
     }
@@ -220,7 +220,7 @@ class context_impl : public context_base
         // delete callback here if it was actually cancelled
         if (found)
         {
-            auto ptr = std::move(s->m_self_ptr);
+            auto ptr = s->release_self_ref();
             s->set_canceled();
             void* ucx_req = s->m_ucx_ptr;
             // destroy request

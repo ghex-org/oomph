@@ -107,7 +107,7 @@ class request_queue
         int completed = m_ready_queue.size();
         for (auto e : m_ready_queue)
         {
-            auto ptr = std::move(e->m_self_ptr);
+            auto ptr = e->release_self_ref();
             e->invoke_cb();
         }
 
@@ -120,7 +120,7 @@ class request_queue
         auto const index = e->m_index;
         if (m_queue[index]->m_req.cancel())
         {
-            auto ptr = std::move(e->m_self_ptr);
+            auto ptr = e->release_self_ref();
             e->set_canceled();
             if (index + 1 < m_queue.size())
             {
@@ -190,7 +190,7 @@ class shared_request_queue
 
         if (found)
         {
-            auto ptr = std::move(e->m_self_ptr);
+            auto ptr = e->release_self_ref();
             e->invoke_cb();
             --m_size;
         }
@@ -212,7 +212,7 @@ class shared_request_queue
                 {
                     if (e->m_req.cancel())
                     {
-                        auto ptr = std::move(e->m_self_ptr);
+                        auto ptr = e->release_self_ref();
                         e->set_canceled();
                         canceled = true;
                     }

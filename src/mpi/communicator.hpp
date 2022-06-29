@@ -65,7 +65,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
                 std::move(cb), req);
-            s->m_self_ptr = s;
+            s->create_self_ref();
             m_send_reqs.enqueue(s.get());
             return {std::move(s)};
         }
@@ -85,7 +85,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
                 std::move(cb), req);
-            s->m_self_ptr = s;
+            s->create_self_ref();
             m_recv_reqs.enqueue(s.get());
             return {std::move(s)};
         }
@@ -105,7 +105,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
                 tag.unwrap(), std::move(cb), req);
-            s->m_self_ptr = s;
+            s->create_self_ref();
             m_context->m_req_queue.enqueue(s.get());
             return {std::move(s)};
         }

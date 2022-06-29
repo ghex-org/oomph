@@ -96,7 +96,7 @@ class context_impl : public context_base
                     found = true;
                     //OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
                     //                           NS_DEBUG::ptr(op_ctx)));
-                    auto ptr = std::move(s->m_self_ptr);
+                    auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }
                 else

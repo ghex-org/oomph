@@ -14,6 +14,12 @@
 
 namespace oomph
 {
+
+namespace detail
+{
+struct communicator_state;
+}
+
 template<typename T>
 class message_buffer
 {

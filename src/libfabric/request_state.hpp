@@ -18,9 +18,12 @@ namespace oomph
 namespace detail
 {
 
-struct request_state : public request_state_base<false>
+struct request_state
+: public util::enable_shared_from_this<request_state>
+, public request_state_base<false>
 {
     using base = request_state_base<false>;
+    using shared_ptr_t = util::unsafe_shared_ptr<request_state>;
     using operation_context = oomph::libfabric::operation_context;
 
     operation_context                      m_operation_context;
@@ -42,11 +45,28 @@ struct request_state : public request_state_base<false>
     void progress();
 
     bool cancel();
+
+    void create_self_ref()
+    {
+        // create a self-reference cycle!!
+        // this is useful if we only keep a raw pointer around internally, which still is supposed
+        // to keep the object alive
+        m_self_ptr = shared_from_this();
+    }
+
+    shared_ptr_t release_self_ref() noexcept
+    {
+        assert(((bool)m_self_ptr) && "doesn't own a self-reference!");
+        return std::move(m_self_ptr);
+    }
 };
 
-struct shared_request_state : public request_state_base<true>
+struct shared_request_state
+: public std::enable_shared_from_this<shared_request_state>
+, public request_state_base<true>
 {
     using base = request_state_base<true>;
+    using shared_ptr_t = std::shared_ptr<shared_request_state>;
     using operation_context = oomph::libfabric::operation_context;
 
     operation_context                     m_operation_context;
@@ -62,6 +82,20 @@ struct shared_request_state : public request_state_base<true>
     void progress();
 
     bool cancel();
+
+    void create_self_ref()
+    {
+        // create a self-reference cycle!!
+        // this is useful if we only keep a raw pointer around internally, which still is supposed
+        // to keep the object alive
+        m_self_ptr = shared_from_this();
+    }
+
+    shared_ptr_t release_self_ref() noexcept
+    {
+        assert(((bool)m_self_ptr) && "doesn't own a self-reference!");
+        return std::move(m_self_ptr);
+    }
 };
 
 } // namespace detail

@@ -12,11 +12,15 @@
 
 #include <utility>
 #include <memory>
+#include <cassert>
 
 namespace oomph
 {
 namespace util
 {
+
+template<typename T>
+class enable_shared_from_this;
 
 namespace detail
 {
@@ -48,6 +52,7 @@ struct control_block_impl : public control_block<T>
     , m_t{std::forward<Args>(args)...}
     {
         this->m_ptr = &m_t;
+        set_shared_from_this<T>();
     }
 
     void free() override final
@@ -57,6 +62,19 @@ struct control_block_impl : public control_block<T>
         m_t.~T();
         traits::deallocate(a, this, 1);
     }
+
+    template<typename D,
+        std::enable_if_t<!std::is_base_of<enable_shared_from_this<D>, D>::value, bool> = true>
+    void set_shared_from_this()
+    {
+    }
+
+    template<typename D,
+        std::enable_if_t<std::is_base_of<enable_shared_from_this<D>, D>::value, bool> = true>
+    void set_shared_from_this()
+    {
+        m_t._shared_from_this_cb = this;
+    }
 };
 
 } // namespace detail
@@ -64,6 +82,9 @@ struct control_block_impl : public control_block<T>
 template<typename T>
 class unsafe_shared_ptr
 {
+    template<typename D>
+    friend class enable_shared_from_this;
+
   private:
     using block_t = detail::control_block<T>;
 
@@ -76,6 +97,13 @@ class unsafe_shared_ptr
 
   private:
     block_t* m = nullptr;
+
+  private:
+    unsafe_shared_ptr(block_t* m_) noexcept
+    : m{m_}
+    {
+        if (m) ++m->m_ref_count;
+    }
 
   public:
     template<typename Alloc, typename... Args>
@@ -153,6 +181,36 @@ allocate_shared(Alloc const& alloc, Args&&... args)
 {
     return {alloc, std::forward<Args>(args)...};
 }
+
+template<typename D>
+class enable_shared_from_this
+{
+    template<typename T, typename Alloc>
+    friend class detail::control_block_impl;
+
+  private:
+    detail::control_block<D>* _shared_from_this_cb = nullptr;
+
+  public:
+    enable_shared_from_this() noexcept {}
+    enable_shared_from_this(enable_shared_from_this const&) noexcept {}
+
+  protected:
+    enable_shared_from_this& operator=(enable_shared_from_this const&) noexcept
+    {
+        _shared_from_this_cb = nullptr;
+    }
+
+  public:
+    unsafe_shared_ptr<D> shared_from_this()
+    {
+        assert(((bool)_shared_from_this_cb) && "not created by a unsafe_shared_ptr");
+        return {_shared_from_this_cb};
+    }
+
+  private:
+    D* derived() noexcept { return static_cast<D*>(this); }
+};
 
 } // namespace util
 } // namespace oomph
