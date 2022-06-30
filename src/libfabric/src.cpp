@@ -45,19 +45,13 @@ context_impl::get_communicator()
 const char*
 context_impl::get_transport_option(const std::string& opt)
 {
-    if (opt == "name") { return "libfabric"; }
+    if (opt == "name") return "libfabric";
     else if (opt == "progress")
-    {
         return libfabric_progress_string();
-    }
     else if (opt == "endpoint")
-    {
         return libfabric_endpoint_string();
-    }
     else
-    {
         return "unspecified";
-    }
 }
 
 std::shared_ptr<controller_type>

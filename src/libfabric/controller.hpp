@@ -40,7 +40,6 @@
 #include "locality.hpp"
 #include "memory_region.hpp"
 #include "operation_context.hpp"
-//#include "request_state.hpp"
 #include "simple_counter.hpp"
 #include "print.hpp"
 #include "controller_base.hpp"

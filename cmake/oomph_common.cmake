@@ -15,7 +15,6 @@ set(fortran_lang_gnu "$<COMPILE_LANG_AND_ID:Fortran,GNU>")
 # ---------------------------------------------------------------------
 function(oomph_target_compile_options target)
     set_target_properties(${target} PROPERTIES INTERFACE_POSITION_INDEPENDENT_CODE ON)
-    #target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(${target} PRIVATE
         $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic>>
         #$<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
