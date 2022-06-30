@@ -11,5 +11,5 @@ if (OOMPH_WITH_UCX)
 endif()
 
 if (OOMPH_WITH_LIBFABRIC)
-    #add_subdirectory(libfabric)
+    add_subdirectory(libfabric)
 endif()
