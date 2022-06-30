@@ -16,14 +16,6 @@ if (OOMPH_WITH_LIBFABRIC)
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-    if(OOMPH_BENCHMARK_WITH_GPERFTOOLS AND Gperftools_FOUND)
-      target_link_libraries(oomph_libfabric PRIVATE ${Gperftools_LIBRARIES})
-      target_include_directories(oomph_libfabric PRIVATE ${Gperftools_INCLUDE_DIRS})
-      target_compile_options(
-        oomph_libfabric PRIVATE -pg -rdynamic $<$<CXX_COMPILER_ID:GNU>:-fno-omit-frame-pointer>
-      )
-    endif()
-
     # ---------------------------------------------------------------------
     # Function to add config defines to a list that depends on a namespace variable
     # #defines that match the namespace can later be written out to a file
