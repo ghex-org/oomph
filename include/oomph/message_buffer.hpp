@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <type_traits>
 #include <oomph/detail/message_buffer.hpp>
 
 namespace oomph
@@ -46,6 +47,21 @@ class message_buffer
     message_buffer() = default;
     message_buffer(message_buffer&&) = default;
     message_buffer& operator=(message_buffer&&) = default;
+
+    template<typename U>
+    message_buffer(message_buffer<U>&& other) noexcept
+    : m{std::move(other.m)}
+    , m_size{(other.m_size * sizeof(U)) / sizeof(T)}
+    {
+    }
+
+    template<typename U>
+    message_buffer& operator=(message_buffer<U>&& other) noexcept
+    {
+        m = std::move(other.m);
+        m_size = (other.m_size * sizeof(U)) / sizeof(T);
+        return *this;
+    }
 
   public:
     operator bool() const noexcept { return m; }
