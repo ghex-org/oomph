@@ -1,7 +1,7 @@
 /*
- * GridTools
+ * ghex-org
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -34,11 +34,8 @@ namespace oomph
 {
 namespace libfabric
 {
-template<bool B, typename T = void>
-using enable_if_t = typename std::enable_if<B, T>::type;
-
 template<typename T, bool enabled = PERFORMANCE_COUNTER_ENABLED,
-    typename Enable = enable_if_t<std::is_integral<T>::value>>
+    typename Enable = std::enable_if_t<std::is_integral<T>::value>>
 struct simple_counter
 {
 };

@@ -1,7 +1,7 @@
 /*
- * GridTools
+ * ghex-org
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -34,14 +34,9 @@
 #include <crt_externs.h>
 #include <unistd.h>
 #define environ (*_NSGetEnviron())
-#elif defined(HPX_WINDOWS)
-#include <winsock2.h>
-#define environ _environ
 #else
 extern char** environ;
 #endif
-
-#undef GHEX_HAVE_CXX17_FOLD_EXPRESSIONS
 
 #include <boost/crc.hpp>
 
@@ -93,7 +88,7 @@ extern char** environ;
 
 // ------------------------------------------------------------
 /// \cond NODETAIL
-namespace oomph::debug
+namespace NS_DEBUG
 {
 
 // ------------------------------------------------------------------
@@ -337,7 +332,7 @@ namespace detail
 {
 
 // ------------------------------------------------------------------
-// helper class for printing thread ID, either std:: or hpx::
+// helper class for printing thread ID
 // ------------------------------------------------------------------
 struct current_thread_print_helper
 {

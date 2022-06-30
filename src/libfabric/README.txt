@@ -14,9 +14,9 @@ should be synchronized with the equivalent versions in (for exammple)
 To make changes easier to visualize, the files should be
 formatted according to the project clang-format rules before performing diffs.
 
-#
-# example using Jan 2022 setup
-#
+# ------------------------------------------------------------------------
+# if hpx versions have been improved and changes are wanted in oomph
+# ------------------------------------------------------------------------
 cd ~/src/ghex/extern/oomph
 cp ~/src/hpx-rma/.clang-format ./.clang-format
 
@@ -29,3 +29,16 @@ meld memory_region.hpp /home/biddisco/src/hpx-rma/libs/full/parcelport_libfabric
 meld operation_context_base.hpp /home/biddisco/src/hpx-rma/libs/full/parcelport_libfabric/include/hpx/parcelport_libfabric/operation_context_base.hpp
 meld controller_base.hpp /home/biddisco/src/hpx-rma/libs/full/parcelport_libfabric/include/hpx/parcelport_libfabric/controller_base.hpp
 
+# ------------------------------------------------------------------------
+# if oomph versions have been improved and changes are wanted in hpx
+# ------------------------------------------------------------------------
+cd /home/biddisco/src/hpx-rma/libs/full/parcelport_libfabric
+cp ~/src/ghex/extern/oomph/.clang-format ./.clang-format
+
+clang-format -i ./include/hpx/parcelport_libfabric/memory_region.hpp
+clang-format -i ./include/hpx/parcelport_libfabric/operation_context_base.hpp
+clang-format -i ./include/hpx/parcelport_libfabric/controller_base.hpp
+
+meld ./include/hpx/parcelport_libfabric/memory_region.hpp ~/src/ghex/extern/oomph/src/libfabric/memory_region.hpp
+meld ./include/hpx/parcelport_libfabric/operation_context_base.hpp ~/src/ghex/extern/oomph/src/libfabric/operation_context_base.hpp
+meld ./include/hpx/parcelport_libfabric/controller_base.hpp ~/src/ghex/extern/oomph/src/libfabric/controller_base.hpp
