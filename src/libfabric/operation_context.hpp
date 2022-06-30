@@ -9,18 +9,12 @@
  */
 #pragma once
 
-//#include <thread>
 #include <variant>
-
-//#include <rdma/fabric.h>
 //
-//#include <oomph/util/unique_function.hpp>
 #include <oomph/request.hpp>
 //
 #include "operation_context_base.hpp"
-//
-//#include <boost/lockfree/queue.hpp>
-//
+
 namespace oomph
 {
 namespace libfabric
@@ -41,7 +35,8 @@ struct operation_context : public operation_context_base<operation_context>
     : operation_context_base(ctx_any)
     , m_req{req}
     {
-        //[[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
+        [[maybe_unused]] auto scp =
+            ctx_deb.scope(NS_DEBUG::ptr(this), __func__, NS_DEBUG::ptr(req));
     }
 
     // --------------------------------------------------------------------

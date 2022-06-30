@@ -277,7 +277,7 @@ class controller : public controller_base<controller>
                         NS_DEBUG::dec<3>(e.err), "flags", debug::bin<16>(e.flags), "error",
                         fi_cq_strerror(send_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
                 }
-                auto handler = reinterpret_cast<operation_context*>(e.op_context);
+                operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);
                 handler->handle_error(e);
                 return 0;
             }
@@ -302,7 +302,8 @@ class controller : public controller_base<controller>
                         debug(debug::str<>("Completion"), "txcq tagged send completion",
                             NS_DEBUG::ptr(entry[i].op_context)));
 
-                    auto handler = reinterpret_cast<operation_context*>(entry[i].op_context);
+                    operation_context* handler =
+                        reinterpret_cast<operation_context*>(entry[i].op_context);
                     processed += handler->handle_tagged_send_completion(user_data);
                 }
                 else
@@ -364,7 +365,7 @@ class controller : public controller_base<controller>
                             "len", debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context)));
                     // the request was cancelled, we can simply exit
                     // as the canceller will have doone any cleanup needed
-                    auto handler = reinterpret_cast<operation_context*>(e.op_context);
+                    operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);
                     handler->handle_cancelled();
                     return 0;
                 }
@@ -375,7 +376,7 @@ class controller : public controller_base<controller>
                         NS_DEBUG::ptr(e.op_context), "error",
                         fi_cq_strerror(rx_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
                 }
-                auto handler = reinterpret_cast<operation_context*>(e.op_context);
+                operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);
                 if (handler) handler->handle_error(e);
                 return 0;
             }
@@ -400,7 +401,8 @@ class controller : public controller_base<controller>
                         debug(debug::str<>("Completion"), "rxcq tagged recv completion",
                             NS_DEBUG::ptr(entry[i].op_context)));
 
-                    auto handler = reinterpret_cast<operation_context*>(entry[i].op_context);
+                    operation_context* handler =
+                        reinterpret_cast<operation_context*>(entry[i].op_context);
                     processed += handler->handle_tagged_recv_completion(user_data);
                 }
                 else

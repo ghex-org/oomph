@@ -14,7 +14,7 @@
 #include <stack>
 
 #include <boost/lockfree/queue.hpp>
-
+//
 #include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
 //
@@ -167,9 +167,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-        //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t stag = make_tag64(tag.get(), this->rank());
+        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag.get(), this->rank());
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -206,7 +205,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  //"op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
                   "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
@@ -219,9 +218,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-        //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t stag = make_tag64(tag.get(), src);
+        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag.get(), src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -250,7 +248,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  //"op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
                   "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
@@ -264,9 +262,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::atomic<std::size_t>*                                 scheduled)
     {
-        //[[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-        //    NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t stag = make_tag64(tag.get(), src);
+        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag.get(), src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -295,7 +292,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  //"op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
                   "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
@@ -317,8 +314,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_send_cb_queue.consume_all(
             [](oomph::detail::request_state* req)
             {
-                //[[maybe_unused]] auto scp =
-                //    com_deb.scope("m_send_cb_queue.consume_all", q.user_cb_);
+                [[maybe_unused]] auto scp =
+                    com_deb.scope("m_send_cb_queue.consume_all", NS_DEBUG::ptr(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
@@ -326,8 +323,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_recv_cb_queue.consume_all(
             [](oomph::detail::request_state* req)
             {
-                //[[maybe_unused]] auto scp =
-                //    com_deb.scope("m_recv_cb_queue.consume_all", q.user_cb_);
+                [[maybe_unused]] auto scp =
+                    com_deb.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });

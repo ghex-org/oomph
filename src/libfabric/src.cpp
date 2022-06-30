@@ -21,7 +21,7 @@ static NS_DEBUG::enable_print<false> src_deb("__SRC__");
 using controller_type = oomph::libfabric::controller;
 
 context_impl::context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-        std::size_t message_pool_reserve)
+    std::size_t message_pool_reserve)
 : context_base(comm, thread_safe)
 , m_heap{this, message_pool_never_free, message_pool_reserve}
 , m_recv_cb_cancel(8)
@@ -46,9 +46,18 @@ const char*
 context_impl::get_transport_option(const std::string& opt)
 {
     if (opt == "name") { return "libfabric"; }
-    else if (opt == "progress") { return libfabric_progress_string(); }
-    else if (opt == "endpoint") { return libfabric_endpoint_string(); }
-    else { return "unspecified"; }
+    else if (opt == "progress")
+    {
+        return libfabric_progress_string();
+    }
+    else if (opt == "endpoint")
+    {
+        return libfabric_endpoint_string();
+    }
+    else
+    {
+        return "unspecified";
+    }
 }
 
 std::shared_ptr<controller_type>
@@ -74,7 +83,7 @@ namespace libfabric
 void
 operation_context::handle_cancelled()
 {
-    //[[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
+    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__);
     // enqueue the cancelled/callback
     if (m_req.index() == 0)
     {
@@ -94,7 +103,7 @@ operation_context::handle_cancelled()
 int
 operation_context::handle_tagged_recv_completion_impl(void* user_data)
 {
-    //[[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__, user_cb_);
+    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__);
     if (m_req.index() == 0)
     {
         // regular (non-shared) recv
