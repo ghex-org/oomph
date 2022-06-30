@@ -19,7 +19,7 @@
 #include <sstream>
 #include <vector>
 #include <cstring>
-#ifdef USE_OPENMP
+#ifdef OOMPH_BENCHMARKS_MT
 #include <omp.h>
 #endif
 

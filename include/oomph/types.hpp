@@ -9,8 +9,10 @@
  */
 #pragma once
 
-#include <hwmalloc/config.hpp>
-#include <oomph/types.hpp>
+namespace oomph
+{
 
-#cmakedefine01 OOMPH_USE_FAST_PIMPL
-#cmakedefine01 OOMPH_ENABLE_BARRIER
+using tag_type = int;
+using rank_type = int;
+
+} // namespace oomph

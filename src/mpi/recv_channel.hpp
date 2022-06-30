@@ -9,9 +9,9 @@
  */
 #pragma once
 
+#include <hwmalloc/numa.hpp>
 #include <oomph/recv_channel.hpp>
 #include "./channel_base.hpp"
-#include <hwmalloc/numa.hpp>
 
 namespace oomph
 {

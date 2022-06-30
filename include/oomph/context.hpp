@@ -9,12 +9,13 @@
  */
 #pragma once
 
-#include <oomph/util/mpi_comm_holder.hpp>
-#include <oomph/util/heap_pimpl.hpp>
-#include <oomph/message_buffer.hpp>
-#include <oomph/communicator.hpp>
 #include <hwmalloc/config.hpp>
 #include <hwmalloc/device.hpp>
+#include <oomph/message_buffer.hpp>
+#include <oomph/communicator.hpp>
+#include <oomph/util/mpi_comm_holder.hpp>
+#include <oomph/util/heap_pimpl.hpp>
+#include <oomph/util/tag_range.hpp>
 
 namespace oomph
 {
@@ -27,12 +28,22 @@ class context
   public:
     using pimpl = util::heap_pimpl<context_impl>;
 
+  public:
+    struct schedule
+    {
+        std::atomic<std::size_t> scheduled_sends = 0;
+        std::atomic<std::size_t> scheduled_recvs = 0;
+    };
+
   private:
-    util::mpi_comm_holder m_mpi_comm;
-    pimpl                 m;
+    util::mpi_comm_holder     m_mpi_comm;
+    pimpl                     m;
+    std::unique_ptr<schedule> m_schedule;
+    util::tag_range_factory   m_tag_range_factory;
 
   public:
-    context(MPI_Comm comm, bool thread_safe = true);
+    context(MPI_Comm comm, bool thread_safe = true, unsigned int num_tag_ranges = 1,
+        bool message_pool_never_free = false, std::size_t message_pool_reserve = 1);
 
     context(context const&) = delete;
 
@@ -81,9 +92,11 @@ class context
     }
 #endif
 
-    communicator get_communicator();
+    communicator get_communicator(unsigned int tag_range = 0);
 
-    const char *get_transport_option(const std::string &opt);
+    unsigned int num_tag_ranges() const noexcept { return m_tag_range_factory.num_ranges(); }
+
+    const char* get_transport_option(const std::string& opt);
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);

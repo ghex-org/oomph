@@ -23,8 +23,6 @@ class rma_context
     using region_type = rma_region;
     using device_region_type = rma_region;
     using heap_type = hwmalloc::heap<rma_context>;
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
 
   private:
     heap_type     m_heap;

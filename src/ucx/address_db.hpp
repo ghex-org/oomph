@@ -16,7 +16,6 @@ namespace oomph
 {
 struct type_erased_address_db_t
 {
-    using rank_type = endpoint_t::rank_type;
     struct iface
     {
         virtual rank_type rank() = 0;

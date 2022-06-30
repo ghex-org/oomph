@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <stack>
 
+#include <boost/lockfree/queue.hpp>
+//
 #include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
 //
@@ -20,6 +22,7 @@
 #include "../device_guard.hpp"
 //
 #include "./operation_context.hpp"
+#include "./request_state.hpp"
 #include "./controller.hpp"
 #include "./context.hpp"
 
@@ -27,11 +30,6 @@ namespace oomph
 {
 
 using operation_context = oomph::libfabric::operation_context;
-
-struct detail::request_state::reserved_t
-{
-    operation_context operation_context_;
-};
 
 using tag_disp = oomph::debug::detail::hex<12, uintptr_t>;
 
@@ -41,18 +39,16 @@ static NS_DEBUG::enable_print<true>  com_err("COMMUNI");
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
-    using rank_type = communicator::rank_type;
     using tag_type = std::uint64_t;
     //
     using segment_type = libfabric::memory_segment;
     using region_type = segment_type::handle_type;
 
-    using cb_ptr_t = operation_context::cb_ptr_t;
-    using callback_queue = operation_context::lockfree_queue;
+    using callback_queue = boost::lockfree::queue<detail::request_state*,
+        boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
 
   public:
     context_impl*               m_context;
-    std::uintptr_t              m_ctag;
     libfabric::endpoint_wrapper m_tx_endpoint;
     libfabric::endpoint_wrapper m_rx_endpoint;
     //
@@ -64,7 +60,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
-    , m_ctag(0)
     , m_send_cb_queue(128)
     , m_recv_cb_queue(128)
     , m_recv_cb_cancel(8)
@@ -72,29 +67,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI_comm"), NS_DEBUG::ptr(mpi_comm())));
         m_tx_endpoint = m_context->get_controller()->get_tx_endpoint();
         m_rx_endpoint = m_context->get_controller()->get_rx_endpoint();
-
-        // seems like we don't need this any more, I don't want to delete it yet ...
-        // this chunk of code might be needed if the same tag is used
-        // simultaneously on differnt communicators
-#ifdef ADD_COMM_ID_TO_TAG
-        const int random_msg_tag = 65535;
-        if (rank() == 0)
-        {
-            m_ctag = reinterpret_cast<std::uintptr_t>(this);
-            OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI send tag"), tag_disp(m_ctag)));
-            for (int i = 1; i < size(); ++i)
-            {
-                MPI_Send(&m_ctag, sizeof(std::uintptr_t), MPI_CHAR, i, random_msg_tag, mpi_comm());
-            }
-        }
-        else
-        {
-            MPI_Status status;
-            MPI_Recv(&m_ctag, sizeof(std::uintptr_t), MPI_CHAR, 0, random_msg_tag, mpi_comm(),
-                &status);
-            OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("MPI recv tag"), tag_disp(m_ctag)));
-        }
-#endif
     }
 
     // --------------------------------------------------------------------
@@ -104,17 +76,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
     // --------------------------------------------------------------------
-    /// generate a tag with 0xaaaaaaRRRRtttttt commmunicator  address, rank, tag.
-    /// original tag can be 24bits, then we add 16bits of rank info,
-    /// and 24bits of commmunicator address (currently unset).
-    /// if different MPI communicators were used and shared tag values/ranges, then
-    /// we would need to add back the oomph communicator address as a way
-    /// of discriminating diffferent messages with the same tag
+    /// generate a tag with 0xRRRRRRRRtttttttt rank, tag.
+    /// original tag can be 32bits, then we add 32bits of rank info.
     inline std::uint64_t make_tag64(std::uint32_t tag, std::uint32_t rank)
     {
-        return (((std::uint64_t(m_ctag) & 0x0000000000FFFFFF) << 40) |
-                ((std::uint64_t(rank) & 0x000000000000FFFF) << 24) |
-                ((std::uint64_t(tag) & 0x0000000000FFFFFF)));
+        return (((std::uint64_t(rank) & 0x00000000FFFFFFFF) << 32) |
+                ((std::uint64_t(tag) & 0x00000000FFFFFFFF)));
     }
 
     // --------------------------------------------------------------------
@@ -130,7 +97,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 com_deb.error("Reposting", msg);
                 // no point stressing the system
-                m_context->get_controller()->poll_for_work_completions();
+                m_context->get_controller()->poll_for_work_completions(this);
             }
             else if (ret == -FI_ENOENT)
             {
@@ -139,7 +106,10 @@ class communicator_impl : public communicator_base<communicator_impl>
                 com_err.error("No destination endpoint, terminating.");
                 std::terminate();
             }
-            else if (ret) { throw libfabric::fabric_error(int(ret), msg); }
+            else if (ret)
+            {
+                throw libfabric::fabric_error(int(ret), msg);
+            }
         }
     }
 
@@ -193,12 +163,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     // --------------------------------------------------------------------
-    void send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
+        oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t         stag = make_tag64(tag, this->rank());
+        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag.get(), this->rank());
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -215,41 +185,41 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (size <= m_context->get_controller()->get_tx_inject_size())
         {
             inject_tagged_region(reg, size, fi_addr_t(dst), stag);
-            cb();
-            return;
+            cb(dst, tag.unwrap());
+            return {};
         }
 
-        // construct operation context in space reserved in request object
-        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
-        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
-            operation_context(cb_ptr, &m_send_cb_queue, nullptr);
-        assert(reinterpret_cast<void*>(op_ctx) ==
-               reinterpret_cast<void*>(&req->reserved()->operation_context_));
+        // construct request which is also an operation context
+        auto s =
+            m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(), std::move(cb));
+        s->create_self_ref();
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
             debug(NS_DEBUG::str<>("Send"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(dst),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  "ctag", tag_disp(m_ctag),
+                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
+                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
+                  "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
-        send_tagged_region(reg, size, fi_addr_t(dst), stag, op_ctx);
-        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq());
+        send_tagged_region(reg, size, fi_addr_t(dst), stag, &(s->m_operation_context));
+        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq(), this);
+        return {std::move(s)};
     }
 
-    void recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src, tag_type tag,
-        util::unique_function<void()>&& cb, communicator::shared_request_ptr&& req)
+    recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
+        oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__, "req",
-            NS_DEBUG::ptr(&req), "ctx", NS_DEBUG::ptr(&req->reserved()->operation_context_));
-        std::uint64_t         stag = make_tag64(tag, src);
+        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag.get(), src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -262,34 +232,78 @@ class communicator_impl : public communicator_base<communicator_impl>
 #endif
         m_context->get_controller()->recvs_posted_++;
 
-        // construct operation context in space reserved in request object
-        operation_context::cb_ptr_t cb_ptr = std::move(cb).release();
-        operation_context*          op_ctx = new (&req->reserved()->operation_context_)
-            operation_context(cb_ptr, &m_recv_cb_queue, &m_recv_cb_cancel);
-        assert(reinterpret_cast<void*>(op_ctx) ==
-               reinterpret_cast<void*>(&req->reserved()->operation_context_));
+        // construct request which is also an operation context
+        auto s =
+            m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(), std::move(cb));
+        s->create_self_ref();
 
         // clang-format off
         OOMPH_DP_ONLY(com_deb,
             debug(NS_DEBUG::str<>("Recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  "ctag", tag_disp(m_ctag),
+                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
+                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
                   "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(op_ctx)));
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
+                  "req", NS_DEBUG::ptr(s.get())));
         // clang-format on
 
-        recv_tagged_region(reg, size, fi_addr_t(src), stag, op_ctx);
-        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
+        recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
+        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
+        return {std::move(s)};
+    }
+
+    shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
+        rank_type src, oomph::util::wrapped_tag tag,
+        util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        std::atomic<std::size_t>*                                 scheduled)
+    {
+        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag.get(), src);
+
+        auto& reg = ptr.handle_ref();
+#ifdef EXTRA_SIZE_CHECKS
+        if (size != reg.get_size())
+        {
+            OOMPH_DP_ONLY(com_err,
+                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
+                    NS_DEBUG::hex<6>(reg.get_size())));
+        }
+#endif
+        m_context->get_controller()->recvs_posted_++;
+
+        // construct request which is also an operation context
+        auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
+            tag.unwrap(), std::move(cb));
+        s->create_self_ref();
+
+        // clang-format off
+        OOMPH_DP_ONLY(com_deb,
+            debug(NS_DEBUG::str<>("Recv"),
+                  "thisrank", NS_DEBUG::dec<>(rank()),
+                  "rank", NS_DEBUG::dec<>(src),
+                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
+                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
+                  "stag", tag_disp(stag),
+                  "addr", NS_DEBUG::ptr(reg.get_address()),
+                  "size", NS_DEBUG::hex<6>(size),
+                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
+                  "req", NS_DEBUG::ptr(s.get())));
+        // clang-format on
+
+        recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
+        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
+        return {std::move(s)};
     }
 
     void progress()
     {
-        m_context->get_controller()->poll_for_work_completions();
+        m_context->get_controller()->poll_for_work_completions(this);
         clear_callback_queues();
     }
 
@@ -298,21 +312,21 @@ class communicator_impl : public communicator_base<communicator_impl>
         // work through ready callbacks, which were pushed to the queue
         // (by other threads)
         m_send_cb_queue.consume_all(
-            [](libfabric::queue_data& q)
+            [](oomph::detail::request_state* req)
             {
                 [[maybe_unused]] auto scp =
-                    com_deb.scope("m_send_cb_queue.consume_all", q.user_cb_);
-                q.user_cb_->invoke();
-                delete q.user_cb_;
+                    com_deb.scope("m_send_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                auto ptr = req->release_self_ref();
+                req->invoke_cb();
             });
 
         m_recv_cb_queue.consume_all(
-            [](libfabric::queue_data& q)
+            [](oomph::detail::request_state* req)
             {
                 [[maybe_unused]] auto scp =
-                    com_deb.scope("m_recv_cb_queue.consume_all", q.user_cb_);
-                q.user_cb_->invoke();
-                delete q.user_cb_;
+                    com_deb.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                auto ptr = req->release_self_ref();
+                req->invoke_cb();
             });
     }
 
@@ -323,16 +337,10 @@ class communicator_impl : public communicator_base<communicator_impl>
     // We can only be certain if we poll until the completion happens
     // or attach a callback to the cancel notification which is not supported
     // by oomph.
-    bool cancel_recv_cb(recv_request const& req)
+    bool cancel_recv(detail::request_state* s)
     {
         // get the original message operation context
-        operation_context* op_ctx =
-            reinterpret_cast<operation_context*>(&req.m_data->reserved()->operation_context_);
-
-        // replace the callback in the original message context with a cancel one
-        //        mutable bool found = false;
-        //        util::unique_function<void(void)> temp = [&](){ found = true; };
-        //        auto orig_cb = std::exchange(op_ctx->user_cb_, temp.release());
+        operation_context* op_ctx = &(s->m_operation_context);
 
         // submit the cancellation request
         bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
@@ -345,19 +353,20 @@ class communicator_impl : public communicator_base<communicator_impl>
         bool found = false;
         while (!found)
         {
-            m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq());
+            m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
             // otherwise, poll until we know if it worked
-            std::stack<libfabric::queue_data> temp_stack;
-            libfabric::queue_data             temp;
+            std::stack<detail::request_state*> temp_stack;
+            detail::request_state*             temp;
             while (!found && m_recv_cb_cancel.pop(temp))
             {
-                if (temp.ctxt == op_ctx)
+                if (temp == s)
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    delete op_ctx->user_cb_;
                     OOMPH_DP_ONLY(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
                                                NS_DEBUG::ptr(op_ctx)));
+                    auto ptr = s->release_self_ref();
+                    s->set_canceled();
                 }
                 else
                 {
@@ -368,7 +377,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             // return any weird unhandled cancels back to the queue
             while (!temp_stack.empty())
             {
-                libfabric::queue_data temp = temp_stack.top();
+                auto temp = temp_stack.top();
                 temp_stack.pop();
                 m_recv_cb_cancel.push(temp);
             }

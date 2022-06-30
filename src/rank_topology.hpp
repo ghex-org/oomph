@@ -10,9 +10,9 @@
  */
 #pragma once
 
-#include <oomph/util/mpi_error.hpp>
 #include <vector>
 #include <unordered_set>
+#include <oomph/util/mpi_error.hpp>
 
 namespace oomph
 {

@@ -9,10 +9,9 @@
  */
 #pragma once
 
-#include <oomph/util/placement_new.hpp>
-
 #include <type_traits>
 #include <utility>
+#include <oomph/util/placement_new.hpp>
 
 namespace oomph
 {

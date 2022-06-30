@@ -21,7 +21,7 @@ namespace oomph
 {
 struct address_db_mpi
 {
-    using key_t = endpoint_t::rank_type;
+    using key_t = rank_type;
     using value_t = address_t;
 
     MPI_Comm    m_mpi_comm;

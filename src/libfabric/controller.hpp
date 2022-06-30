@@ -227,7 +227,7 @@ class controller : public controller_base<controller>
     }
 
     // --------------------------------------------------------------------
-    int poll_send_queue(fid_cq* send_cq)
+    int poll_send_queue(fid_cq* send_cq, void* user_data)
     {
 #ifdef EXCESSIVE_POLLING_BACKOFF_MICRO_S
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -303,7 +303,7 @@ class controller : public controller_base<controller>
 
                     operation_context* handler =
                         reinterpret_cast<operation_context*>(entry[i].op_context);
-                    processed += handler->handle_tagged_send_completion();
+                    processed += handler->handle_tagged_send_completion(user_data);
                 }
                 else
                 {
@@ -323,7 +323,7 @@ class controller : public controller_base<controller>
     }
 
     // --------------------------------------------------------------------
-    int poll_recv_queue(fid_cq* rx_cq)
+    int poll_recv_queue(fid_cq* rx_cq, void* user_data)
     {
 #ifdef EXCESSIVE_POLLING_BACKOFF_MICRO_S
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -402,7 +402,7 @@ class controller : public controller_base<controller>
 
                     operation_context* handler =
                         reinterpret_cast<operation_context*>(entry[i].op_context);
-                    processed += handler->handle_tagged_recv_completion();
+                    processed += handler->handle_tagged_recv_completion(user_data);
                 }
                 else
                 {
