@@ -260,8 +260,7 @@ main(int argc, char* argv[])
 //                              << "\trecv: " << receives_posted);
 
         // barrier + progress here before final checks
-        b.rank_barrier();
-//        b.thread_barrier();
+        b.thread_barrier();
 
         // all ranks have completed sends/recvs : test is over, stop the clock
         // timing includes a few bits of synchronization overhead, but
