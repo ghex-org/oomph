@@ -43,8 +43,7 @@ TEST_F(mpi_test_fixture, context_ordered)
             for (int i = 1; i < comm.size(); ++i) neighs[i - 1] = i;
 
             comm.send_multi(std::move(smsg_1), neighs, tid,
-                [&sent_1](decltype(smsg_1), std::vector<rank_type>, tag_type) { 
-                sent_1 = true; });
+                [&sent_1](decltype(smsg_1), std::vector<rank_type>, tag_type) { sent_1 = true; });
 
             comm.send_multi(std::move(smsg_2), neighs, tid,
                 [&sent_2](decltype(smsg_2), std::vector<rank_type>, tag_type) { sent_2 = true; });
@@ -64,7 +63,6 @@ TEST_F(mpi_test_fixture, context_ordered)
                 EXPECT_EQ(rmsg_2[i], i + payload_offset + 1);
             }
         }
-        
         if (comm.rank() == 0)
             while (!sent_1 || !sent_2) { comm.progress(); }
     };

@@ -11,7 +11,6 @@ if (OOMPH_WITH_LIBFABRIC)
     add_library(oomph::libfabric ALIAS oomph_libfabric)
     oomph_shared_lib_options(oomph_libfabric)
     target_link_libraries(oomph_libfabric PUBLIC libfabric::libfabric)
-    set_property(TARGET oomph_libfabric PROPERTY CXX_STANDARD 17)
     install(TARGETS oomph_libfabric
         EXPORT oomph-targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
