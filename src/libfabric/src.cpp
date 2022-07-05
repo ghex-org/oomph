@@ -27,7 +27,7 @@ context_impl::context_impl(MPI_Comm comm, bool thread_safe)
     int rank, size;
     OOMPH_CHECK_MPI_RESULT(MPI_Comm_rank(comm, &rank));
     OOMPH_CHECK_MPI_RESULT(MPI_Comm_size(comm, &size));
-    int threads = std::thread::hardware_concurrency();
+    int threads = thread_safe ? std::thread::hardware_concurrency() : 1;
     m_controller = init_libfabric_controller(this, comm, rank, size, threads);
     m_domain = m_controller->get_domain();
 }
@@ -46,6 +46,12 @@ context_impl::get_transport_option(const std::string& opt)
     if (opt == "name") { return "libfabric"; }
     else if (opt == "progress") { return libfabric_progress_string(); }
     else if (opt == "endpoint") { return libfabric_endpoint_string(); }
+    else if (opt == "rendezvous_threshold") {
+        static char buffer[32];
+        std::string temp = std::to_string(m_controller->rendezvous_threshold());
+        strncpy(buffer, temp.c_str(), std::min(size_t(31), std::strlen(temp.c_str())));
+        return buffer;
+    }
     else { return "unspecified"; }
 }
 
