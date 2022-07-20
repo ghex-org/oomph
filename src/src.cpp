@@ -60,6 +60,24 @@ context::~context() { comm_map.erase(m.get()); }
 context::~context() = default;
 #endif
 
+int
+context::rank() const noexcept
+{
+    return m->rank();
+}
+
+int
+context::size() const noexcept
+{
+    return m->size();
+}
+
+int
+context::local_size() const noexcept
+{
+    return m->topology().local_size();
+}
+
 communicator
 context::get_communicator()
 {
