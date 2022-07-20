@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.17)
 # CMake version is set at 3.17 because of find_package(CUDAToolkit)
-project(oomph VERSION 0.1 LANGUAGES CXX)
+
+set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
+
+include(oomph_version)
+make_version(OOMPH 0 1 0)
+
+project(oomph VERSION ${OOMPH_VERSION} LANGUAGES CXX)
 
 # ---------------------------------------------------------------------
 # CMake setup, C++ version, build type, modules, etc
@@ -11,9 +18,6 @@ if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
-
-set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 
 # ---------------------------------------------------------------------
 # Define main oomph library
