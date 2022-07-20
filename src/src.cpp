@@ -72,6 +72,24 @@ context::get_communicator(unsigned int tr)
         m_tag_range_factory.create(tr, true)};
 }
 
+rank_type
+context::rank() const noexcept
+{
+    return m->rank();
+}
+
+rank_type
+context::size() const noexcept
+{
+    return m->size();
+}
+
+rank_type
+context::local_size() const noexcept
+{
+    return m->topology().local_size();
+}
+
 const char*
 context::get_transport_option(const std::string& opt)
 {

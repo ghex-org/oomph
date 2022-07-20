@@ -56,6 +56,12 @@ class context
     ~context();
 
   public:
+    rank_type rank() const noexcept;
+
+    rank_type size() const noexcept;
+
+    rank_type local_size() const noexcept;
+
     MPI_Comm mpi_comm() const noexcept { return m_mpi_comm.get(); }
 
     template<typename T>
