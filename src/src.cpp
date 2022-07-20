@@ -85,6 +85,12 @@ context::size() const noexcept
 }
 
 rank_type
+context::local_rank() const noexcept
+{
+    return m->topology().local_rank();
+}
+
+rank_type
 context::local_size() const noexcept
 {
     return m->topology().local_size();
