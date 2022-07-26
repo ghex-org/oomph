@@ -70,7 +70,6 @@ class context_impl : public context_base
 
     bool cancel_recv(detail::shared_request_state* s)
     {
-        return false;
         // get the original message operation context
         auto op_ctx = &(s->m_operation_context);
 
