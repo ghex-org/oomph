@@ -36,6 +36,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     worker_type*                        m_recv_worker;
     worker_type*                        m_send_worker;
     ucx_mutex&                          m_mutex;
+    recv_req_queue_type                 m_send_req_queue;
     recv_req_queue_type                 m_recv_req_queue;
     recv_req_queue_type                 m_cancel_recv_req_queue;
     std::vector<detail::request_state*> m_cancel_recv_req_vec;
@@ -49,6 +50,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_recv_worker{recv_worker}
     , m_send_worker{send_worker}
     , m_mutex{mtx}
+    , m_send_req_queue(128)
     , m_recv_req_queue(128)
     , m_cancel_recv_req_queue(128)
     {
@@ -94,6 +96,13 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             while (ucp_worker_progress(m_recv_worker->get())) {}
         }
+        // work through ready send callbacks
+        m_send_req_queue.consume_all(
+            [](detail::request_state* req)
+            {
+                auto ptr = req->release_self_ref();
+                req->invoke_cb();
+            });
         // work through ready recv callbacks, which were pushed to the queue by other threads
         // (including this thread)
         if (m_thread_safe)
@@ -135,10 +144,25 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
         {
             // send operation is completed immediately
-            // call the callback
-            cb(dst, tag.unwrap());
-            return {};
-            // request is freed by ucx internally
+            if (!has_reached_recursion_depth())
+            {
+                auto inc = recursion();
+                // call the callback
+                cb(dst, tag.unwrap());
+                return {};
+                // request is freed by ucx internally
+            }
+            else
+            {
+                // allocate request_state
+                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+                    std::move(cb), ret, m_mutex);
+                s->create_self_ref();
+                // push callback to the queue
+                enqueue_send(s.get());
+                return {std::move(s)};
+                // request is freed by ucx internally
+            }
         }
         else if (!UCS_PTR_IS_ERR(ret))
         {
@@ -193,8 +217,22 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // early completed
                 ucp_request_free(ret);
                 if (m_thread_safe) m_mutex.unlock();
-                cb(src, tag.unwrap());
-                return {};
+                if (!has_reached_recursion_depth())
+                {
+                    auto inc = recursion();
+                    cb(src, tag.unwrap());
+                    return {};
+                }
+                else
+                {
+                    // allocate request_state
+                    auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
+                        std::move(cb), ret, m_mutex);
+                    s->create_self_ref();
+                    // push callback to the queue
+                    enqueue_recv(s.get());
+                    return {std::move(s)};
+                }
             }
             else
             {
@@ -251,8 +289,21 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // early completed
                 ucp_request_free(ret);
                 if (m_thread_safe) m_mutex.unlock();
-                cb(src, tag.unwrap());
-                return {};
+                if (!m_context->has_reached_recursion_depth())
+                {
+                    auto inc = m_context->recursion();
+                    cb(src, tag.unwrap());
+                    return {};
+                }
+                else
+                {
+                    // allocate shared request_state
+                    auto s = std::make_shared<detail::shared_request_state>(m_context, this,
+                        scheduled, src, tag.unwrap(), std::move(cb), ret, m_mutex);
+                    s->create_self_ref();
+                    m_context->enqueue_recv(s.get());
+                    return {std::move(s)};
+                }
             }
             else
             {
@@ -272,6 +323,11 @@ class communicator_impl : public communicator_base<communicator_impl>
             // an error occurred
             throw std::runtime_error("oomph: ucx error - recv operation failed");
         }
+    }
+
+    void enqueue_send(detail::request_state* d)
+    {
+        while (!m_send_req_queue.push(d)) {}
     }
 
     void enqueue_recv(detail::request_state* d)

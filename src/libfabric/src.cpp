@@ -24,6 +24,7 @@ context_impl::context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_ne
     std::size_t message_pool_reserve)
 : context_base(comm, thread_safe)
 , m_heap{this, message_pool_never_free, message_pool_reserve}
+, m_recv_cb_queue(128)
 , m_recv_cb_cancel(8)
 {
     int rank, size;
@@ -52,7 +53,8 @@ context_impl::get_transport_option(const std::string& opt)
     if (opt == "name") { return "libfabric"; }
     else if (opt == "progress") { return libfabric_progress_string(); }
     else if (opt == "endpoint") { return libfabric_endpoint_string(); }
-    else if (opt == "rendezvous_threshold") {
+    else if (opt == "rendezvous_threshold")
+    {
         static char buffer[32];
         std::string temp = std::to_string(m_controller->rendezvous_threshold());
         strncpy(buffer, temp.c_str(), std::min(size_t(31), std::strlen(temp.c_str())));
@@ -112,8 +114,17 @@ operation_context::handle_tagged_recv_completion_impl(void* user_data)
         //if (std::this_thread::get_id() == thread_id_)
         if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
         {
-            auto ptr = s->release_self_ref();
-            s->invoke_cb();
+            if (!s->m_comm->has_reached_recursion_depth())
+            {
+                auto inc = s->m_comm->recursion();
+                auto ptr = s->release_self_ref();
+                s->invoke_cb();
+            }
+            else
+            {
+                // enqueue the callback
+                while (!(s->m_comm->m_recv_cb_queue.push(s))) {}
+            }
         }
         else
         {
@@ -125,8 +136,17 @@ operation_context::handle_tagged_recv_completion_impl(void* user_data)
     {
         // shared recv
         auto s = std::get<1>(m_req);
-        auto ptr = s->release_self_ref();
-        s->invoke_cb();
+        if (!s->m_comm->m_context->has_reached_recursion_depth())
+        {
+            auto inc = s->m_comm->m_context->recursion();
+            auto ptr = s->release_self_ref();
+            s->invoke_cb();
+        }
+        else
+        {
+            // enqueue the callback
+            while (!(s->m_comm->m_context->m_recv_cb_queue.push(s))) {}
+        }
     }
     return 1;
 }
@@ -137,8 +157,17 @@ operation_context::handle_tagged_send_completion_impl(void* user_data)
     auto s = std::get<0>(m_req);
     if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
     {
-        auto ptr = s->release_self_ref();
-        s->invoke_cb();
+        if (!s->m_comm->has_reached_recursion_depth())
+        {
+            auto inc = s->m_comm->recursion();
+            auto ptr = s->release_self_ref();
+            s->invoke_cb();
+        }
+        else
+        {
+            // enqueue the callback
+            while (!(s->m_comm->m_send_cb_queue.push(s))) {}
+        }
     }
     else
     {

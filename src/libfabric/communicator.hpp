@@ -106,10 +106,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 com_err.error("No destination endpoint, terminating.");
                 std::terminate();
             }
-            else if (ret)
-            {
-                throw libfabric::fabric_error(int(ret), msg);
-            }
+            else if (ret) { throw libfabric::fabric_error(int(ret), msg); }
         }
     }
 
@@ -185,8 +182,21 @@ class communicator_impl : public communicator_base<communicator_impl>
         if (size <= m_context->get_controller()->get_tx_inject_size())
         {
             inject_tagged_region(reg, size, fi_addr_t(dst), stag);
-            cb(dst, tag.unwrap());
-            return {};
+            if (!has_reached_recursion_depth())
+            {
+                auto inc = recursion();
+                cb(dst, tag.unwrap());
+                return {};
+            }
+            else
+            {
+                // construct request which is also an operation context
+                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+                    std::move(cb));
+                s->create_self_ref();
+                while (!m_send_cb_queue.push(s.get())) {}
+                return {std::move(s)};
+            }
         }
 
         // construct request which is also an operation context
@@ -325,6 +335,12 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 [[maybe_unused]] auto scp =
                     com_deb.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                auto ptr = req->release_self_ref();
+                req->invoke_cb();
+            });
+        m_context->m_recv_cb_queue.consume_all(
+            [](detail::shared_request_state* req)
+            {
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });

@@ -44,6 +44,8 @@ class context_impl : public context_base
     static std::shared_ptr<controller_type> init_libfabric_controller(oomph::context_impl* ctx,
         MPI_Comm comm, int rank, int size, int threads);
 
+    // queue for shared recv callbacks
+    callback_queue m_recv_cb_queue;
     // queue for canceled shared recv requests
     callback_queue m_recv_cb_cancel;
 

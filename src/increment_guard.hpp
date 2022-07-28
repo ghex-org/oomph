@@ -26,13 +26,15 @@ class increment_guard
         ++(*m);
     }
 
-    increment_guard(increment_guard const&) = delete;
-
     increment_guard(increment_guard&& other) noexcept
     : m(other.m)
     {
         other.m = nullptr;
     }
+
+    increment_guard(increment_guard const&) = delete;
+    increment_guard& operator=(increment_guard const&) = delete;
+    increment_guard& operator=(increment_guard&&) = delete;
 
     ~increment_guard()
     {
