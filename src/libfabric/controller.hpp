@@ -368,7 +368,7 @@ class controller : public controller_base<controller>
                     handler->handle_cancelled();
                     return 0;
                 }
-                else
+                else if (e.err != FI_SUCCESS)
                 {
                     NS_DEBUG::cnt_err.error("rxcq Error ??? ", "err", debug::dec<>(-e.err), "flags",
                         debug::hex<6>(e.flags), "len", debug::hex<6>(e.len), "context",

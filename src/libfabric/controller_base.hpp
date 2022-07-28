@@ -144,15 +144,36 @@ static int
 libfabric_completions_per_poll()
 {
     auto env_str = std::getenv("LIBFABRIC_POLL_SIZE");
-    if (env_str == nullptr) return 1;
-    try
-    {
-        return std::atoi(env_str);
+    if (env_str != nullptr) {
+        try
+        {
+            return std::atoi(env_str);
+        }
+        catch (...)
+        {
+        }
     }
-    catch (...)
-    {
+    return 4;
+}
+
+// ----------------------------------------
+// Eager/Rendezvous threshold
+// ----------------------------------------
+static int
+libfabric_rendezvous_threshold(int def_val)
+{
+    auto env_str = std::getenv("LIBFABRIC_RENDEZVOUS_THRESHOLD");
+    if (env_str != nullptr) {
+        try
+        {
+            char *end;
+            return std::strtoul(env_str, &end, 0);
+        }
+        catch (...)
+        {
+        }
     }
-    return 1;
+    return def_val;
 }
 
 // ------------------------------------------------
@@ -161,8 +182,39 @@ libfabric_completions_per_poll()
 #ifdef HAVE_LIBFABRIC_GNI
 #include "rdma/fi_ext_gni.h"
 //#define OOMPH_GNI_REG "none"
-//#define OOMPH_GNI_REG "internal"
-#define OOMPH_GNI_REG "udreg"
+#define OOMPH_GNI_REG "internal"
+//#define OOMPH_GNI_REG "udreg"
+
+std::vector<std::pair<int,std::string>> gni_strs = {
+    {GNI_MR_CACHE, "GNI_MR_CACHE"},
+};
+
+std::vector<std::pair<int,std::string>> gni_ints = {
+    {GNI_MR_CACHE_LAZY_DEREG, "GNI_MR_CACHE_LAZY_DEREG"},
+    {GNI_MR_HARD_REG_LIMIT, "GNI_MR_HARD_REG_LIMIT"},
+    {GNI_MR_SOFT_REG_LIMIT, "GNI_MR_SOFT_REG_LIMIT"},
+    {GNI_MR_HARD_STALE_REG_LIMIT, "GNI_MR_HARD_STALE_REG_LIMIT"},
+    {GNI_MR_UDREG_REG_LIMIT, "GNI_MR_UDREG_REG_LIMIT"},
+    {GNI_WAIT_THREAD_SLEEP, "GNI_WAIT_THREAD_SLEEP"},
+    {GNI_DEFAULT_USER_REGISTRATION_LIMIT, "GNI_DEFAULT_USER_REGISTRATION_LIMIT"},
+    {GNI_DEFAULT_PROV_REGISTRATION_LIMIT, "GNI_DEFAULT_PROV_REGISTRATION_LIMIT"},
+    {GNI_WAIT_SHARED_MEMORY_TIMEOUT, "GNI_WAIT_SHARED_MEMORY_TIMEOUT"},
+    {GNI_MSG_RENDEZVOUS_THRESHOLD, "GNI_MSG_RENDEZVOUS_THRESHOLD"},
+    {GNI_RMA_RDMA_THRESHOLD, "GNI_RMA_RDMA_THRESHOLD"},
+    {GNI_CONN_TABLE_INITIAL_SIZE, "GNI_CONN_TABLE_INITIAL_SIZE"},
+    {GNI_CONN_TABLE_MAX_SIZE, "GNI_CONN_TABLE_MAX_SIZE"},
+    {GNI_CONN_TABLE_STEP_SIZE, "GNI_CONN_TABLE_STEP_SIZE"},
+    {GNI_VC_ID_TABLE_CAPACITY, "GNI_VC_ID_TABLE_CAPACITY"},
+    {GNI_MBOX_PAGE_SIZE, "GNI_MBOX_PAGE_SIZE"},
+    {GNI_MBOX_NUM_PER_SLAB, "GNI_MBOX_NUM_PER_SLAB"},
+    {GNI_MBOX_MAX_CREDIT, "GNI_MBOX_MAX_CREDIT"},
+    {GNI_MBOX_MSG_MAX_SIZE, "GNI_MBOX_MSG_MAX_SIZE"},
+    {GNI_RX_CQ_SIZE, "GNI_RX_CQ_SIZE"},
+    {GNI_TX_CQ_SIZE, "GNI_TX_CQ_SIZE"},
+    {GNI_MAX_RETRANSMITS, "GNI_MAX_RETRANSMITS"},
+    {GNI_XPMEM_ENABLE, "GNI_XPMEM_ENABLE"},
+    {GNI_DGRAM_PROGRESS_TIMEOUT, "GNI_DGRAM_PROGRESS_TIMEOUT"}
+};
 #endif
 
 #define LIBFABRIC_FI_VERSION_MAJOR 1
@@ -359,7 +411,8 @@ class controller_base
     std::size_t tx_attr_size_;
     std::size_t rx_attr_size_;
 
-    int max_completions_per_poll_;
+    uint32_t max_completions_per_poll_;
+    uint32_t msg_rendezvous_threshold_;
 
     static inline thread_local std::chrono::steady_clock::time_point send_poll_stamp;
     static inline thread_local std::chrono::steady_clock::time_point recv_poll_stamp;
@@ -393,6 +446,7 @@ class controller_base
     , tx_attr_size_(0)
     , rx_attr_size_(0)
     , max_completions_per_poll_(1)
+    , msg_rendezvous_threshold_(0x4000)
     , sends_posted_(0)
     , recvs_posted_(0)
     , sends_readied_(0)
@@ -466,6 +520,11 @@ class controller_base
         max_completions_per_poll_ = libfabric_completions_per_poll();
         DEBUG(NS_DEBUG::cnb_err,
             debug(debug::str<>("Poll completions"), debug::dec<3>(max_completions_per_poll_)));
+
+        uint32_t default_val = (threads==1) ? 0x400 : 0x4000;
+        msg_rendezvous_threshold_ = libfabric_rendezvous_threshold(default_val);
+        DEBUG(NS_DEBUG::cnb_err,
+            debug(debug::str<>("Rendezvous threshold"), debug::hex<4>(msg_rendezvous_threshold_)));
 
         endpoint_type_ = static_cast<endpoint_type>(libfabric_endpoint_type());
         DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("Endpoints"), libfabric_endpoint_string()));
@@ -653,6 +712,10 @@ class controller_base
     }
 
     // --------------------------------------------------------------------
+    uint32_t rendezvous_threshold() {
+        return msg_rendezvous_threshold_;
+    }
+    // --------------------------------------------------------------------
     // initialize the basic fabric/domain/name
     void open_fabric(std::string const& provider, int threads, bool rootnode)
     {
@@ -755,28 +818,51 @@ class controller_base
         {
             [[maybe_unused]] auto scp =
                 NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), "GNI memory registration block");
-            // set GNI mem reg to be either none, internal or udreg
-            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting GNI_MR_CACHE ="), OOMPH_GNI_REG));
-            ret = _set_check_domain_op_value<char*>(GNI_MR_CACHE, const_cast<char*>(OOMPH_GNI_REG),
-                "GNI_MR_CACHE");
-            if (ret)
-                throw NS_LIBFABRIC::fabric_error(ret,
-                    std::string("setting GNI_MR_CACHE = ") + OOMPH_GNI_REG);
 
+            DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("-------"), "GNI String values"));
+            // Dump out all vars for debug purposes
+            for (auto &gni_data : gni_strs) {
+                _set_check_domain_op_value<const char*>(gni_data.first, 0,
+                    gni_data.second.c_str(), false);
+            }
+            DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("-------"), "GNI Int values"));
+            for (auto &gni_data : gni_ints) {
+                _set_check_domain_op_value<uint32_t>(gni_data.first, 0,
+                    gni_data.second.c_str(), false);
+            }
+            DEBUG(NS_DEBUG::cnb_err, debug(debug::str<>("-------")));
+
+            // --------------------------
+            // GNI_MR_CACHE
+            // set GNI mem reg to be either none, internal or udreg
+            //
+            _set_check_domain_op_value<char*>(GNI_MR_CACHE, const_cast<char*>(OOMPH_GNI_REG),
+                "GNI_MR_CACHE");
+
+            // --------------------------
+            // GNI_MR_UDREG_REG_LIMIT
             // Experiments showed default value of 2048 too high if
             // launching multiple clients on one node
-            int32_t udreg_limit = 2048;
-            DEBUG(NS_DEBUG::cnb_deb,
-                debug(debug::str<>("setting GNI_MR_UDREG_REG_LIMIT ="), udreg_limit));
-            ret = _set_check_domain_op_value<int32_t>(GNI_MR_UDREG_REG_LIMIT, udreg_limit,
+            //
+            int32_t udreg_limit = 0x0800; // 0x0400 = 1024, 0x0800 = 2048
+            _set_check_domain_op_value<int32_t>(GNI_MR_UDREG_REG_LIMIT, udreg_limit,
                 "GNI_MR_UDREG_REG_LIMIT");
-            if (ret) throw NS_LIBFABRIC::fabric_error(ret, "setting GNI_MR_UDREG_REG_LIMIT");
 
+            // --------------------------
+            // GNI_MR_CACHE_LAZY_DEREG
+            // Enable lazy deregistration in MR cache
+            //
             int32_t enable = 1;
             DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting GNI_MR_CACHE_LAZY_DEREG")));
-            // Enable lazy deregistration in MR cache
-            ret = _set_check_domain_op_value<int32_t>(GNI_MR_CACHE_LAZY_DEREG, enable,
+            _set_check_domain_op_value<int32_t>(GNI_MR_CACHE_LAZY_DEREG, enable,
                 "GNI_MR_CACHE_LAZY_DEREG");
+
+            // --------------------------
+            // GNI_MSG_RENDEZVOUS_THRESHOLD (c.f. GNI_RMA_RDMA_THRESHOLD)
+            //
+            int32_t thresh = msg_rendezvous_threshold_;
+            _set_check_domain_op_value<int32_t>(GNI_MSG_RENDEZVOUS_THRESHOLD, thresh,
+                "GNI_MSG_RENDEZVOUS_THRESHOLD");
         }
 #endif
         tx_inject_size_ = fabric_info_->tx_attr->inject_size;
@@ -798,34 +884,46 @@ class controller_base
     // --------------------------------------------------------------------
     // Special GNI extensions to disable memory registration cache
 
+    // if set is false, the old value is returned and nothing is set
     template<typename T>
-    int _set_check_domain_op_value(int op, T value, const char* info)
+    int _set_check_domain_op_value(int op, T value, const char* info, bool set=true)
     {
-        [[maybe_unused]] auto     scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
-        struct fi_gni_ops_domain* gni_domain_ops;
+        [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
+        static struct fi_gni_ops_domain* gni_domain_ops = nullptr;
+        int ret = 0;
 
-        int ret = fi_open_ops(&fabric_domain_->fid, FI_GNI_DOMAIN_OPS_1, 0, (void**)&gni_domain_ops,
-            nullptr);
-
-        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("gni open ops"), (ret == 0 ? "OK" : "FAIL"),
+        if (gni_domain_ops == nullptr) {
+            ret = fi_open_ops(&fabric_domain_->fid, FI_GNI_DOMAIN_OPS_1, 0, (void**)&gni_domain_ops,
+                nullptr);
+            DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("gni open ops"), (ret == 0 ? "OK" : "FAIL"),
                                      NS_DEBUG::ptr(gni_domain_ops)));
+        }
 
-        // if open was ok, then set value
-        if (ret == 0)
+        // if open was ok and set flag is present, then set value
+        if (ret == 0 && set)
         {
             ret = gni_domain_ops->set_val(&fabric_domain_->fid, (dom_ops_val_t)(op),
                 reinterpret_cast<void*>(&value));
 
             DEBUG(NS_DEBUG::cnb_deb,
-                debug(debug::str<>("gni set ops val"), (ret == 0 ? "OK" : "FAIL")));
+                debug(debug::str<>("gni set ops val"), value, (ret == 0 ? "OK" : "FAIL")));
         }
 
-        // check that the value we set is now returned by get
+        // Get the value (so we can check that the value we set is now returned)
         T new_value;
         ret = gni_domain_ops->get_val(&fabric_domain_->fid, (dom_ops_val_t)(op), &new_value);
-        DEBUG(NS_DEBUG::cnb_deb,
-            debug(debug::str<>("gni op set"), (ret == 0 ? "OK" : "FAIL"), info, new_value));
+        if constexpr (std::is_integral<T>::value) {
+            DEBUG(NS_DEBUG::cnb_err,
+                debug(debug::str<>("gni op val"), (ret == 0 ? "OK" : "FAIL"), info, debug::hex<8>(new_value)));
+        }
+        else {
+            DEBUG(NS_DEBUG::cnb_err,
+                debug(debug::str<>("gni op val"), (ret == 0 ? "OK" : "FAIL"), info, new_value));
+        }
         //
+        if (ret)
+            throw NS_LIBFABRIC::fabric_error(ret, std::string("setting ") + info);
+
         return ret;
     }
 #endif
@@ -1173,11 +1271,11 @@ class controller_base
         bool            retry = false;
         do {
             // sends
-            int nsend = static_cast<Derived*>(this)->poll_send_queue(get_tx_endpoint().get_tx_cq(), user_data);
+            uint32_t nsend = static_cast<Derived*>(this)->poll_send_queue(get_tx_endpoint().get_tx_cq(), user_data);
             p.m_num_sends += nsend;
             retry = (nsend == max_completions_per_poll_);
             // recvs
-            int nrecv = static_cast<Derived*>(this)->poll_recv_queue(get_rx_endpoint().get_rx_cq(), user_data);
+            uint32_t nrecv = static_cast<Derived*>(this)->poll_recv_queue(get_rx_endpoint().get_rx_cq(), user_data);
             p.m_num_recvs += nrecv;
             retry |= (nrecv == max_completions_per_poll_);
         } while (retry);
