@@ -3,6 +3,7 @@
 # ---------------------------------------------------------------------
 set(OOMPH_USE_FAST_PIMPL OFF CACHE BOOL "store private implementations on stack")
 set(OOMPH_ENABLE_BARRIER ON CACHE BOOL "enable thread barrier (disable for task based runtime)")
+set(OOMPH_RECURSION_DEPTH "10" CACHE STRING "Callback recursion depth")
 mark_as_advanced(OOMPH_USE_FAST_PIMPL)
 
 set(cxx_lang "$<COMPILE_LANGUAGE:CXX>")
@@ -20,6 +21,8 @@ function(oomph_target_compile_options target)
         #$<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
         #$<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>
     )
+    target_compile_definitions(${target} PRIVATE
+        OOMPH_RECURSION_DEPTH=${OOMPH_RECURSION_DEPTH})
 endfunction()
 
 function(oomph_target_link_options target)

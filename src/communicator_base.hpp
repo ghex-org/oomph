@@ -24,6 +24,7 @@ class communicator_base
   protected:
     context_base*     m_context;
     pool_factory_type m_req_state_factory;
+    std::size_t       m_recursion_depth = 0u;
 
     communicator_base(context_base* ctxt)
     : m_context(ctxt)
