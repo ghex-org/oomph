@@ -11,20 +11,26 @@
 #pragma once
 
 #include <iostream>
+#include <atomic>
 #include <oomph/context.hpp>
 #include "./mpi_comm.hpp"
 #include "./unique_ptr_set.hpp"
 #include "./rank_topology.hpp"
+#include "./increment_guard.hpp"
 
 namespace oomph
 {
 class context_base
 {
+  public:
+    using recursion_increment = increment_guard<std::atomic<std::size_t>>;
+
   protected:
     mpi_comm                          m_mpi_comm;
     bool const                        m_thread_safe;
     rank_topology const               m_rank_topology;
     unique_ptr_set<communicator_impl> m_comms_set;
+    std::atomic<std::size_t>          m_recursion_depth = 0u;
 
   public:
     context_base(MPI_Comm comm, bool thread_safe)
@@ -48,6 +54,13 @@ class context_base
     bool                 thread_safe() const noexcept { return m_thread_safe; }
 
     void deregister_communicator(communicator_impl* c) { m_comms_set.remove(c); }
+
+    bool has_reached_recursion_depth() const noexcept
+    {
+        return m_recursion_depth > OOMPH_RECURSION_DEPTH;
+    }
+
+    recursion_increment recursion() noexcept { return {m_recursion_depth}; }
 };
 
 } // namespace oomph

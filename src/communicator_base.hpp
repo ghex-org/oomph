@@ -12,6 +12,7 @@
 
 #include <oomph/communicator.hpp>
 #include "./context_base.hpp"
+#include "./increment_guard.hpp"
 
 namespace oomph
 {
@@ -20,6 +21,7 @@ class communicator_base
 {
   public:
     using pool_factory_type = util::pool_factory<detail::request_state>;
+    using recursion_increment = increment_guard<std::size_t>;
 
   protected:
     context_base*     m_context;
@@ -38,5 +40,12 @@ class communicator_base
     rank_topology const& topology() const noexcept { return m_context->topology(); }
     void release() { m_context->deregister_communicator(static_cast<Communicator*>(this)); }
     bool is_local(rank_type rank) const noexcept { return topology().is_local(rank); }
+
+    bool has_reached_recursion_depth() const noexcept
+    {
+        return m_recursion_depth > OOMPH_RECURSION_DEPTH;
+    }
+
+    recursion_increment recursion() noexcept { return {m_recursion_depth}; }
 };
 } // namespace oomph

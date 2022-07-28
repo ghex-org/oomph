@@ -56,8 +56,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::size_t* scheduled)
     {
         auto req = send(ptr, size, dst, tag.get());
-        if (req.is_ready())
+        if (req.is_ready() && !has_reached_recursion_depth())
         {
+            auto inc = recursion();
             cb(dst, tag.unwrap());
             return {};
         }
@@ -76,8 +77,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::size_t* scheduled)
     {
         auto req = recv(ptr, size, src, tag.get());
-        if (req.is_ready())
+        if (req.is_ready() && !has_reached_recursion_depth())
         {
+            auto inc = recursion();
             cb(src, tag.unwrap());
             return {};
         }
@@ -96,8 +98,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::atomic<std::size_t>* scheduled)
     {
         auto req = recv(ptr, size, src, tag.get());
-        if (req.is_ready())
+        if (req.is_ready() && m_context->has_reached_recursion_depth())
         {
+            auto inc = m_context->recursion();
             cb(src, tag.unwrap());
             return {};
         }
