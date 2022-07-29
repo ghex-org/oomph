@@ -31,7 +31,7 @@ namespace oomph
 
 using operation_context = oomph::libfabric::operation_context;
 
-using tag_disp = oomph::debug::detail::hex<12, uintptr_t>;
+using tag_disp = NS_DEBUG::detail::hex<12, uintptr_t>;
 
 // cppcheck-suppress ConfigurationNotChecked
 static NS_DEBUG::enable_print<false> com_deb("COMMUNI");
@@ -116,11 +116,15 @@ class communicator_impl : public communicator_base<communicator_impl>
         uint64_t tag_, operation_context* ctxt)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        // clang-format off
         OOMPH_DP_ONLY(com_deb,
-            debug(NS_DEBUG::str<>("send message buffer"), "->", NS_DEBUG::dec<2>(dst_addr_),
-                send_region, "tag", tag_disp(tag_), "context", NS_DEBUG::ptr(ctxt), "endpoint",
-                NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
-
+            debug(NS_DEBUG::str<>("send message buffer"),
+                  "->", NS_DEBUG::dec<2>(dst_addr_),
+                  send_region,
+                  "tag", tag_disp(tag_),
+                  "context", NS_DEBUG::ptr(ctxt),
+                  "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+        // clang-format on
         execute_fi_function(fi_tsend, "fi_tsend", m_tx_endpoint.get_ep(), send_region.get_address(),
             size, send_region.get_local_key(), dst_addr_, tag_, ctxt);
     }
@@ -131,9 +135,14 @@ class communicator_impl : public communicator_base<communicator_impl>
         uint64_t tag_)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        // clang-format on
         OOMPH_DP_ONLY(com_deb,
-            debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_), send_region,
-                "tag", tag_disp(tag_), "endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+            debug(NS_DEBUG::str<>("inject tagged"),
+                  "->", NS_DEBUG::dec<2>(dst_addr_),
+                  send_region,
+                  "tag", tag_disp(tag_),
+                  "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+        // clang-format off
         execute_fi_function(fi_tinject, "fi_tinject", m_tx_endpoint.get_ep(),
             send_region.get_address(), size, dst_addr_, tag_);
     }
@@ -146,13 +155,15 @@ class communicator_impl : public communicator_base<communicator_impl>
         uint64_t tag_, operation_context* ctxt)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-
+        // clang-format off
         OOMPH_DP_ONLY(com_deb,
-            debug(NS_DEBUG::str<>("recv message buffer"), "<-", NS_DEBUG::dec<2>(src_addr_),
-                recv_region, "tag", tag_disp(tag_), "context", NS_DEBUG::ptr(ctxt), "rx endpoint",
-                NS_DEBUG::ptr(m_rx_endpoint.get_ep())));
-
-        // auto l = std::move(m_context->get_controller()->get_rx_lock());
+            debug(NS_DEBUG::str<>("recv message buffer"),
+                  "<-", NS_DEBUG::dec<2>(src_addr_),
+                  recv_region,
+                  "tag", tag_disp(tag_),
+                  "context", NS_DEBUG::ptr(ctxt),
+                  "rx endpoint", NS_DEBUG::ptr(m_rx_endpoint.get_ep())));
+        // clang-format on
         constexpr uint64_t ignore = 0;
         execute_fi_function(fi_trecv, "fi_trecv", m_rx_endpoint.get_ep(), recv_region.get_address(),
             size, recv_region.get_local_key(), src_addr_, tag_, ignore, ctxt);
