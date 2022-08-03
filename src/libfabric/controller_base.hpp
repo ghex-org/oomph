@@ -578,7 +578,7 @@ class controller_base
             eps_->ep_rx_.set_tx_cq(tx_cq);
         }
         else if (endpoint_type_ != endpoint_type::scalableTxRx) {
-#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP) || defined(HAVE_LIBFABRIC_VERBS)
+#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP) || defined(HAVE_LIBFABRIC_VERBS) || defined(HAVE_LIBFABRIC_CXI)
             // it appears that the rx endpoint cannot be enabled if it does not
             // have a Tx CQ (at least when using sockets), so we create a dummy
             // Tx CQ and bind it just to stop libfabric from triggering an error.
@@ -791,7 +791,9 @@ class controller_base
             debug(debug::str<>("fabric provider"), fabric_hints_->fabric_attr->prov_name));
 
         // use infiniband type basic registration for now
-#ifdef HAVE_LIBFABRIC_GNI
+#if defined(HAVE_LIBFABRIC_CXI)
+        fabric_hints_->domain_attr->mr_mode = FI_MR_ENDPOINT;
+#elif defined(HAVE_LIBFABRIC_GNI)
         fabric_hints_->domain_attr->mr_mode = FI_MR_BASIC;
 #else
         fabric_hints_->domain_attr->mr_mode = FI_MR_BASIC;
@@ -1284,6 +1286,8 @@ class controller_base
             }
             else
             {
+                DEBUG(NS_DEBUG::cnb_err,
+                    error(debug::str<>("address length"), debug::dec<3>(addrlen), debug::dec<3>(locality_defs::array_size)));
                 throw std::runtime_error("debug_print_av_vector : address vector "
                                          "traversal failure");
             }
@@ -1352,10 +1356,12 @@ class controller_base
 
         // number of receive contexts used
         int rx_ctx_bits = 0;
+#ifdef RX_CONTEXTS_SUPPORT
         while (num_rx_contexts >> ++rx_ctx_bits)
             ;
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("rx_ctx_bits"), rx_ctx_bits));
+#endif
         av_attr.rx_ctx_bits = rx_ctx_bits;
-
         // if contexts is nonzero, then we are using a single scalable endpoint
         av_attr.ep_per_node = (num_rx_contexts > 0) ? 2 : 0;
 

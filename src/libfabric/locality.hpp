@@ -28,6 +28,10 @@
 #define HAVE_LIBFABRIC_LOCALITY_SIZE 48
 #endif
 
+#ifdef HAVE_LIBFABRIC_CXI
+#define HAVE_LIBFABRIC_LOCALITY_SIZE 4
+#endif
+
 #if defined(HAVE_LIBFABRIC_VERBS) || defined(HAVE_LIBFABRIC_TCP) ||                                \
     defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_PSM2)
 #define HAVE_LIBFABRIC_LOCALITY_SIZE 16
@@ -174,6 +178,8 @@ struct locality
         return reinterpret_cast<const struct sockaddr_in*>(data_.data())->sin_addr.s_addr;
 #elif defined(HAVE_LIBFABRIC_GNI)
         return data_[0];
+#elif defined(HAVE_LIBFABRIC_CXI)
+        return data_[0];
 #else
         throw fabric_error(0, "unsupported fabric provider, please fix ASAP");
 #endif
@@ -184,6 +190,8 @@ struct locality
 #if defined(HAVE_LIBFABRIC_LOCALITY_SOCKADDR)
         return reinterpret_cast<const struct sockaddr_in*>(&data)->sin_addr.s_addr;
 #elif defined(HAVE_LIBFABRIC_GNI)
+        return data[0];
+#elif defined(HAVE_LIBFABRIC_CXI)
         return data[0];
 #else
         throw fabric_error(0, "unsupported fabric provider, please fix ASAP");
