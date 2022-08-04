@@ -80,7 +80,7 @@ class controller : public controller_base<controller>
     // --------------------------------------------------------------------
     constexpr fi_threading threadlevel_flags()
     {
-#ifdef HAVE_LIBFABRIC_GNI
+#if defined(HAVE_LIBFABRIC_GNI) || defined(HAVE_LIBFABRIC_CXI)
         return FI_THREAD_ENDPOINT;
 #else
         return FI_THREAD_SAFE;
@@ -179,7 +179,7 @@ class controller : public controller_base<controller>
     // --------------------------------------------------------------------
     inline constexpr bool bypass_tx_lock()
     {
-#ifdef HAVE_LIBFABRIC_GNI
+#if defined(HAVE_LIBFABRIC_GNI) || defined(HAVE_LIBFABRIC_CXI)
         return true;
 #else
         return (threadlevel_flags() == FI_THREAD_SAFE ||
