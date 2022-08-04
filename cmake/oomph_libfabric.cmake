@@ -93,8 +93,8 @@ if (OOMPH_WITH_LIBFABRIC)
     # Hardware device selection
     #------------------------------------------------------------------------------
     set(OOMPH_LIBFABRIC_PROVIDER "tcp" CACHE
-        STRING "The provider (verbs/gni/psm2/tcp/sockets)")
-    set_property(CACHE OOMPH_LIBFABRIC_PROVIDER PROPERTY STRINGS "tcp" "sockets" "psm2" "verbs" "gni")
+        STRING "The provider (cxi/gni/psm2/sockets/tcp/verbs)")
+    set_property(CACHE OOMPH_LIBFABRIC_PROVIDER PROPERTY STRINGS "cxi" "gni" "psm2" "sockets" "tcp" "verbs")
 
     oomph_libfabric_add_config_define_namespace(
         DEFINE HAVE_LIBFABRIC_PROVIDER
@@ -111,6 +111,10 @@ if (OOMPH_WITH_LIBFABRIC)
             NAMESPACE libfabric)
         # add pmi library
         set(_libfabric_libraries ${_libfabric_libraries} PMIx::libpmix)
+    elseif(OOMPH_LIBFABRIC_PROVIDER MATCHES "cxi")
+        oomph_libfabric_add_config_define_namespace(
+            DEFINE HAVE_LIBFABRIC_CXI
+            NAMESPACE libfabric)
     elseif(OOMPH_LIBFABRIC_PROVIDER MATCHES "tcp")
         oomph_libfabric_add_config_define_namespace(
             DEFINE HAVE_LIBFABRIC_TCP
