@@ -125,7 +125,9 @@ struct test_environment_device : public test_environment_base
         }
         ~device_allocation()
         {
+#ifndef OOMPH_TEST_LEAK_GPU_MEMORY
             if (m_ptr) hwmalloc::device_free(m_ptr);
+#endif
         }
         rank_type* get() const noexcept { return (rank_type*)m_ptr; }
     };
@@ -138,10 +140,17 @@ struct test_environment_device : public test_environment_base
     test_environment_device(oomph::context& c, std::size_t size, int tid, int num_t,
         bool user_alloc)
     : base(c, tid, num_t)
+#ifndef OOMPH_TEST_LEAK_GPU_MEMORY
     , raw_device_smsg(user_alloc ? size : 0)
     , raw_device_rmsg(user_alloc ? size : 0)
     , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
     , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
+#else
+    , raw_device_smsg(size)
+    , raw_device_rmsg(size)
+    , smsg(make_buffer(comm, size, true, raw_device_smsg.get()))
+    , rmsg(make_buffer(comm, size, true, raw_device_rmsg.get()))
+#endif
     {
         fill_send_buffer();
         fill_recv_buffer();
