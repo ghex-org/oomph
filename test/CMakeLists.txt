@@ -2,6 +2,8 @@ include(gtest)
 
 add_subdirectory(mpi_runner)
 
+set(OOMPH_TEST_LEAK_GPU_MEMORY OFF CACHE BOOL "Do not free memory (bug on Piz Daint)")
+
 # ---------------------------------------------------------------------
 # compile tests
 # ---------------------------------------------------------------------
@@ -20,6 +22,9 @@ function(compile_test t_)
     set(t ${t_}_obj)
     add_library(${t} OBJECT ${t_}.cpp)
     oomph_target_compile_options(${t})
+    if (OOMPH_TEST_LEAK_GPU_MEMORY)
+        target_compile_definitions(${t} PRIVATE OOMPH_TEST_LEAK_GPU_MEMORY)
+    endif()
     target_link_libraries(${t} PRIVATE GTest::gtest)
     target_link_libraries(${t} PUBLIC oomph)
 endfunction()
