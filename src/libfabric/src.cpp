@@ -12,6 +12,7 @@
 #include "controller.hpp"
 #include "communicator.hpp"
 #include "context.hpp"
+#include <boost/thread.hpp>
 
 namespace oomph
 {
@@ -34,7 +35,8 @@ context_impl::context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_ne
     // problem: controller is a singleton and has problems when 2 contexts are created in the
     // following order: single threaded first, then multi-threaded after
     //int threads = thread_safe ? std::thread::hardware_concurrency() : 1;
-    int threads = std::thread::hardware_concurrency();
+    //int threads = std::thread::hardware_concurrency();
+    int threads = boost::thread::physical_concurrency();
     m_controller = init_libfabric_controller(this, comm, rank, size, threads);
     m_domain = m_controller->get_domain();
 }
