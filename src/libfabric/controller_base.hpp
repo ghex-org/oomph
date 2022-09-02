@@ -584,9 +584,8 @@ class controller_base
             // it appears that the rx endpoint cannot be enabled if it does not
             // have a Tx CQ (at least when using sockets), so we create a dummy
             // Tx CQ and bind it just to stop libfabric from triggering an error.
-            // The tx_cq won't actually be used because the call to
-            // get endpoint will return another endpoint with the correct
-            // cq bound to it
+            // The tx_cq won't actually be used because the user will get the real
+            // tx endpoint which will have the correct cq bound to it
             auto dummy_cq = bind_tx_queue_to_rx_endpoint(fabric_info_, eps_->ep_rx_.get_ep());
             eps_->ep_rx_.set_tx_cq(dummy_cq);
 #endif
@@ -626,6 +625,9 @@ class controller_base
             DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("scalable endpoint ok"),
                                          "Contexts allocated", debug::dec<4>(threads_allocated)));
 
+            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
+                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
+
             // prepare the stack for insertions
             tx_endpoints_.reserve(threads_allocated);
             //
@@ -653,9 +655,6 @@ class controller_base
                         NS_DEBUG::ptr(tx.get_rx_cq())));
                 tx_endpoints_.push(tx);
             }
-
-            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
-                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
 
             eps_->ep_tx_ = endpoint_wrapper(ep_sx, nullptr, nullptr, "rx scalable");
         }
@@ -760,7 +759,7 @@ class controller_base
 #if defined(HAVE_LIBFABRIC_CXI)
         return base_flags | FI_MR_ENDPOINT | FI_MR_HMEM;
 #elif defined(HAVE_LIBFABRIC_GNI)
-        return base_flags | FI_MR_BASIC; // FI_MR_SCALABLE one day?;
+        return FI_MR_BASIC; // FI_MR_SCALABLE one day?;
 #else
         return FI_MR_BASIC;
 #endif
@@ -856,7 +855,7 @@ class controller_base
         DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_LOCAL"), mrlocal));
 
         bool mrbind = (fabric_hints_->domain_attr->mr_mode & FI_MR_ENDPOINT) != 0;
-        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_LOCAL"), mrbind));
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_ENDPOINT"), mrbind));
 
         /* Check if provider requires heterogeneous memory registration */
         bool mrhmem = (fabric_hints_->domain_attr->mr_mode & FI_MR_HMEM) != 0;
@@ -1007,6 +1006,8 @@ class controller_base
                                                   "endpoints?)");
         }
         fi_freeinfo(hints);
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("new_endpoint_active"), NS_DEBUG::ptr(ep)));
         return ep;
     }
 
@@ -1051,7 +1052,8 @@ class controller_base
         struct fid_ep* ep;
         ret = fi_scalable_ep(domain, new_hints, &ep, nullptr);
         if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_scalable_ep");
-
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("new_endpoint_scalable"), NS_DEBUG::ptr(ep)));
         fi_freeinfo(hints);
         return ep;
     }
@@ -1165,7 +1167,7 @@ class controller_base
     {
         [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
 
-        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding AV")));
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding AV"), "to", NS_DEBUG::ptr(endpoint)));
         int ret = fi_ep_bind(endpoint, &av->fid, 0);
         if (ret) throw NS_LIBFABRIC::fabric_error(ret, "bind address_vector");
     }
@@ -1176,7 +1178,7 @@ class controller_base
     {
         [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, type);
 
-        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding CQ")));
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding CQ"), "to", NS_DEBUG::ptr(endpoint), type));
         int ret = fi_ep_bind(endpoint, &cq->fid, cqtype);
         if (ret) throw NS_LIBFABRIC::fabric_error(ret, "bind cq");
     }
