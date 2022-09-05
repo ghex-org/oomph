@@ -55,7 +55,7 @@ class context_impl : public context_base
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
-    region_type make_region(void* const ptr, std::size_t size, bool device)
+    region_type make_region(void* const ptr, std::size_t size, bool /*device*/)
     {
         bool bind_mr = ((m_controller->memory_registration_mode_flags() & FI_MR_ENDPOINT) != 0);
         if (bind_mr) {

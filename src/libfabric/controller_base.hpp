@@ -423,6 +423,7 @@ class controller_base
 
     uint32_t max_completions_per_poll_;
     uint32_t msg_rendezvous_threshold_;
+    inline static constexpr uint32_t max_completions_array_limit_ = 256;
 
     static inline thread_local std::chrono::steady_clock::time_point send_poll_stamp;
     static inline thread_local std::chrono::steady_clock::time_point recv_poll_stamp;
@@ -754,9 +755,9 @@ class controller_base
     constexpr int memory_registration_mode_flags()
     {
         // use basic registration for providers except CXI
+#if defined(HAVE_LIBFABRIC_CXI)
         int base_flags =
             FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY | FI_MR_LOCAL | FI_MR_MMU_NOTIFY;
-#if defined(HAVE_LIBFABRIC_CXI)
         return base_flags | FI_MR_ENDPOINT | FI_MR_HMEM;
 #elif defined(HAVE_LIBFABRIC_GNI)
         return FI_MR_BASIC; // FI_MR_SCALABLE one day?;
