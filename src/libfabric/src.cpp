@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#include "oomph_libfabric_defines.hpp"
+#include "libfabric_defines.hpp"
 #include "controller.hpp"
 #include "communicator.hpp"
 #include "context.hpp"
@@ -75,7 +75,7 @@ context_impl::init_libfabric_controller(oomph::context_impl* /*ctx*/, MPI_Comm c
     static std::shared_ptr<controller_type> instance(nullptr);
     if (!instance.get())
     {
-        OOMPH_DP_ONLY(src_deb, debug(NS_DEBUG::str<>("New Controller"), "rank", debug::dec<3>(rank),
+        LF_DEB(src_deb, debug(NS_DEBUG::str<>("New Controller"), "rank", debug::dec<3>(rank),
                                    "size", debug::dec<3>(size), "threads", debug::dec<3>(threads)));
         instance.reset(new controller_type());
         instance->initialize(HAVE_LIBFABRIC_PROVIDER, rank == 0, size, threads, comm);

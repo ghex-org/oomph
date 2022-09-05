@@ -101,7 +101,7 @@ class context_impl : public context_base
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    OOMPH_DP_ONLY(libfabric::ctx_deb,
+                    LF_DEB(libfabric::ctx_deb,
                         debug(NS_DEBUG::str<>("Cancel shared"), "succeeded", "op_ctx",
                             NS_DEBUG::ptr(op_ctx)));
                     auto ptr = s->release_self_ref();
