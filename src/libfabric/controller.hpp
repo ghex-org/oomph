@@ -103,7 +103,7 @@ class controller : public controller_base<controller>
         if (rank > 0)
         {
             LF_DEB(NS_DEBUG::cnt_deb, debug(debug::str<>("sending here"), iplocality(here_), "size",
-                                         locality_defs::array_size));
+                                          locality_defs::array_size));
             /*int err = */ MPI_Send(here_.fabric_data(), locality_defs::array_size, MPI_CHAR,
                 0, // dst rank
                 0, // tag
@@ -125,7 +125,8 @@ class controller : public controller_base<controller>
             memcpy(&localities[0], here_.fabric_data(), locality_defs::array_size);
             for (int i = 1; i < size; ++i)
             {
-                LF_DEB(NS_DEBUG::cnt_deb, debug(debug::str<>("receiving address"), debug::dec<>(i)));
+                LF_DEB(NS_DEBUG::cnt_deb,
+                    debug(debug::str<>("receiving address"), debug::dec<>(i)));
                 MPI_Status status;
                 /*int err = */ MPI_Recv(&localities[i * locality_defs::array_size],
                     size * locality_defs::array_size, MPI_CHAR,
@@ -173,59 +174,6 @@ class controller : public controller_base<controller>
         MPI_exchange_localities(av, mpi_comm, rank, size);
         debug_print_av_vector(size);
         LF_DEB(NS_DEBUG::cnt_deb, debug(debug::str<>("Done localities")));
-    }
-
-    // --------------------------------------------------------------------
-    inline constexpr bool bypass_tx_lock()
-    {
-#if defined(HAVE_LIBFABRIC_GNI)
-        return true;
-#elif defined(HAVE_LIBFABRIC_CXI)
-        // @todo : cxi provider is not yet thread safe using scalable endpoints
-        return false;
-#else
-        return (threadlevel_flags() == FI_THREAD_SAFE ||
-                endpoint_type_ == endpoint_type::threadlocalTx);
-#endif
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock get_tx_lock()
-    {
-        if (bypass_tx_lock()) return unique_lock();
-        return unique_lock(send_mutex_);
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock try_tx_lock()
-    {
-        if (bypass_tx_lock()) return unique_lock();
-        return unique_lock(send_mutex_, std::try_to_lock_t{});
-    }
-
-    // --------------------------------------------------------------------
-    inline constexpr bool bypass_rx_lock()
-    {
-#ifdef HAVE_LIBFABRIC_GNI
-        return true;
-#else
-        return (
-            threadlevel_flags() == FI_THREAD_SAFE || endpoint_type_ == endpoint_type::scalableTxRx);
-#endif
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock get_rx_lock()
-    {
-        if (bypass_rx_lock()) return unique_lock();
-        return std::move(unique_lock(recv_mutex_));
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock try_rx_lock()
-    {
-        if (bypass_rx_lock()) return unique_lock();
-        return unique_lock(recv_mutex_, std::try_to_lock_t{});
     }
 
     // --------------------------------------------------------------------

@@ -256,7 +256,8 @@ struct memory_segment : public memory_handle
     // we do not cache local/remote keys here because memory segments are only
     // used by the heap to store chunks and the user will always receive
     // a memory_handle - which does have keys cached
-    memory_segment(provider_domain* pd, const void* buffer, const uint64_t length, bool bind_mr, void *ep)
+    memory_segment(provider_domain* pd, const void* buffer, const uint64_t length, bool bind_mr,
+        void* ep)
     {
         // an rma key counter to keep some providers (CXI) happy
         static std::atomic<std::uint64_t> key = 0;

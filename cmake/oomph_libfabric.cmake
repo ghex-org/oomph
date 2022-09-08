@@ -146,7 +146,7 @@ if (OOMPH_WITH_LIBFABRIC)
     #------------------------------------------------------------------------------
     # Write options to file in build dir
     #------------------------------------------------------------------------------
-    set(LIBFABRIC_SRC_DIR "${PROJECT_SOURCE_DIR}/src/libfabric")
+    set(OOMPH_SRC_LIBFABRIC_DIR "${PROJECT_SOURCE_DIR}/src/libfabric")
 
     oomph_libfabric_write_config_defines_file(
         NAMESPACE libfabric

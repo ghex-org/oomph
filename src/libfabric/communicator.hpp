@@ -137,11 +137,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
         // clang-format on
         LF_DEB(com_deb,
-            debug(NS_DEBUG::str<>("inject tagged"),
-                  "->", NS_DEBUG::dec<2>(dst_addr_),
-                  send_region,
-                  "tag", tag_disp(tag_),
-                  "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+            debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_), send_region,
+                "tag", tag_disp(tag_), "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
         // clang-format off
         execute_fi_function(fi_tinject, "fi_tinject", m_tx_endpoint.get_ep(),
             send_region.get_address(), size, dst_addr_, tag_);
@@ -182,9 +179,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
-            LF_DEB(com_err,
-                error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
-                    NS_DEBUG::hex<6>(reg.get_size())));
+            LF_DEB(com_err, error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size),
+                                "reg size", NS_DEBUG::hex<6>(reg.get_size())));
         }
 #endif
         m_context->get_controller()->sends_posted_++;
@@ -245,9 +241,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
-            LF_DEB(com_err,
-                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
-                    NS_DEBUG::hex<6>(reg.get_size())));
+            LF_DEB(com_err, error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size),
+                                "reg size", NS_DEBUG::hex<6>(reg.get_size())));
         }
 #endif
         m_context->get_controller()->recvs_posted_++;
@@ -288,9 +283,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
-            LF_DEB(com_err,
-                error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size), "reg size",
-                    NS_DEBUG::hex<6>(reg.get_size())));
+            LF_DEB(com_err, error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size),
+                                "reg size", NS_DEBUG::hex<6>(reg.get_size())));
         }
 #endif
         m_context->get_controller()->recvs_posted_++;
@@ -389,7 +383,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     // our recv was cancelled correctly
                     found = true;
                     LF_DEB(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
-                                               NS_DEBUG::ptr(op_ctx)));
+                                        NS_DEBUG::ptr(op_ctx)));
                     auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }

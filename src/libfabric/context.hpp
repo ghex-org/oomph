@@ -58,13 +58,12 @@ class context_impl : public context_base
     region_type make_region(void* const ptr, std::size_t size, bool /*device*/)
     {
         bool bind_mr = ((m_controller->memory_registration_mode_flags() & FI_MR_ENDPOINT) != 0);
-        if (bind_mr) {
-            void *endpoint = m_controller->get_rx_endpoint().get_ep();
+        if (bind_mr)
+        {
+            void* endpoint = m_controller->get_rx_endpoint().get_ep();
             return oomph::libfabric::memory_segment(m_domain, ptr, size, bind_mr, endpoint);
         }
-        else {
-            return oomph::libfabric::memory_segment(m_domain, ptr, size, false, nullptr);
-        }
+        else { return oomph::libfabric::memory_segment(m_domain, ptr, size, false, nullptr); }
     }
 
     auto& get_heap() noexcept { return m_heap; }
@@ -101,9 +100,8 @@ class context_impl : public context_base
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    LF_DEB(libfabric::ctx_deb,
-                        debug(NS_DEBUG::str<>("Cancel shared"), "succeeded", "op_ctx",
-                            NS_DEBUG::ptr(op_ctx)));
+                    LF_DEB(libfabric::ctx_deb, debug(NS_DEBUG::str<>("Cancel shared"), "succeeded",
+                                                   "op_ctx", NS_DEBUG::ptr(op_ctx)));
                     auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }

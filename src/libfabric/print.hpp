@@ -74,7 +74,7 @@ extern char** environ;
 // ------------------------------------------------------------
 
 #define NS_DEBUG oomph::debug
-#define LF_DEB(printer, Expr)                                                               \
+#define LF_DEB(printer, Expr)                                                                      \
     if constexpr (printer.is_enabled()) { printer.Expr; };
 
 // ------------------------------------------------------------
@@ -713,5 +713,5 @@ struct enable_print<true>
     }
 };
 
-} // namespace oomph::debug
+} // namespace NS_DEBUG
 /// \endcond

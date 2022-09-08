@@ -22,7 +22,7 @@ namespace NS_DEBUG
 {
 // cppcheck-suppress ConfigurationNotChecked
 static NS_DEBUG::enable_print<true> err_deb("ERROR__");
-} // namespace oomph
+} // namespace NS_DEBUG
 
 namespace NS_LIBFABRIC
 {
@@ -50,4 +50,4 @@ class fabric_error : public std::runtime_error
     int error_;
 };
 
-}
+} // namespace NS_LIBFABRIC

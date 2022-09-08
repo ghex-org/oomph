@@ -76,7 +76,7 @@ context_impl::init_libfabric_controller(oomph::context_impl* /*ctx*/, MPI_Comm c
     if (!instance.get())
     {
         LF_DEB(src_deb, debug(NS_DEBUG::str<>("New Controller"), "rank", debug::dec<3>(rank),
-                                   "size", debug::dec<3>(size), "threads", debug::dec<3>(threads)));
+                            "size", debug::dec<3>(size), "threads", debug::dec<3>(threads)));
         instance.reset(new controller_type());
         instance->initialize(HAVE_LIBFABRIC_PROVIDER, rank == 0, size, threads, comm);
     }

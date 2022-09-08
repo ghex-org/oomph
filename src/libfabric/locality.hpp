@@ -226,8 +226,7 @@ struct locality
         const uint32_t&  a2 = rhs.ip_address();
         const fi_addr_t& f1 = lhs.fi_address();
         const fi_addr_t& f2 = rhs.fi_address();
-        LF_DEB(loc_deb,
-            trace(NS_DEBUG::str<>("less friend"), iplocality(lhs), iplocality(rhs)));
+        LF_DEB(loc_deb, trace(NS_DEBUG::str<>("less friend"), iplocality(lhs), iplocality(rhs)));
         return (a1 < a2) || (a1 == a2 && f1 < f2);
     }
 
