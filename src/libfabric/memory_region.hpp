@@ -20,11 +20,31 @@
 #include <utility>
 //
 #include "libfabric_defines.hpp"
+#include "cuda.h"
 
 namespace NS_MEMORY
 {
 
-static NS_DEBUG::enable_print<false> mrn_deb("REGION_");
+static NS_DEBUG::enable_print<true> mrn_deb("REGION_");
+
+/*
+struct fi_mr_attr {
+    const struct iovec *mr_iov;
+    size_t             iov_count;
+    uint64_t           access;
+    uint64_t           offset;
+    uint64_t           requested_key;
+    void               *context;
+    size_t             auth_key_size;
+    uint8_t            *auth_key;
+    enum fi_hmem_iface iface;
+    union {
+        uint64_t         reserved;
+        int              cuda;
+        int      ze
+    } device;
+};
+*/
 
 // This is the only part of the code that actually
 // calls libfabric functions
@@ -36,20 +56,33 @@ struct region_provider
 
     // register region
     template<typename... Args>
-    static inline int register_memory(Args&&... args)
+    static inline int register_memory(provider_domain* pd, int device_id, const void *buf, size_t len,
+          uint64_t access, uint64_t offset, uint64_t request_key,
+          struct fid_mr **mr)
     {
-        return fi_mr_reg(std::forward<Args>(args)...);
-    }
+        [[maybe_unused]] auto scp = NS_MEMORY::mrn_deb.scope(__func__, buf, len, device_id);
+        //
+        void *context = nullptr;
+        uint64_t flags = 0;
 
-    // register region
-    template<typename... Args>
-    static inline int register_memory_attr(Args&&... args)
-    {
-        [[maybe_unused]] auto scp = NS_MEMORY::mrn_deb.scope(__func__, std::forward<Args>(args)...);
-        //        int x = FI_HMEM_ROCR;
-        //        fi_mr_regattr(struct fid_domain *domain, const struct fi_mr_attr *attr,
-        //                    uint64_t flags, struct fid_mr **mr)
-        return fi_mr_regattr(std::forward<Args>(args)...);
+        struct iovec addresses {const_cast<void*>(buf), len};
+        size_t auth_key_size = 0;
+        uint8_t *auth_key = nullptr;
+        fi_mr_attr attr{ &addresses, 1, access, offset, request_key, context, auth_key_size, auth_key, FI_HMEM_SYSTEM, {0} };
+
+        if (device_id>=0) {
+            attr.iface       = FI_HMEM_CUDA;
+            attr.device.cuda = device_id;
+#ifdef CUDA_HANDLE
+//            CUdevice handle;
+//            CUresult res = cuDeviceGet(&handle, device_id);
+//            if (res) {}
+//            attr.device.cuda = handle;
+#endif
+        }
+        int ret = fi_mr_regattr(pd, &attr, flags, mr);
+        if (ret) { throw NS_LIBFABRIC::fabric_error(int(ret), "register_memory"); }
+        return ret;
     }
 
     // unregister region
@@ -257,7 +290,7 @@ struct memory_segment : public memory_handle
     // used by the heap to store chunks and the user will always receive
     // a memory_handle - which does have keys cached
     memory_segment(provider_domain* pd, const void* buffer, const uint64_t length, bool bind_mr,
-        void* ep)
+        void* ep, int device_id)
     {
         // an rma key counter to keep some providers (CXI) happy
         static std::atomic<std::uint64_t> key = 0;
@@ -270,10 +303,11 @@ struct memory_segment : public memory_handle
         base_addr_ = memory_handle::address_;
         LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("memory_segment"), *this));
 
-        int ret = region_provider::register_memory(pd, const_cast<void*>(buffer), length,
-            region_provider::flags(), 0, key++, 0, &(region_), nullptr);
-        if (ret) { throw NS_LIBFABRIC::fabric_error(int(ret), "register_memory"); }
-        else { LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("Registered region"), *this)); }
+        int ret = region_provider::register_memory(pd, device_id, buffer, length,
+            region_provider::flags(), 0, key++, &(region_));
+        if (!ret) {
+            LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("Registered region"), "device", device_id, *this));
+        }
 
         if (bind_mr)
         {

@@ -92,7 +92,7 @@ register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 #if HWMALLOC_ENABLE_DEVICE
 template<>
 region
-register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+register_device_memory<context_impl>(context_impl& c, int /*device_id*/, void* ptr, std::size_t)
 {
     return c.make_region(ptr);
 }

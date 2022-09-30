@@ -88,7 +88,7 @@ namespace libfabric
 void
 operation_context::handle_cancelled()
 {
-    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__);
+    [[maybe_unused]] auto scp = opctx_deb.scope(NS_DEBUG::ptr(this), __func__);
     // enqueue the cancelled/callback
     if (m_req.index() == 0)
     {
@@ -108,7 +108,7 @@ operation_context::handle_cancelled()
 int
 operation_context::handle_tagged_recv_completion_impl(void* user_data)
 {
-    [[maybe_unused]] auto scp = ctx_deb.scope(NS_DEBUG::ptr(this), __func__);
+    [[maybe_unused]] auto scp = opctx_deb.scope(NS_DEBUG::ptr(this), __func__);
     if (m_req.index() == 0)
     {
         // regular (non-shared) recv

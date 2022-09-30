@@ -211,7 +211,7 @@ std::vector<std::pair<int, std::string>> gni_ints = {
 #endif
 
 #define LIBFABRIC_FI_VERSION_MAJOR 1
-#define LIBFABRIC_FI_VERSION_MINOR 11
+#define LIBFABRIC_FI_VERSION_MINOR 14
 
 namespace NS_DEBUG
 {
@@ -847,6 +847,9 @@ class controller_base
         /* Check if provider requires heterogeneous memory registration */
         bool mrhmem = (fabric_hints_->domain_attr->mr_mode & FI_MR_HMEM) != 0;
         LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_HMEM"), mrhmem));
+
+        bool mrhalloc = (fabric_hints_->domain_attr->mr_mode & FI_MR_ALLOCATED) != 0;
+        LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_ALLOCATED"), mrhalloc));
 
         LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("Creating fi_fabric")));
         ret = fi_fabric(fabric_info_->fabric_attr, &fabric_, nullptr);
