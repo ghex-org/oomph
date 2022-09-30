@@ -21,7 +21,7 @@ if (OOMPH_USE_GPU)
 endif()
 
 set(_hwmalloc_repository "https://github.com/ghex-org/hwmalloc.git")
-set(_hwmalloc_tag        "master")
+set(_hwmalloc_tag        "libfabric_device_mem")
 if(NOT _hwmalloc_already_fetched)
     message(STATUS "Fetching HWMALLOC ${_hwmalloc_tag} from ${_hwmalloc_repository}")
 endif()
