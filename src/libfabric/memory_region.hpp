@@ -301,7 +301,7 @@ struct memory_segment : public memory_handle
         region_ = nullptr;
         //
         base_addr_ = memory_handle::address_;
-        LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("memory_segment"), *this));
+        LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("memory_segment"), *this, device_id));
 
         int ret = region_provider::register_memory(pd, device_id, buffer, length,
             region_provider::flags(), 0, key++, &(region_));

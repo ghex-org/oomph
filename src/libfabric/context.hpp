@@ -57,7 +57,7 @@ class context_impl : public context_base
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
-    region_type make_region(void* const ptr, std::size_t size, int device_id=-1)
+    region_type make_region(void* const ptr, std::size_t size, int device_id)
     {
         bool bind_mr = ((m_controller->memory_registration_mode_flags() & FI_MR_ENDPOINT) != 0);
         if (bind_mr)
@@ -134,7 +134,7 @@ template<>
 oomph::libfabric::memory_segment
 register_memory<oomph::context_impl>(oomph::context_impl& c, void* const ptr, std::size_t size)
 {
-    return c.make_region(ptr, size);
+    return c.make_region(ptr, size, -2);
 }
 
 #if HWMALLOC_ENABLE_DEVICE
