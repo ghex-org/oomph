@@ -14,17 +14,17 @@
 #include <stack>
 
 #include <boost/lockfree/queue.hpp>
-//
+
 #include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
-//
-#include "../communicator_base.hpp"
-#include "../device_guard.hpp"
-//
-#include "./operation_context.hpp"
-#include "./request_state.hpp"
-#include "./controller.hpp"
-#include "./context.hpp"
+
+// paths relative to backend
+#include <../communicator_base.hpp>
+#include <../device_guard.hpp>
+#include <./operation_context.hpp>
+#include <request_state.hpp>
+#include <controller.hpp>
+#include <context.hpp>
 
 namespace oomph
 {

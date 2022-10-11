@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,10 +11,12 @@
 #pragma once
 
 #include <oomph/context.hpp>
-#include "../communicator_base.hpp"
-#include "../device_guard.hpp"
-#include "./context.hpp"
-#include "./request_queue.hpp"
+
+// paths relative to backend
+#include <../communicator_base.hpp>
+#include <../device_guard.hpp>
+#include <context.hpp>
+#include <request_queue.hpp>
 
 namespace oomph
 {

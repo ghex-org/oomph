@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,8 +11,11 @@
 
 #include <hwmalloc/register.hpp>
 #include <hwmalloc/heap.hpp>
-#include "./region.hpp"
-#include "./lock_cache.hpp"
+#include <oomph/config.hpp>
+
+// paths relative to backend
+#include <region.hpp>
+#include <lock_cache.hpp>
 
 namespace oomph
 {
@@ -63,15 +66,15 @@ class rma_context
 };
 
 template<>
-rma_region
+inline rma_region
 register_memory<rma_context>(rma_context& c, void* ptr, std::size_t size)
 {
     return c.make_region(ptr, size);
 }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
 template<>
-rma_region
+inline rma_region
 register_device_memory<rma_context>(rma_context& c, void* ptr, std::size_t size)
 {
     return c.make_region(ptr, size);

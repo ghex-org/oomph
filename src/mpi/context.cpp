@@ -1,14 +1,16 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "./context.hpp"
-#include "./communicator.hpp"
+
+// paths relative to backend
+#include <context.hpp>
+#include <communicator.hpp>
 
 namespace oomph
 {
@@ -30,5 +32,3 @@ const char *context_impl::get_transport_option(const std::string &opt) {
 }
 
 } // namespace oomph
-
-#include "../src.cpp"

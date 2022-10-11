@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -19,27 +19,30 @@ template<typename T, std::size_t BufferSize,
     std::size_t Alignment = std::alignment_of<std::max_align_t>::value>
 class stack_pimpl
 {
+  private:
     util::stack_storage<T, BufferSize, Alignment> m;
 
   public:
-    stack_pimpl() = default;
+    ~stack_pimpl();
+    stack_pimpl() noexcept;
     template<typename... Args>
-    stack_pimpl(Args&&... args)
-    : m(std::forward<Args>(args)...)
-    {
-    }
+    stack_pimpl(Args&&... args);
     stack_pimpl(stack_pimpl const&) = delete;
-    stack_pimpl(stack_pimpl&&) = default;
+    stack_pimpl(stack_pimpl&&) noexcept;
     stack_pimpl& operator=(stack_pimpl const&) = delete;
-    stack_pimpl& operator=(stack_pimpl&&) = default;
+    stack_pimpl& operator=(stack_pimpl&&) noexcept;
 
-    T*       operator->() noexcept { return m.get(); }
-    T const* operator->() const noexcept { return m.get(); }
-    T&       operator*() noexcept { return *m.get(); }
-    T const& operator*() const noexcept { return *m.get(); }
-
-    //T release() { return m.release(); }
+    T*       operator->() noexcept;
+    T const* operator->() const noexcept;
+    T&       operator*() noexcept;
+    T const& operator*() const noexcept;
+    T*       get() noexcept;
+    T const* get() const noexcept;
 };
+
+template<typename T, std::size_t BufferSize,
+    std::size_t Alignment = std::alignment_of<std::max_align_t>::value, typename... Args>
+stack_pimpl<T, BufferSize, Alignment> make_stack_pimpl(Args&&... args);
 
 } // namespace util
 } // namespace oomph

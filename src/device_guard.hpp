@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,6 +11,7 @@
 #pragma once
 
 #include <hwmalloc/device.hpp>
+#include <oomph/config.hpp>
 
 namespace oomph
 {
@@ -24,7 +25,7 @@ struct device_guard_base
     : m_on_device{on_device}
     , m_new_device_id{new_id}
     {
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
         m_current_device_id = hwmalloc::get_device_id();
         if (m_on_device && (m_current_device_id != m_new_device_id))
             hwmalloc::set_device_id(m_new_device_id);
@@ -35,7 +36,7 @@ struct device_guard_base
 
     ~device_guard_base()
     {
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
         if (m_on_device && (m_current_device_id != m_new_device_id))
             hwmalloc::set_device_id(m_current_device_id);
 #endif
@@ -48,7 +49,7 @@ struct device_guard : public device_guard_base
 
     template<typename Pointer>
     device_guard(Pointer& ptr)
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
     : device_guard_base(ptr.on_device(), ptr.device_id())
     , m_ptr
     {
@@ -73,7 +74,7 @@ struct const_device_guard : public device_guard_base
 
     template<typename Pointer>
     const_device_guard(Pointer const& ptr)
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
     : device_guard_base(ptr.on_device(), ptr.device_id())
     , m_ptr
     {

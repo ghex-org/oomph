@@ -5,7 +5,7 @@ set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 
 include(oomph_version)
-make_version(OOMPH 0 1 0)
+make_version(OOMPH 1 0 0)
 
 project(oomph VERSION ${OOMPH_VERSION} LANGUAGES CXX)
 
@@ -27,16 +27,16 @@ add_library(oomph::oomph ALIAS oomph)
 include(oomph_common)
 
 # ---------------------------------------------------------------------
+# HWMALLOC setup
+# ---------------------------------------------------------------------
+find_package(HWMALLOC 1.0 REQUIRED)
+target_link_libraries(oomph INTERFACE HWMALLOC::hwmalloc)
+
+# ---------------------------------------------------------------------
 # MPI setup
 # ---------------------------------------------------------------------
 find_package(MPI REQUIRED COMPONENTS CXX)
 target_link_libraries(oomph INTERFACE MPI::MPI_CXX)
-
-# ---------------------------------------------------------------------
-# HWMALLOC setup
-# ---------------------------------------------------------------------
-include(hwmalloc)
-target_link_libraries(oomph INTERFACE hwmalloc)
 
 # ---------------------------------------------------------------------
 # Boost setup

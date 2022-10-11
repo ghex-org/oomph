@@ -33,6 +33,7 @@ endfunction()
 function(oomph_shared_lib_options target)
     oomph_target_compile_options(${target})
     oomph_target_link_options(${target})
+    target_link_libraries(${target} PUBLIC HWMALLOC::hwmalloc)
 endfunction()
 
 # ---------------------------------------------------------------------
@@ -55,4 +56,3 @@ install(TARGETS oomph oomph_common
 
 install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-

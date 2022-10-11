@@ -10,12 +10,18 @@
 #pragma once
 
 #include <thread>
+#include <stack>
 
 #include <hwmalloc/heap.hpp>
 #include <hwmalloc/register.hpp>
-//
-#include "memory_region.hpp"
-#include "../context_base.hpp"
+
+#include <oomph/config.hpp>
+
+// paths relative to backend
+#include <../context_base.hpp>
+#include <memory_region.hpp>
+#include <controller.hpp>
+#include <request_state.hpp>
 
 namespace oomph
 {
@@ -123,15 +129,15 @@ class context_impl : public context_base
 
 // --------------------------------------------------------------------
 template<>
-oomph::libfabric::memory_segment
+inline oomph::libfabric::memory_segment
 register_memory<oomph::context_impl>(oomph::context_impl& c, void* const ptr, std::size_t size)
 {
     return c.make_region(ptr, size /*, flags*/);
 }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
 template<>
-region
+inline region
 register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 {
     return c.make_region(ptr);

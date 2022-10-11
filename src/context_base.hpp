@@ -1,7 +1,7 @@
 /* 
  * ghex-org
  * 
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -13,10 +13,12 @@
 #include <iostream>
 #include <atomic>
 #include <oomph/context.hpp>
-#include "./mpi_comm.hpp"
-#include "./unique_ptr_set.hpp"
-#include "./rank_topology.hpp"
-#include "./increment_guard.hpp"
+
+// paths relative to backend
+#include <../mpi_comm.hpp>
+#include <../unique_ptr_set.hpp>
+#include <../rank_topology.hpp>
+#include <../increment_guard.hpp>
 
 namespace oomph
 {

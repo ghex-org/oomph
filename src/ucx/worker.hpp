@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -13,9 +13,12 @@
 #include <map>
 #include <deque>
 #include <unordered_map>
+
 #include <oomph/util/moved_bit.hpp>
-#include "./endpoint.hpp"
-#include "./address_db.hpp"
+
+// paths relative to backend
+#include <endpoint.hpp>
+#include <address_db.hpp>
 
 namespace oomph
 {

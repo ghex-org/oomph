@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <oomph/config.hpp>
 #include <oomph/detail/message_buffer.hpp>
 
 namespace oomph
@@ -82,7 +83,7 @@ class message_buffer
 
     bool on_device() const noexcept { return m.on_device(); }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
     T*       device_data() noexcept { return (T*)m.device_data(); }
     T const* device_data() const noexcept { return (T*)m.device_data(); }
 

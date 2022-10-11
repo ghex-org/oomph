@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -12,15 +12,20 @@
 
 #include <vector>
 #include <memory>
+
 #include <boost/lockfree/queue.hpp>
-#include "../context_base.hpp"
-#include "./config.hpp"
-#include "./rma_context.hpp"
-#include "./region.hpp"
-#include "./worker.hpp"
-#include "./request_state.hpp"
-#include "./request_data.hpp"
-#include "./address_db.hpp"
+
+#include <oomph/context.hpp>
+
+// paths relative to backend
+#include <../context_base.hpp>
+#include <./config.hpp>
+#include <rma_context.hpp>
+#include <region.hpp>
+#include <worker.hpp>
+#include <request_state.hpp>
+#include <request_data.hpp>
+#include <address_db.hpp>
 
 namespace oomph
 {
@@ -238,15 +243,15 @@ class context_impl : public context_base
 };
 
 template<>
-region
+inline region
 register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 {
     return c.make_region(ptr);
 }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
 template<>
-region
+inline region
 register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 {
     return c.make_region(ptr);

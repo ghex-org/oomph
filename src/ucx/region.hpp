@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,7 +9,10 @@
  */
 #pragma once
 
-#include "./handle.hpp"
+#include <oomph/config.hpp>
+
+// paths relative to backend
+#include <handle.hpp>
 
 namespace oomph
 {
@@ -80,13 +83,13 @@ class rma_region
 #endif
 
         // special treatment for gpu memory
-#if HWMALLOC_ENABLE_DEVICE | !defined(HWMALLOC_DEVICE_EMULATE)
+#if OOMPH_ENABLE_DEVICE | !defined(OOMPH_DEVICE_EMULATE)
         if (gpu)
         {
 #if (UCP_API_VERSION >= 17432576) // version >= 1.10
-#if defined(HWMALLOC_DEVICE_CUDA)
+#if defined(OOMPH_DEVICE_CUDA)
             params.memory_type = UCS_MEMORY_TYPE_CUDA;
-#elif defined(HWMALLOC_DEVICE_HIP)
+#elif defined(OOMPH_DEVICE_HIP)
             params.memory_type = UCS_MEMORY_TYPE_ROCM;
 #endif
 #endif

@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -10,18 +10,20 @@
  */
 #pragma once
 
-#include <oomph/config.hpp>
-#include "./error.hpp"
+#include <mutex>
 
+#include <oomph/config.hpp>
+
+// paths relative to backend
+#include <error.hpp>
 #ifdef OOMPH_UCX_USE_PMI
-#include "./address_db_pmi.hpp"
+#include <address_db_pmi.hpp>
 #else
-#include "./address_db_mpi.hpp"
+#include <address_db_mpi.hpp>
 #endif
 
-#include <mutex>
 #ifdef OOMPH_UCX_USE_SPIN_LOCK
-#include "./pthread_spin_mutex.hpp"
+#include <pthread_spin_mutex.hpp>
 namespace oomph
 {
 using ucx_mutex = pthread_spin::mutex;

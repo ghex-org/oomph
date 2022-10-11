@@ -15,6 +15,7 @@
 #include <cassert>
 #include <boost/callable_traits.hpp>
 #include <hwmalloc/device.hpp>
+#include <oomph/config.hpp>
 #include <oomph/message_buffer.hpp>
 #include <oomph/detail/communicator_helper.hpp>
 #include <oomph/util/mpi_error.hpp>
@@ -127,7 +128,7 @@ class communicator
         return {make_buffer_core(ptr, size * sizeof(T)), size};
     }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
     template<typename T>
     message_buffer<T> make_device_buffer(std::size_t size, int id = hwmalloc::get_device_id())
     {
@@ -397,7 +398,7 @@ class communicator
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
     detail::message_buffer make_buffer_core(void* ptr, std::size_t size);
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
     detail::message_buffer make_buffer_core(std::size_t size, int device_id);
     detail::message_buffer make_buffer_core(void* device_ptr, std::size_t size, int device_id);
     detail::message_buffer make_buffer_core(void* ptr, void* device_ptr, std::size_t size,

@@ -1,18 +1,21 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2022, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "./context.hpp"
-#include "./communicator.hpp"
+
 #include <chrono>
 #ifndef NDEBUG
 #include <iostream>
 #endif
+
+// paths relative to backend
+#include <context.hpp>
+#include <communicator.hpp>
 
 namespace oomph
 {
@@ -27,10 +30,7 @@ context_impl::get_communicator()
         ucx_lock l(m_mutex);
         m_workers.push_back(std::move(send_worker));
     }
-    else
-    {
-        m_workers.push_back(std::move(send_worker));
-    }
+    else { m_workers.push_back(std::move(send_worker)); }
     auto comm =
         new communicator_impl{this, m_thread_safe, m_worker.get(), send_worker_ptr, m_mutex};
     m_comms_set.insert(comm);
@@ -95,15 +95,11 @@ context_impl::~context_impl()
     MPI_Barrier(m_mpi_comm);
 }
 
-const char *context_impl::get_transport_option(const std::string &opt) {
-    if (opt == "name") {
-        return "ucx";
-    }
-    else {
-        return "unspecified";
-    }
+const char*
+context_impl::get_transport_option(const std::string& opt)
+{
+    if (opt == "name") { return "ucx"; }
+    else { return "unspecified"; }
 }
 
 } // namespace oomph
-
-#include "../src.cpp"
