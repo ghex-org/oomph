@@ -15,6 +15,9 @@
 #include "./utils.hpp"
 #include <vector>
 
+const char *syncmode = "callback";
+const char *waitmode = "avail";
+
 int
 main(int argc, char** argv)
 {
@@ -174,10 +177,24 @@ main(int argc, char** argv)
 
         if (thread_id == 0 && rank == 0)
         {
-            const auto t = t1.toc();
+            const auto t = t1.stoc();
+            double bw = ((double)niter*size*buff_size)/t;
+            // clang-format off
             std::cout << "time:                   " << t / 1000000 << "s\n";
-            std::cout << "final MB/s:             " << (niter * size * (double)buff_size) / t
-                      << std::endl;
+            std::cout << "final MB/s: " << bw << "\n";
+            std::cout << "CSVData"
+                      << ", niter, " << niter
+                      << ", buff_size, " << buff_size
+                      << ", inflight, " << inflight
+                      << ", num_threads, " << num_threads
+                      << ", syncmode, " << syncmode
+                      << ", waitmode, " << waitmode
+                      << ", transport, " << ctxt.get_transport_option("name")
+                      << ", BW MB/s, " << bw
+                      << ", progress, " << ctxt.get_transport_option("progress")
+                      << ", endpoint, " << ctxt.get_transport_option("endpoint")
+                      << "\n";
+            // clang-format on
         }
 
         b();
