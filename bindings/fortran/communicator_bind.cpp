@@ -44,8 +44,8 @@ namespace oomph {
             f_callback cb;
             void *user_data = nullptr;
             callback_multi(f_callback pcb, void *puser_data = nullptr) : cb{pcb}, user_data{puser_data} {}
-            void operator() (message_type message, std::vector<int>, int tag) const {
-                if(cb) cb(&message, -1, tag, user_data);
+            void operator() (message_type message, std::vector<int>, std::vector<int>) const {
+                if(cb) cb(&message, -1, -1, user_data);
             }
         };
 
@@ -53,8 +53,8 @@ namespace oomph {
             f_callback cb;
             void *user_data = nullptr;
             callback_multi_ref(f_callback pcb, void *puser_data = nullptr) : cb{pcb}, user_data{puser_data} {}
-            void operator() (message_type &message, std::vector<int>, int tag) const {
-                if(cb) cb(&message, -1, tag, user_data);
+            void operator() (message_type &message, std::vector<int>, std::vector<int>) const {
+                if(cb) cb(&message, -1, -1, user_data);
             }
         };
     }
@@ -143,7 +143,7 @@ void oomph_comm_send_cb_wrapped(obj_wrapper *wcomm, message_type **message_ref, 
  */
 
 extern "C"
-void oomph_comm_post_send_multi_wrapped(obj_wrapper *wcomm, message_type *message, int *ranks, int nranks, int tag, frequest_type *freq)
+void oomph_comm_post_send_multi_wrapped(obj_wrapper *wcomm, message_type *message, int *ranks, int nranks, int *tags, frequest_type *freq)
 {
     if(nullptr==message || nullptr==wcomm){
         std::cerr << "ERROR: trying to submit a NULL message or communicator in " << __FUNCTION__ << ". Terminating.\n";
@@ -153,14 +153,16 @@ void oomph_comm_post_send_multi_wrapped(obj_wrapper *wcomm, message_type *messag
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     std::vector<int> ranks_array(nranks);
     ranks_array.assign(ranks, ranks+nranks);
+    std::vector<int> tags_array(nranks);
+    tags_array.assign(tags, tags+nranks);
 
-    auto req = comm->send_multi(*message, ranks_array, tag);
+    auto req = comm->send_multi(*message, ranks_array, tags_array);
     new(freq->data) decltype(req)(std::move(req));
     freq->recv_request = false;
 }
 
 extern "C"
-void oomph_comm_post_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type *message, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
+void oomph_comm_post_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type *message, int *ranks, int nranks, int *tags, f_callback cb, frequest_type *freq, void *user_data)
 {
     if(nullptr==message || nullptr==wcomm){
         std::cerr << "ERROR: trying to submit a NULL message or communicator in " << __FUNCTION__ << ". Terminating.\n";
@@ -170,15 +172,17 @@ void oomph_comm_post_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type *mes
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     std::vector<int> ranks_array(nranks);
     ranks_array.assign(ranks, ranks+nranks);
+    std::vector<int> tags_array(nranks);
+    tags_array.assign(tags, tags+nranks);
 
-    auto req = comm->send_multi(*message, ranks_array, tag, callback_multi_ref{cb, user_data});
+    auto req = comm->send_multi(*message, ranks_array, tags_array, callback_multi_ref{cb, user_data});
     if(!freq) return;
     new(freq->data) decltype(req)(std::move(req));
     freq->recv_request = false;
 }
 
 extern "C"
-void oomph_comm_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type **message_ref, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
+void oomph_comm_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type **message_ref, int *ranks, int nranks, int *tags, f_callback cb, frequest_type *freq, void *user_data)
 {
     if(nullptr==message_ref || nullptr==wcomm || nullptr == *message_ref){
         std::cerr << "ERROR: NULL message or communicator in " << __FUNCTION__ << ". Terminating.\n";
@@ -188,8 +192,10 @@ void oomph_comm_send_multi_cb_wrapped(obj_wrapper *wcomm, message_type **message
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     std::vector<int> ranks_array(nranks);
     ranks_array.assign(ranks, ranks+nranks);
+    std::vector<int> tags_array(nranks);
+    tags_array.assign(tags, tags+nranks);
 
-    auto req = comm->send_multi(std::move(**message_ref), ranks_array, tag, callback_multi{cb, user_data});
+    auto req = comm->send_multi(std::move(**message_ref), ranks_array, tags_array, callback_multi{cb, user_data});
     *message_ref = nullptr;
     if(!freq) return;
     new(freq->data) decltype(req)(std::move(req));
