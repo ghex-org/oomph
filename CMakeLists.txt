@@ -100,6 +100,8 @@ endif()
 # benchmarks
 # ---------------------------------------------------------------------
 set(OOMPH_WITH_BENCHMARKS OFF CACHE BOOL "Build benchmarks")
+cmake_dependent_option(OOMPH_BENCHMARKS_MT "Multithreaded benchmarks"
+    ON "OOMPH_WITH_BENCHMARKS" OFF)
 if (OOMPH_WITH_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()

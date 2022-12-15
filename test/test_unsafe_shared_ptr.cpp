@@ -39,9 +39,9 @@ TEST(unsafe_shared_ptr, ctor)
             unsafe_shared_ptr<my_int> b;
 
             EXPECT_TRUE(a);
-            EXPECT_EQ(a.use_count(), 1);
+            EXPECT_EQ(a.use_count(), 1u);
             EXPECT_FALSE(b);
-            EXPECT_EQ(b.use_count(), 0);
+            EXPECT_EQ(b.use_count(), 0u);
 
             EXPECT_EQ((*a).get(), 42);
             EXPECT_EQ(a.get()->get(), 42);
@@ -55,7 +55,7 @@ TEST(unsafe_shared_ptr, ctor)
             auto a = oomph::util::allocate_shared<my_int>(alloc_t(), d, 42);
 
             EXPECT_TRUE(a);
-            EXPECT_EQ(a.use_count(), 1);
+            EXPECT_EQ(a.use_count(), 1u);
 
             EXPECT_EQ((*a).get(), 42);
             EXPECT_EQ(a.get()->get(), 42);
@@ -69,7 +69,7 @@ TEST(unsafe_shared_ptr, ctor)
             auto a = oomph::util::make_shared<my_int>(d, 42);
 
             EXPECT_TRUE(a);
-            EXPECT_EQ(a.use_count(), 1);
+            EXPECT_EQ(a.use_count(), 1u);
 
             EXPECT_EQ((*a).get(), 42);
             EXPECT_EQ(a.get()->get(), 42);
@@ -89,10 +89,10 @@ TEST(unsafe_shared_ptr, assign)
             unsafe_shared_ptr<my_int> b(a);
 
             EXPECT_TRUE(a);
-            EXPECT_EQ(a.use_count(), 2);
+            EXPECT_EQ(a.use_count(), 2u);
             EXPECT_EQ(a->get(), 42);
             EXPECT_TRUE(b);
-            EXPECT_EQ(b.use_count(), 2);
+            EXPECT_EQ(b.use_count(), 2u);
             EXPECT_EQ(b->get(), 42);
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
@@ -104,15 +104,15 @@ TEST(unsafe_shared_ptr, assign)
             unsafe_shared_ptr<my_int> b;
 
             EXPECT_FALSE(b);
-            EXPECT_EQ(b.use_count(), 0);
+            EXPECT_EQ(b.use_count(), 0u);
 
             b = a;
 
             EXPECT_TRUE(a);
-            EXPECT_EQ(a.use_count(), 2);
+            EXPECT_EQ(a.use_count(), 2u);
             EXPECT_EQ(a->get(), 42);
             EXPECT_TRUE(b);
-            EXPECT_EQ(b.use_count(), 2);
+            EXPECT_EQ(b.use_count(), 2u);
             EXPECT_EQ(b->get(), 42);
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
@@ -129,9 +129,9 @@ TEST(unsafe_shared_ptr, move_assign)
             unsafe_shared_ptr<my_int> b(std::move(a));
 
             EXPECT_FALSE(a);
-            EXPECT_EQ(a.use_count(), 0);
+            EXPECT_EQ(a.use_count(), 0u);
             EXPECT_TRUE(b);
-            EXPECT_EQ(b.use_count(), 1);
+            EXPECT_EQ(b.use_count(), 1u);
             EXPECT_EQ(b->get(), 42);
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
@@ -143,14 +143,14 @@ TEST(unsafe_shared_ptr, move_assign)
             unsafe_shared_ptr<my_int> b;
 
             EXPECT_FALSE(b);
-            EXPECT_EQ(b.use_count(), 0);
+            EXPECT_EQ(b.use_count(), 0u);
 
             b = std::move(a);
 
             EXPECT_FALSE(a);
-            EXPECT_EQ(a.use_count(), 0);
+            EXPECT_EQ(a.use_count(), 0u);
             EXPECT_TRUE(b);
-            EXPECT_EQ(b.use_count(), 1);
+            EXPECT_EQ(b.use_count(), 1u);
             EXPECT_EQ(b->get(), 42);
         }
         EXPECT_EQ(d.alloc_ref_count, 0);
