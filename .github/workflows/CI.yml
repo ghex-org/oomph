@@ -73,8 +73,8 @@ jobs:
             -DOOMPH_WITH_BENCHMARKS=ON \
             -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_USE_FAST_PIMPL=ON \
-            -DOOMPH_USE_GPU=ON \
-            -DOOMPH_GPU_TYPE=AMD \
+            -DHWMALLOC_ENABLE_DEVICE=ON \
+            -DHWMALLOC_DEVICE_RUNTIME=hip \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
@@ -109,8 +109,8 @@ jobs:
             -DOOMPH_WITH_BENCHMARKS=ON \
             -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_USE_FAST_PIMPL=ON \
-            -DOOMPH_USE_GPU=ON \
-            -DOOMPH_GPU_TYPE=NVIDIA \
+            -DHWMALLOC_ENABLE_DEVICE=ON \
+            -DHWMALLOC_DEVICE_RUNTIME=cuda \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
