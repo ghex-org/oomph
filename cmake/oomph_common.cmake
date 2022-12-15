@@ -22,11 +22,6 @@ set(fortran_lang_cray "$<COMPILE_LANG_AND_ID:Fortran,Cray>")
 function(oomph_target_compile_options target)
     set_target_properties(${target} PROPERTIES INTERFACE_POSITION_INDEPENDENT_CODE ON)
     target_compile_options(${target} PRIVATE
-        $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic>>
-        #$<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
-        #$<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>
-    )
-    target_compile_options(${target} PRIVATE
         # flags for CXX builds
         $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra>>
         $<${cxx_lang_gnu}:$<BUILD_INTERFACE:-Wpedantic -Wno-unknown-pragmas 
@@ -38,7 +33,8 @@ function(oomph_target_compile_options target)
         # flags for Fortran builds
         $<${fortran_lang_gnu}:$<BUILD_INTERFACE:-cpp -ffree-line-length-none>>
         $<${fortran_lang_intel}:$<BUILD_INTERFACE:-cpp>>
-        $<${fortran_lang_cray}:$<BUILD_INTERFACE:-eZ>>)
+        $<${fortran_lang_cray}:$<BUILD_INTERFACE:-eZ>>
+    )
 endfunction()
 
 function(oomph_target_link_options target)

@@ -1,0 +1,29 @@
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+#pragma once
+
+#include <oomph/config.hpp>
+
+namespace oomph
+{
+    namespace fort
+    {
+        using fp_type = @OOMPH_FORTRAN_FP@;
+        typedef enum {
+            OomphBarrierGlobal=1,
+            OomphBarrierThread=2,
+            OomphBarrierRank=3
+        } oomph_barrier_type;
+        typedef enum {
+            OomphAllocatorHost=1,
+            OomphAllocatorDevice=2
+        } oomph_allocator_type;
+    }
+}

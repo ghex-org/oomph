@@ -86,3 +86,5 @@ if (OOMPH_WITH_LIBFABRIC)
         reg_parallel_test(${t} libfabric 4)
     endforeach()
 endif()
+
+add_subdirectory(bindings)

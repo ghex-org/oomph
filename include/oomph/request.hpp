@@ -29,7 +29,8 @@ struct multi_request_state
 {
     communicator_impl*            m_comm;
     std::size_t                   m_counter;
-    std::vector<int>              m_neighs = std::vector<int>();
+    std::vector<rank_type>        m_neighs = std::vector<rank_type>();
+    std::vector<tag_type>         m_tags = std::vector<tag_type>();
     std::size_t                   m_msg_size = 0ul;
     void*                         m_msg_ptr = nullptr;
     oomph::detail::message_buffer m_msg = oomph::detail::message_buffer();

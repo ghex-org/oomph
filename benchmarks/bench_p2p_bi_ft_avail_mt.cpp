@@ -144,6 +144,7 @@ main(int argc, char** argv)
                     dbg += num_threads;
                     rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j);
                 }
+                else comm.progress();
 
                 if (lsent < lrecv + 2 * inflight && sent < niter && (sreqs[j].test()))
                 {
@@ -153,6 +154,7 @@ main(int argc, char** argv)
                     dbg += num_threads;
                     sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j);
                 }
+                else comm.progress();
             }
         }
 

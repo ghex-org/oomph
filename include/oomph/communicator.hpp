@@ -24,12 +24,6 @@
 namespace oomph
 {
 
-//inline detail::reserved_tag
-//reserved(tag_type t) noexcept
-//{
-//    return {t};
-//}
-
 class context;
 
 class communicator
@@ -77,7 +71,6 @@ class communicator
 
   private:
     communicator(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs)
-        //,util::tag_range tr, util::tag_range rtr)
     : m_state{util::make_shared<detail::communicator_state>(impl_, shared_scheduled_recvs)}
     {
     }
@@ -194,7 +187,7 @@ class communicator
         std::size_t neighs_size, tag_type tag)
     {
         assert(msg);
-        auto       mrs = m_state->make_multi_request_state(neighs_size);
+        auto mrs = m_state->make_multi_request_state(neighs_size);
         for (std::size_t i = 0; i < neighs_size; ++i)
         {
             send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), neighs[i], tag,
@@ -209,6 +202,29 @@ class communicator
         std::vector<rank_type> const& neighs, tag_type tag)
     {
         return send_multi(msg, neighs.data(), neighs.size(), tag);
+    }
+
+    template<typename T>
+    send_multi_request send_multi(message_buffer<T> const& msg, rank_type const* neighs,
+        tag_type const* tags, std::size_t neighs_size)
+    {
+        assert(msg);
+        auto mrs = m_state->make_multi_request_state(neighs_size);
+        for (std::size_t i = 0; i < neighs_size; ++i)
+        {
+            send(msg.m.m_heap_ptr.get(), msg.size() * sizeof(T), neighs[i], tags[i],
+                util::unique_function<void(rank_type, tag_type)>(
+                    [mrs](rank_type, tag_type) { --(mrs->m_counter); }));
+        }
+        return {std::move(mrs)};
+    }
+
+    template<typename T>
+    send_multi_request send_multi(message_buffer<T> const& msg,
+        std::vector<rank_type> const& neighs, std::vector<tag_type> const& tags)
+    {
+        assert(neighs.size() == tags.size());
+        return send_multi(msg, neighs.data(), tags.data(), neighs.size());
     }
 
     // callback versions
@@ -298,7 +314,8 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    send_request send(message_buffer<T> const& msg, rank_type dst, tag_type tag,
+        CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_CONST_REF(CallBack)
         assert(msg);
@@ -313,8 +330,8 @@ class communicator
     // ----------
 
     template<typename T, typename CallBack>
-    send_multi_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> neighs, tag_type tag,
-        CallBack&& callback)
+    send_multi_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> neighs,
+        tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI(CallBack)
         assert(msg);
@@ -338,8 +355,36 @@ class communicator
     }
 
     template<typename T, typename CallBack>
-    send_multi_request send_multi(message_buffer<T>& msg, std::vector<rank_type> neighs, tag_type tag,
-        CallBack&& callback)
+    send_multi_request send_multi(message_buffer<T>&& msg, std::vector<rank_type> neighs,
+        std::vector<tag_type> tags, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK_MULTI_TAGS(CallBack)
+        assert(msg);
+        assert(neighs.size() == tags.size());
+        auto const s = msg.size();
+        auto       m_ptr = msg.m.m_heap_ptr.get();
+        auto       mrs =
+            m_state->make_multi_request_state(std::move(neighs), std::move(tags), std::move(msg));
+        const auto n = mrs->m_neighs.size();
+        for (std::size_t i = 0; i < n; ++i)
+        {
+            send(m_ptr, s * sizeof(T), mrs->m_neighs[i], mrs->m_tags[i],
+                util::unique_function<void(rank_type, tag_type)>(
+                    [mrs, callback](rank_type, tag_type)
+                    {
+                        if (--(mrs->m_counter) == 0ul)
+                        {
+                            callback(message_buffer<T>(std::move(mrs->m_msg), mrs->m_msg_size),
+                                std::move(mrs->m_neighs), mrs->m_tags);
+                        }
+                    }));
+        }
+        return {std::move(mrs)};
+    }
+
+    template<typename T, typename CallBack>
+    send_multi_request send_multi(message_buffer<T>& msg, std::vector<rank_type> neighs,
+        tag_type tag, CallBack&& callback)
     {
         OOMPH_CHECK_CALLBACK_MULTI_REF(CallBack)
         assert(msg);
@@ -356,6 +401,33 @@ class communicator
                         {
                             callback(*reinterpret_cast<message_buffer<T>*>(mrs->m_msg_ptr),
                                 std::move(mrs->m_neighs), t);
+                        }
+                    }));
+        }
+        return {std::move(mrs)};
+    }
+
+    template<typename T, typename CallBack>
+    send_multi_request send_multi(message_buffer<T>& msg, std::vector<rank_type> neighs,
+        std::vector<tag_type> tags, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK_MULTI_REF_TAGS(CallBack)
+        assert(msg);
+        assert(neighs.size() == tags.size());
+        auto const s = msg.size();
+        auto       m_ptr = msg.m.m_heap_ptr.get();
+        auto       mrs = m_state->make_multi_request_state(std::move(neighs), std::move(tags), msg);
+        const auto n = mrs->m_neighs.size();
+        for (std::size_t i = 0; i < n; ++i)
+        {
+            send(m_ptr, s * sizeof(T), mrs->m_neighs[i], mrs->m_tags[i],
+                util::unique_function<void(rank_type, tag_type)>(
+                    [mrs, callback](rank_type, tag_type)
+                    {
+                        if (--(mrs->m_counter) == 0ul)
+                        {
+                            callback(*reinterpret_cast<message_buffer<T>*>(mrs->m_msg_ptr),
+                                std::move(mrs->m_neighs), std::move(mrs->m_tags));
                         }
                     }));
         }
@@ -387,9 +459,34 @@ class communicator
         return {std::move(mrs)};
     }
 
-    void progress();
+    template<typename T, typename CallBack>
+    send_multi_request send_multi(message_buffer<T> const& msg, std::vector<rank_type> neighs,
+        std::vector<tag_type> tags, CallBack&& callback)
+    {
+        OOMPH_CHECK_CALLBACK_MULTI_CONST_REF_TAGS(CallBack)
+        assert(msg);
+        assert(neighs.size() == tags.size());
+        auto const s = msg.size();
+        auto       m_ptr = msg.m.m_heap_ptr.get();
+        auto       mrs = m_state->make_multi_request_state(std::move(neighs), std::move(tags), msg);
+        const auto n = mrs->m_neighs.size();
+        for (std::size_t i = 0; i < n; ++i)
+        {
+            send(m_ptr, s * sizeof(T), mrs->m_neighs[i], mrs->m_tags[i],
+                util::unique_function<void(rank_type, tag_type)>(
+                    [mrs, callback](rank_type, tag_type)
+                    {
+                        if (--(mrs->m_counter) == 0ul)
+                        {
+                            callback(*reinterpret_cast<message_buffer<T> const*>(mrs->m_msg_ptr),
+                                std::move(mrs->m_neighs), std::move(mrs->m_tags));
+                        }
+                    }));
+        }
+        return {std::move(mrs)};
+    }
 
-    //tag_type tag_limit() const noexcept { return m_state->m_tag_range.max_tag() - 1; }
+    void progress();
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);
@@ -402,27 +499,13 @@ class communicator
 #endif
 
     send_request send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-        rank_type dst, tag_type tag,
-        util::unique_function<void(rank_type, tag_type)>&& cb);
+        rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb);
 
     recv_request recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb);
 
     shared_recv_request shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
-        rank_type src, tag_type tag,
-        util::unique_function<void(rank_type, tag_type)>&& cb);
-
-    //util::wrapped_tag wrap(tag_type t) const noexcept
-    //{
-    //    auto const tr = m_state->m_tag_range;
-    //    return tr.wrap(t);
-    //}
-
-    //util::wrapped_tag wrap(detail::reserved_tag t) const noexcept
-    //{
-    //    auto const tr = m_state->m_reserved_tag_range;
-    //    return tr.wrap(t.m);
-    //}
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb);
 };
 
 } // namespace oomph
