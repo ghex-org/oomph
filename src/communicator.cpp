@@ -14,6 +14,9 @@
 #include <context.hpp>
 #include <communicator.hpp>
 #include <../message_buffer.hpp>
+#include <../util/heap_pimpl_src.hpp>
+
+OOMPH_INSTANTIATE_HEAP_PIMPL(oomph::detail::message_buffer::heap_ptr_impl)
 
 namespace oomph
 {
