@@ -4,10 +4,12 @@ cmake_minimum_required(VERSION 3.17)
 set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 
+include(CMakeDependentOption)
 include(oomph_version)
 make_version(OOMPH 0 2 0)
 
-project(oomph VERSION ${OOMPH_VERSION} LANGUAGES CXX)
+project(oomph VERSION ${OOMPH_VERSION})
+enable_language(CXX)
 
 # ---------------------------------------------------------------------
 # CMake setup, C++ version, build type, modules, etc
@@ -18,6 +20,7 @@ if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ---------------------------------------------------------------------
 # External dependencies
@@ -31,13 +34,8 @@ include(ext)
 # ---------------------------------------------------------------------
 add_library(oomph INTERFACE)
 add_library(oomph::oomph ALIAS oomph)
+target_link_libraries(oomph INTERFACE hwmalloc)
 include(oomph_common)
-
-## ---------------------------------------------------------------------
-## HWMALLOC setup
-## ---------------------------------------------------------------------
-#find_package(HWMALLOC 1.0 REQUIRED)
-#target_link_libraries(oomph INTERFACE HWMALLOC::hwmalloc)
 
 # ---------------------------------------------------------------------
 # MPI setup

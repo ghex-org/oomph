@@ -1,4 +1,4 @@
-include(gtest)
+#include(gtest)
 
 add_subdirectory(mpi_runner)
 
@@ -25,7 +25,7 @@ function(compile_test t_)
     if (OOMPH_TEST_LEAK_GPU_MEMORY)
         target_compile_definitions(${t} PRIVATE OOMPH_TEST_LEAK_GPU_MEMORY)
     endif()
-    target_link_libraries(${t} PRIVATE GTest::gtest)
+    target_link_libraries(${t} PRIVATE ext-gtest)
     target_link_libraries(${t} PUBLIC oomph)
 endfunction()
 
@@ -44,7 +44,7 @@ endforeach()
 function(reg_serial_test t)
     add_executable(${t} $<TARGET_OBJECTS:${t}_obj>)
     oomph_target_compile_options(${t})
-    target_link_libraries(${t} PRIVATE gtest_main)
+    target_link_libraries(${t} PRIVATE ext-gtest)
     target_link_libraries(${t} PRIVATE oomph_common)
     add_test(
         NAME ${t}
