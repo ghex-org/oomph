@@ -5,10 +5,10 @@ if(OOMPH_GIT_SUBMODULE)
     update_git_submodules()
 endif()
 
-cmake_dependent_option(OOMPH_USE_BUNDLED_HWMALLOC "Use bundled pika lib." ON
+cmake_dependent_option(OOMPH_USE_BUNDLED_HWMALLOC "Use bundled hwmalloc lib." ON
     "OOMPH_USE_BUNDLED_LIBS" OFF)
 if(OOMPH_USE_BUNDLED_HWMALLOC)
-    check_git_submodule(pika ext/hwmalloc)
+    check_git_submodule(hwmalloc ext/hwmalloc)
     #set(WITH_FUNCTION_X OFF CACHE BOOL "enable X functionality" FORCE)
     add_subdirectory(ext/hwmalloc)
 else()
