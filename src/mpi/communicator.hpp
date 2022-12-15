@@ -54,19 +54,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        auto req = send(ptr, size, dst, tag.get());
+        auto req = send(ptr, size, dst, tag);
         if (!has_reached_recursion_depth() && req.is_ready())
         {
             auto inc = recursion();
-            cb(dst, tag.unwrap());
+            cb(dst, tag);
             return {};
         }
         else
         {
-            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag,
                 std::move(cb), req);
             s->create_self_ref();
             m_send_reqs.enqueue(s.get());
@@ -75,19 +75,19 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        auto req = recv(ptr, size, src, tag.get());
+        auto req = recv(ptr, size, src, tag);
         if (!has_reached_recursion_depth() && req.is_ready())
         {
             auto inc = recursion();
-            cb(src, tag.unwrap());
+            cb(src, tag);
             return {};
         }
         else
         {
-            auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
+            auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag,
                 std::move(cb), req);
             s->create_self_ref();
             m_recv_reqs.enqueue(s.get());
@@ -96,20 +96,20 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::atomic<std::size_t>* scheduled)
     {
-        auto req = recv(ptr, size, src, tag.get());
+        auto req = recv(ptr, size, src, tag);
         if (!m_context->has_reached_recursion_depth() && req.is_ready())
         {
             auto inc = m_context->recursion();
-            cb(src, tag.unwrap());
+            cb(src, tag);
             return {};
         }
         else
         {
             auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
-                tag.unwrap(), std::move(cb), req);
+                tag, std::move(cb), req);
             s->create_self_ref();
             m_context->m_req_queue.enqueue(s.get());
             return {std::move(s)};

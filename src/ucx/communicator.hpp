@@ -124,12 +124,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::size_t* scheduled)
     {
         const auto& ep = m_send_worker->connect(dst);
         const auto  stag =
-            ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(rank());
+            ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(rank());
 
         ucs_status_ptr_t ret;
         {
@@ -151,14 +151,14 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 auto inc = recursion();
                 // call the callback
-                cb(dst, tag.unwrap());
+                cb(dst, tag);
                 return {};
                 // request is freed by ucx internally
             }
             else
             {
                 // allocate request_state
-                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag,
                     std::move(cb), ret, m_mutex);
                 s->create_self_ref();
                 // push callback to the queue
@@ -171,7 +171,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         {
             // send operation was scheduled
             // allocate request_state
-            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+            auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag,
                 std::move(cb), ret, m_mutex);
             s->create_self_ref();
             // attach necessary data to the request
@@ -186,13 +186,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::size_t* scheduled)
     {
         const auto rtag =
             (communicator::any_source == src)
-                ? ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS)
-                : ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
+                ? ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS)
+                : ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
 
         const auto rtag_mask = (communicator::any_source == src)
                                    ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
@@ -223,13 +223,13 @@ class communicator_impl : public communicator_base<communicator_impl>
                 if (!has_reached_recursion_depth())
                 {
                     auto inc = recursion();
-                    cb(src, tag.unwrap());
+                    cb(src, tag);
                     return {};
                 }
                 else
                 {
                     // allocate request_state
-                    auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
+                    auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag,
                         std::move(cb), ret, m_mutex);
                     s->create_self_ref();
                     // push callback to the queue
@@ -241,7 +241,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 // recv operation was scheduled
                 // allocate request_state
-                auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(),
+                auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag,
                     std::move(cb), ret, m_mutex);
                 s->create_self_ref();
                 // attach necessary data to the request
@@ -258,13 +258,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+        rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
         std::atomic<std::size_t>* scheduled)
     {
         const auto rtag =
             (communicator::any_source == src)
-                ? ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS)
-                : ((std::uint_fast64_t)tag.get() << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
+                ? ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS)
+                : ((std::uint_fast64_t)tag << OOMPH_UCX_TAG_BITS) | (std::uint_fast64_t)(src);
 
         const auto rtag_mask = (communicator::any_source == src)
                                    ? (OOMPH_UCX_TAG_MASK | OOMPH_UCX_ANY_SOURCE_MASK)
@@ -295,14 +295,14 @@ class communicator_impl : public communicator_base<communicator_impl>
                 if (!m_context->has_reached_recursion_depth())
                 {
                     auto inc = m_context->recursion();
-                    cb(src, tag.unwrap());
+                    cb(src, tag);
                     return {};
                 }
                 else
                 {
                     // allocate shared request_state
                     auto s = std::make_shared<detail::shared_request_state>(m_context, this,
-                        scheduled, src, tag.unwrap(), std::move(cb), ret, m_mutex);
+                        scheduled, src, tag, std::move(cb), ret, m_mutex);
                     s->create_self_ref();
                     m_context->enqueue_recv(s.get());
                     return {std::move(s)};
@@ -313,7 +313,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 // recv operation was scheduled
                 // allocate shared request_state
                 auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled,
-                    src, tag.unwrap(), std::move(cb), ret, m_mutex);
+                    src, tag, std::move(cb), ret, m_mutex);
                 s->create_self_ref();
                 // attach necessary data to the request
                 request_data::construct(ret, s.get());

@@ -13,7 +13,7 @@
 #include <boost/callable_traits.hpp>
 #include <oomph/request.hpp>
 #include <oomph/util/pool_factory.hpp>
-#include <oomph/util/tag_range.hpp>
+//#include <oomph/util/tag_range.hpp>
 
 #define OOMPH_CHECK_CALLBACK_F(CALLBACK, RANK_TYPE)                                                \
     using args_t = boost::callable_traits::args_t<std::remove_reference_t<CALLBACK>>;              \
@@ -87,14 +87,14 @@ struct communicator_state
     using impl_type = communicator_impl;
     impl_type*                              m_impl;
     std::atomic<std::size_t>*               m_shared_scheduled_recvs;
-    util::tag_range                         m_tag_range;
-    util::tag_range                         m_reserved_tag_range;
+    //util::tag_range                         m_tag_range;
+    //util::tag_range                         m_reserved_tag_range;
     util::pool_factory<multi_request_state> m_mrs_factory;
     std::size_t                             scheduled_sends = 0;
     std::size_t                             scheduled_recvs = 0;
 
-    communicator_state(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs,
-        util::tag_range tr, util::tag_range rtr);
+    communicator_state(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
+        //,util::tag_range tr, util::tag_range rtr);
     ~communicator_state();
     communicator_state(communicator_state const&) = delete;
     communicator_state(communicator_state&&) = delete;
@@ -123,9 +123,9 @@ struct communicator_state
     }
 };
 
-struct reserved_tag
-{
-    tag_type m;
-};
+//struct reserved_tag
+//{
+//    tag_type m;
+//};
 } // namespace detail
 } // namespace oomph

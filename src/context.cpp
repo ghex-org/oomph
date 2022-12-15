@@ -22,22 +22,23 @@ OOMPH_INSTANTIATE_HEAP_PIMPL(oomph::context_impl)
 namespace oomph
 {
 
-context::context(MPI_Comm comm, bool thread_safe, unsigned int num_tag_ranges,
+context::context(MPI_Comm comm, bool thread_safe, //unsigned int num_tag_ranges,
     bool message_pool_never_free, std::size_t message_pool_reserve)
 : m_mpi_comm{comm}
 , m(m_mpi_comm.get(), thread_safe, message_pool_never_free, message_pool_reserve)
 , m_schedule{std::make_unique<schedule>()}
-, m_tag_range_factory(num_tag_ranges, m->num_tag_bits())
+//, m_tag_range_factory(num_tag_ranges, m->num_tag_bits())
 {
 }
 
 context::~context() { communicator_set::get().erase(m.get()); }
 
 communicator
-context::get_communicator(unsigned int tr)
+context::get_communicator()//unsigned int tr)
 {
-    return {m->get_communicator(), &(m_schedule->scheduled_recvs), m_tag_range_factory.create(tr),
-        m_tag_range_factory.create(tr, true)};
+    return {m->get_communicator(), &(m_schedule->scheduled_recvs)};
+    //, m_tag_range_factory.create(tr),
+    //    m_tag_range_factory.create(tr, true)};
 }
 
 rank_type

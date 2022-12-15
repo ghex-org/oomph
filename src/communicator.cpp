@@ -50,7 +50,7 @@ communicator::progress()
 
 send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_state->m_impl->send(m_ptr->m, size, dst, tag, std::move(cb),
         &(m_state->scheduled_sends));
@@ -58,7 +58,7 @@ communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size
 
 recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_state->m_impl->recv(m_ptr->m, size, src, tag, std::move(cb),
         &(m_state->scheduled_recvs));
@@ -66,7 +66,7 @@ communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t siz
 
 shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
-    rank_type src, util::wrapped_tag tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
 {
     return m_state->m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb),
         m_state->m_shared_scheduled_recvs);

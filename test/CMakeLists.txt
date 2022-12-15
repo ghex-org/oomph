@@ -12,7 +12,8 @@ set(OOMPH_TEST_LEAK_GPU_MEMORY OFF CACHE BOOL "Do not free memory (bug on Piz Da
 set(serial_tests test_unique_function test_unsafe_shared_ptr)
 
 # list of parallel tests to be executed
-set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality test_tag_range)
+set(parallel_tests test_context test_send_recv test_send_multi test_cancel test_locality)
+#test_tag_range)
 if (OOMPH_ENABLE_BARRIER)
     list(APPEND parallel_tests test_barrier)
 endif()

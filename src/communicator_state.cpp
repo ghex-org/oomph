@@ -20,11 +20,12 @@ namespace oomph
 namespace detail
 {
 communicator_state::communicator_state(impl_type* impl_,
-    std::atomic<std::size_t>* shared_scheduled_recvs, util::tag_range tr, util::tag_range rtr)
+    std::atomic<std::size_t>* shared_scheduled_recvs)
+    //, util::tag_range tr, util::tag_range rtr)
 : m_impl{impl_}
 , m_shared_scheduled_recvs{shared_scheduled_recvs}
-, m_tag_range(tr)
-, m_reserved_tag_range(rtr)
+//, m_tag_range(tr)
+//, m_reserved_tag_range(rtr)
 {
     communicator_set::get().insert(m_impl->m_context, m_impl);
 }
