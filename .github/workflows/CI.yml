@@ -24,6 +24,7 @@ jobs:
           mkdir -p build && cd build
           cmake \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DOOMPH_GIT_SUBMODULE=OFF \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
             -DOOMPH_WITH_TESTING=ON \
             -DOOMPH_WITH_MPI=ON \
@@ -58,6 +59,7 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ cmake \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DOOMPH_GIT_SUBMODULE=OFF \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
             -DOOMPH_WITH_TESTING=ON \
             -DOOMPH_WITH_MPI=ON \
@@ -91,6 +93,7 @@ jobs:
           mkdir -p build && cd build
           cmake \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DOOMPH_GIT_SUBMODULE=OFF \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
             -DOOMPH_WITH_TESTING=ON \
             -DOOMPH_WITH_MPI=ON \
