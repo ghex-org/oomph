@@ -14,6 +14,8 @@
 
 namespace oomph
 {
+#define OOMPH_ANY_SOURCE (int)-1
+
 template<typename Communicator>
 class communicator_base
 {

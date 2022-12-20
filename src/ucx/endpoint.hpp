@@ -16,8 +16,6 @@
 
 namespace oomph
 {
-#define OOMPH_ANY_SOURCE (int)-1
-
 struct endpoint_t
 {
     using rank_type = communicator::rank_type;
