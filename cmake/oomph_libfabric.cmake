@@ -93,8 +93,9 @@ if (OOMPH_WITH_LIBFABRIC)
     # Hardware device selection
     #------------------------------------------------------------------------------
     set(OOMPH_LIBFABRIC_PROVIDER "tcp" CACHE
-        STRING "The provider (cxi/gni/psm2/sockets/tcp/verbs)")
-    set_property(CACHE OOMPH_LIBFABRIC_PROVIDER PROPERTY STRINGS "cxi" "gni" "psm2" "sockets" "tcp" "verbs")
+        STRING "The provider (cxi(Cray Slingshot)/efa(Amazon Elastic)/gni(Cray Gemini)/psm2(Intel Omni-Path)/sockets/tcp/verbs(Infiniband))")
+    set_property(CACHE OOMPH_LIBFABRIC_PROVIDER PROPERTY STRINGS
+        "cxi" "efa" "gni" "psm2" "sockets" "tcp" "verbs")
 
     oomph_libfabric_add_config_define_namespace(
         DEFINE HAVE_LIBFABRIC_PROVIDER
@@ -115,6 +116,10 @@ if (OOMPH_WITH_LIBFABRIC)
         oomph_libfabric_add_config_define_namespace(
             DEFINE HAVE_LIBFABRIC_CXI
             NAMESPACE libfabric)
+    elseif(OOMPH_LIBFABRIC_PROVIDER MATCHES "efa")
+        oomph_libfabric_add_config_define_namespace(
+            DEFINE HAVE_LIBFABRIC_EFA
+            NAMESPACE libfabric)
     elseif(OOMPH_LIBFABRIC_PROVIDER MATCHES "tcp")
         oomph_libfabric_add_config_define_namespace(
             DEFINE HAVE_LIBFABRIC_TCP
@@ -134,7 +139,6 @@ if (OOMPH_WITH_LIBFABRIC)
     #------------------------------------------------------------------------------
     set(OOMPH_LIBFABRIC_WITH_PERFORMANCE_COUNTERS OFF BOOL
         STRING "Enable libfabric parcelport performance counters (default: OFF)")
-    set_property(CACHE OOMPH_LIBFABRIC_PROVIDER PROPERTY STRINGS "tcp" "sockets" "psm2" "verbs" "gni")
     mark_as_advanced(OOMPH_LIBFABRIC_WITH_PERFORMANCE_COUNTERS)
 
     if (OOMPH_LIBFABRIC_WITH_PERFORMANCE_COUNTERS)

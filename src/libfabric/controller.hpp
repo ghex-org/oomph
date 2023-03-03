@@ -90,6 +90,8 @@ class controller : public controller_base<controller>
     constexpr uint64_t caps_flags() {
 #if defined(HAVE_LIBFABRIC_CXI)
         return FI_MSG | FI_TAGGED | FI_HMEM;
+#elif defined(HAVE_LIBFABRIC_EFA)
+//        return FI_MSG | FI_TAGGED | FI_HMEM;
 #endif
         return FI_MSG | FI_TAGGED;
     }

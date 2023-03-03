@@ -252,7 +252,7 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
 
 TEST_F(mpi_test_fixture, send_recv)
 {
-    launch_test(test_send_recv<test_environment_device>);
+    launch_test(test_send_recv<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv<test_environment_device>);
 #endif
@@ -319,7 +319,7 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
 
 TEST_F(mpi_test_fixture, send_recv_cb)
 {
-    launch_test(test_send_recv_cb<test_environment_device>);
+    launch_test(test_send_recv_cb<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb<test_environment_device>);
 #endif
@@ -395,7 +395,7 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
 
 TEST_F(mpi_test_fixture, send_recv_cb_disown)
 {
-    launch_test(test_send_recv_cb_disown<test_environment_device>);
+    launch_test(test_send_recv_cb_disown<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb_disown<test_environment_device>);
 #endif
@@ -477,7 +477,7 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
 
 TEST_F(mpi_test_fixture, send_shared_recv_cb_disown)
 {
-    launch_test(test_send_shared_recv_cb_disown<test_environment_device>);
+    launch_test(test_send_shared_recv_cb_disown<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_shared_recv_cb_disown<test_environment_device>);
 #endif
@@ -533,7 +533,7 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
 
 TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
 {
-    launch_test(test_send_recv_cb_resubmit<test_environment_device>);
+    launch_test(test_send_recv_cb_resubmit<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb_resubmit<test_environment_device>);
 #endif
@@ -592,7 +592,7 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
 
 TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
 {
-    launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
+    launch_test(test_send_recv_cb_resubmit_disown<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
 #endif

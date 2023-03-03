@@ -20,12 +20,11 @@
 #include <utility>
 //
 #include "libfabric_defines.hpp"
-#include "cuda.h"
 
 namespace NS_MEMORY
 {
 
-static NS_DEBUG::enable_print<true> mrn_deb("REGION_");
+static NS_DEBUG::enable_print<false> mrn_deb("REGION_");
 
 /*
 struct fi_mr_attr {
@@ -70,7 +69,7 @@ struct region_provider
         uint8_t *auth_key = nullptr;
         fi_mr_attr attr{ &addresses, 1, access, offset, request_key, context, auth_key_size, auth_key, FI_HMEM_SYSTEM, {0} };
 
-        if (device_id>=0) {
+        if (device_id>0) {
             attr.iface       = FI_HMEM_CUDA;
             attr.device.cuda = device_id;
 #ifdef CUDA_HANDLE
