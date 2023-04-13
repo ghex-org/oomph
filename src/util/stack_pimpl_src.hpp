@@ -88,11 +88,4 @@ stack_pimpl<T, B, A>::get() const noexcept
 } // namespace util
 } // namespace oomph
 
-#define OOMPH_INSTANTIATE_STACK_PIMPL(T, B, A)                                                     \
-    namespace oomph                                                                                \
-    {                                                                                              \
-    namespace util                                                                                 \
-    {                                                                                              \
-    template class stack_pimpl<T, B, A>;                                                           \
-    }                                                                                              \
-    }
+#define OOMPH_INSTANTIATE_STACK_PIMPL(T, B, A) template class ::oomph::util::stack_pimpl<T,B,A>;

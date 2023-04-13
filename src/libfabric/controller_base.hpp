@@ -173,7 +173,7 @@ libfabric_rendezvous_threshold(int def_val)
     if (env_str != nullptr) {
         try
         {
-            char *end;
+            char* end;
             return std::strtoul(env_str, &end, 0);
         }
         catch (...)
@@ -192,11 +192,12 @@ libfabric_rendezvous_threshold(int def_val)
 #define OOMPH_GNI_REG "internal"
 //#define OOMPH_GNI_REG "udreg"
 
-std::vector<std::pair<int,std::string>> gni_strs = {
+std::vector<std::pair<int, std::string>> gni_strs = {
     {GNI_MR_CACHE, "GNI_MR_CACHE"},
 };
 
-std::vector<std::pair<int,std::string>> gni_ints = {
+// clang-format off
+std::vector<std::pair<int, std::string>> gni_ints = {
     {GNI_MR_CACHE_LAZY_DEREG, "GNI_MR_CACHE_LAZY_DEREG"},
     {GNI_MR_HARD_REG_LIMIT, "GNI_MR_HARD_REG_LIMIT"},
     {GNI_MR_SOFT_REG_LIMIT, "GNI_MR_SOFT_REG_LIMIT"},
@@ -222,6 +223,7 @@ std::vector<std::pair<int,std::string>> gni_ints = {
     {GNI_XPMEM_ENABLE, "GNI_XPMEM_ENABLE"},
     {GNI_DGRAM_PROGRESS_TIMEOUT, "GNI_DGRAM_PROGRESS_TIMEOUT"}
 };
+// clang-format on
 #endif
 
 #define LIBFABRIC_FI_VERSION_MAJOR 1
@@ -231,7 +233,7 @@ namespace NS_DEBUG
 {
 // cppcheck-suppress ConfigurationNotChecked
 static NS_DEBUG::enable_print<false> cnb_deb("CONBASE");
-static NS_DEBUG::enable_print<true>  cnb_err("CONBASE");
+static NS_DEBUG::enable_print<true> cnb_err("CONBASE");
 } // namespace NS_DEBUG
 
 /** @brief a class to return the number of progressed callbacks */
@@ -547,7 +549,7 @@ class controller_base
         DEBUG(NS_DEBUG::cnb_err,
             debug(debug::str<>("Poll completions"), debug::dec<3>(max_completions_per_poll_)));
 
-        uint32_t default_val = (threads==1) ? 0x400 : 0x4000;
+        uint32_t default_val = (threads == 1) ? 0x400 : 0x4000;
         msg_rendezvous_threshold_ = libfabric_rendezvous_threshold(default_val);
         DEBUG(NS_DEBUG::cnb_err,
             debug(debug::str<>("Rendezvous threshold"), debug::hex<4>(msg_rendezvous_threshold_)));
@@ -582,9 +584,8 @@ class controller_base
             // it appears that the rx endpoint cannot be enabled if it does not
             // have a Tx CQ (at least when using sockets), so we create a dummy
             // Tx CQ and bind it just to stop libfabric from triggering an error.
-            // The tx_cq won't actually be used because the call to
-            // get endpoint will return another endpoint with the correct
-            // cq bound to it
+            // The tx_cq won't actually be used because the user will get the real
+            // tx endpoint which will have the correct cq bound to it
             auto dummy_cq = bind_tx_queue_to_rx_endpoint(fabric_info_, eps_->ep_rx_.get_ep());
             eps_->ep_rx_.set_tx_cq(dummy_cq);
 #endif
@@ -624,6 +625,9 @@ class controller_base
             DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("scalable endpoint ok"),
                                          "Contexts allocated", debug::dec<4>(threads_allocated)));
 
+            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
+                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
+
             // prepare the stack for insertions
             tx_endpoints_.reserve(threads_allocated);
             //
@@ -652,9 +656,6 @@ class controller_base
                 tx_endpoints_.push(tx);
             }
 
-            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
-                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
-
             eps_->ep_tx_ = endpoint_wrapper(ep_sx, nullptr, nullptr, "rx scalable");
         }
 
@@ -663,80 +664,78 @@ class controller_base
         here_ = get_endpoint_address(&eps_->ep_rx_.get_ep()->fid);
         DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), iplocality(here_)));
 
+        //        // if we are using scalable endpoints, then setup tx/rx contexts
+        //        // we will us a single endpoint for all Tx/Rx contexts
+        //        if (endpoint_type_ == endpoint_type::scalableTx ||
+        //            endpoint_type_ == endpoint_type::scalableTxRx)
+        //        {
 
-//        // if we are using scalable endpoints, then setup tx/rx contexts
-//        // we will us a single endpoint for all Tx/Rx contexts
-//        if (endpoint_type_ == endpoint_type::scalableTx ||
-//            endpoint_type_ == endpoint_type::scalableTxRx)
-//        {
+        //            // thread slots might not be same as what we asked for
+        //            size_t threads_allocated = 0;
+        //            auto   ep_sx = new_endpoint_scalable(fabric_domain_, fabric_info_, true /*Tx*/, threads,
+        //                  threads_allocated);
+        //            if (!ep_sx)
+        //                throw NS_LIBFABRIC::fabric_error(FI_EOTHER, "fi_scalable endpoint creation failed");
 
-//            // thread slots might not be same as what we asked for
-//            size_t threads_allocated = 0;
-//            auto   ep_sx = new_endpoint_scalable(fabric_domain_, fabric_info_, true /*Tx*/, threads,
-//                  threads_allocated);
-//            if (!ep_sx)
-//                throw NS_LIBFABRIC::fabric_error(FI_EOTHER, "fi_scalable endpoint creation failed");
+        //            DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("scalable endpoint ok"),
+        //                                         "Contexts allocated", debug::dec<4>(threads_allocated)));
 
-//            DEBUG(NS_DEBUG::cnb_deb, trace(debug::str<>("scalable endpoint ok"),
-//                                         "Contexts allocated", debug::dec<4>(threads_allocated)));
+        //            // prepare the stack for insertions
+        //            tx_endpoints_.reserve(threads_allocated);
+        //            rx_endpoints_.reserve(threads_allocated);
+        //            //
+        //            for (unsigned int i = 0; i < threads_allocated; i++)
+        //            {
+        //                [[maybe_unused]] auto scp =
+        //                    NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), "scalable", debug::dec<4>(i));
 
-//            // prepare the stack for insertions
-//            tx_endpoints_.reserve(threads_allocated);
-//            rx_endpoints_.reserve(threads_allocated);
-//            //
-//            for (unsigned int i = 0; i < threads_allocated; i++)
-//            {
-//                [[maybe_unused]] auto scp =
-//                    NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), "scalable", debug::dec<4>(i));
+        //                // For threadlocal/scalable endpoints, tx/rx resources
+        //                fid_ep* scalable_ep_tx;
+        //                fid_cq* scalable_cq_tx;
+        ////                fid_ep* scalable_ep_rx;
+        ////                fid_cq* scalable_cq_rx;
 
-//                // For threadlocal/scalable endpoints, tx/rx resources
-//                fid_ep* scalable_ep_tx;
-//                fid_cq* scalable_cq_tx;
-////                fid_ep* scalable_ep_rx;
-////                fid_cq* scalable_cq_rx;
+        //                // Tx context setup
+        //                finvoke("create tx context", "fi_tx_context",
+        //                    fi_tx_context(ep_sx, i, NULL, &scalable_ep_tx, NULL));
 
-//                // Tx context setup
-//                finvoke("create tx context", "fi_tx_context",
-//                    fi_tx_context(ep_sx, i, NULL, &scalable_ep_tx, NULL));
+        //                scalable_cq_tx = create_completion_queue(fabric_domain_,
+        //                    fabric_info_->tx_attr->size, "tx scalable");
 
-//                scalable_cq_tx = create_completion_queue(fabric_domain_,
-//                    fabric_info_->tx_attr->size, "tx scalable");
+        //                bind_queue_to_endpoint(scalable_ep_tx, scalable_cq_tx, FI_TRANSMIT, "tx scalable");
 
-//                bind_queue_to_endpoint(scalable_ep_tx, scalable_cq_tx, FI_TRANSMIT, "tx scalable");
+        //                enable_endpoint(scalable_ep_tx, "tx scalable");
 
-//                enable_endpoint(scalable_ep_tx, "tx scalable");
+        //                endpoint_wrapper tx(scalable_ep_tx, nullptr, scalable_cq_tx, "tx scalable");
+        //                DEBUG(NS_DEBUG::cnb_deb,
+        //                    trace(debug::str<>("Scalable Ep"), "initial tx push", "ep",
+        //                        NS_DEBUG::ptr(tx.get_ep()), "tx cq", NS_DEBUG::ptr(tx.get_tx_cq()), "rx cq",
+        //                        NS_DEBUG::ptr(tx.get_rx_cq())));
+        //                tx_endpoints_.push(tx);
 
-//                endpoint_wrapper tx(scalable_ep_tx, nullptr, scalable_cq_tx, "tx scalable");
-//                DEBUG(NS_DEBUG::cnb_deb,
-//                    trace(debug::str<>("Scalable Ep"), "initial tx push", "ep",
-//                        NS_DEBUG::ptr(tx.get_ep()), "tx cq", NS_DEBUG::ptr(tx.get_tx_cq()), "rx cq",
-//                        NS_DEBUG::ptr(tx.get_rx_cq())));
-//                tx_endpoints_.push(tx);
+        //                // Rx contexts
+        ////                finvoke("create rx context", "fi_rx_context",
+        ////                    fi_rx_context(ep_sx, i, NULL, &scalable_ep_rx, NULL));
 
-//                // Rx contexts
-////                finvoke("create rx context", "fi_rx_context",
-////                    fi_rx_context(ep_sx, i, NULL, &scalable_ep_rx, NULL));
+        ////                scalable_cq_rx =
+        ////                    create_completion_queue(fabric_domain_, fabric_info_->rx_attr->size, "rx");
 
-////                scalable_cq_rx =
-////                    create_completion_queue(fabric_domain_, fabric_info_->rx_attr->size, "rx");
+        ////                bind_queue_to_endpoint(scalable_ep_rx, scalable_cq_rx, FI_RECV, "rx scalable");
 
-////                bind_queue_to_endpoint(scalable_ep_rx, scalable_cq_rx, FI_RECV, "rx scalable");
+        ////                enable_endpoint(scalable_ep_rx, "rx scalable");
 
-////                enable_endpoint(scalable_ep_rx, "rx scalable");
+        ////                endpoint_wrapper rx(scalable_ep_rx, scalable_cq_rx, nullptr, "rx scalable");
+        ////                DEBUG(NS_DEBUG::cnb_deb,
+        ////                    trace(debug::str<>("Scalable Ep"), "initial rx push", "ep",
+        ////                        NS_DEBUG::ptr(rx.get_ep()), "tx cq", NS_DEBUG::ptr(rx.get_tx_cq()), "rx cq",
+        ////                        NS_DEBUG::ptr(rx.get_rx_cq())));
+        ////                rx_endpoints_.push(rx);
+        //            }
 
-////                endpoint_wrapper rx(scalable_ep_rx, scalable_cq_rx, nullptr, "rx scalable");
-////                DEBUG(NS_DEBUG::cnb_deb,
-////                    trace(debug::str<>("Scalable Ep"), "initial rx push", "ep",
-////                        NS_DEBUG::ptr(rx.get_ep()), "tx cq", NS_DEBUG::ptr(rx.get_tx_cq()), "rx cq",
-////                        NS_DEBUG::ptr(rx.get_rx_cq())));
-////                rx_endpoints_.push(rx);
-//            }
+        //            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
+        //                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
 
-//            finvoke("fi_scalable_ep_bind AV", "fi_scalable_ep_bind",
-//                fi_scalable_ep_bind(ep_sx, &av_->fid, 0));
-
-//            eps_->ep_tx_ = endpoint_wrapper(ep_sx, nullptr, nullptr, "rx scalable");
-
+        //            eps_->ep_tx_ = endpoint_wrapper(ep_sx, nullptr, nullptr, "rx scalable");
 
         return static_cast<Derived*>(this)->initialize_derived(provider, rootnode, size, threads,
             std::forward<Args>(args)...);
@@ -749,6 +748,21 @@ class controller_base
     constexpr fi_threading threadlevel_flags()
     {
         return static_cast<Derived*>(this)->threadlevel_flags();
+    }
+
+    // --------------------------------------------------------------------
+    constexpr int memory_registration_mode_flags()
+    {
+        // use basic registration for providers except CXI
+        int base_flags =
+            FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY | FI_MR_LOCAL | FI_MR_MMU_NOTIFY;
+#if defined(HAVE_LIBFABRIC_CXI)
+        return base_flags | FI_MR_ENDPOINT | FI_MR_HMEM;
+#elif defined(HAVE_LIBFABRIC_GNI)
+        return FI_MR_BASIC; // FI_MR_SCALABLE one day?;
+#else
+        return FI_MR_BASIC;
+#endif
     }
 
     // --------------------------------------------------------------------
@@ -790,15 +804,8 @@ class controller_base
         DEBUG(NS_DEBUG::cnb_deb,
             debug(debug::str<>("fabric provider"), fabric_hints_->fabric_attr->prov_name));
 
-        // use infiniband type basic registration for now
-#if defined(HAVE_LIBFABRIC_CXI)
-        fabric_hints_->domain_attr->mr_mode = FI_MR_ENDPOINT;
-#elif defined(HAVE_LIBFABRIC_GNI)
-        fabric_hints_->domain_attr->mr_mode = FI_MR_BASIC;
-#else
-        fabric_hints_->domain_attr->mr_mode = FI_MR_BASIC;
-//            fabric_hints_->domain_attr->mr_mode = FI_MR_SCALABLE;
-#endif
+        fabric_hints_->domain_attr->mr_mode = memory_registration_mode_flags();
+
         // Enable/Disable the use of progress threads
         auto progress = libfabric_progress_type();
         fabric_hints_->domain_attr->control_progress = progress;
@@ -844,8 +851,15 @@ class controller_base
         bool context = (fabric_hints_->mode & FI_CONTEXT) != 0;
         DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_CONTEXT"), context));
 
-        bool mrlocal = (fabric_hints_->mode & FI_MR_LOCAL) != 0;
+        bool mrlocal = (fabric_hints_->domain_attr->mr_mode & FI_MR_LOCAL) != 0;
         DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_LOCAL"), mrlocal));
+
+        bool mrbind = (fabric_hints_->domain_attr->mr_mode & FI_MR_ENDPOINT) != 0;
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_ENDPOINT"), mrbind));
+
+        /* Check if provider requires heterogeneous memory registration */
+        bool mrhmem = (fabric_hints_->domain_attr->mr_mode & FI_MR_HMEM) != 0;
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_HMEM"), mrhmem));
 
         DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Creating fi_fabric")));
         ret = fi_fabric(fabric_info_->fabric_attr, &fabric_, nullptr);
@@ -928,17 +942,17 @@ class controller_base
 
     // if set is false, the old value is returned and nothing is set
     template<typename T>
-    int _set_check_domain_op_value(int op, T value, const char* info, bool set=true)
+    int _set_check_domain_op_value(int op, T value, const char* info, bool set = true)
     {
         [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
         static struct fi_gni_ops_domain* gni_domain_ops = nullptr;
-        int ret = 0;
+        int                              ret = 0;
 
         if (gni_domain_ops == nullptr) {
             ret = fi_open_ops(&fabric_domain_->fid, FI_GNI_DOMAIN_OPS_1, 0, (void**)&gni_domain_ops,
                 nullptr);
             DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("gni open ops"), (ret == 0 ? "OK" : "FAIL"),
-                                     NS_DEBUG::ptr(gni_domain_ops)));
+                                         NS_DEBUG::ptr(gni_domain_ops)));
         }
 
         // if open was ok and set flag is present, then set value
@@ -992,6 +1006,8 @@ class controller_base
                                                   "endpoints?)");
         }
         fi_freeinfo(hints);
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("new_endpoint_active"), NS_DEBUG::ptr(ep)));
         return ep;
     }
 
@@ -1036,7 +1052,8 @@ class controller_base
         struct fid_ep* ep;
         ret = fi_scalable_ep(domain, new_hints, &ep, nullptr);
         if (ret) throw NS_LIBFABRIC::fabric_error(ret, "fi_scalable_ep");
-
+        DEBUG(NS_DEBUG::cnb_deb,
+            debug(debug::str<>("new_endpoint_scalable"), NS_DEBUG::ptr(ep)));
         fi_freeinfo(hints);
         return ep;
     }
@@ -1150,7 +1167,7 @@ class controller_base
     {
         [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
 
-        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding AV")));
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding AV"), "to", NS_DEBUG::ptr(endpoint)));
         int ret = fi_ep_bind(endpoint, &av->fid, 0);
         if (ret) throw NS_LIBFABRIC::fabric_error(ret, "bind address_vector");
     }
@@ -1161,7 +1178,7 @@ class controller_base
     {
         [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__, type);
 
-        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding CQ")));
+        DEBUG(NS_DEBUG::cnb_deb, debug(debug::str<>("Binding CQ"), "to", NS_DEBUG::ptr(endpoint), type));
         int ret = fi_ep_bind(endpoint, &cq->fid, cqtype);
         if (ret) throw NS_LIBFABRIC::fabric_error(ret, "bind cq");
     }

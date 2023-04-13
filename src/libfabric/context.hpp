@@ -61,10 +61,16 @@ class context_impl : public context_base
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
-    region_type make_region(void* const ptr,
-        std::size_t                     size /*, hwmalloc::registration_flags flags*/)
+    region_type make_region(void* const ptr, std::size_t size, bool device)
     {
-        return oomph::libfabric::memory_segment(m_domain, ptr, size /*, flags*/);
+        bool bind_mr = ((m_controller->memory_registration_mode_flags() & FI_MR_ENDPOINT) != 0);
+        if (bind_mr) {
+            void *endpoint = m_controller->get_rx_endpoint().get_ep();
+            return oomph::libfabric::memory_segment(m_domain, ptr, size, bind_mr, endpoint);
+        }
+        else {
+            return oomph::libfabric::memory_segment(m_domain, ptr, size, false, nullptr);
+        }
     }
 
     auto& get_heap() noexcept { return m_heap; }
@@ -132,15 +138,15 @@ template<>
 inline oomph::libfabric::memory_segment
 register_memory<oomph::context_impl>(oomph::context_impl& c, void* const ptr, std::size_t size)
 {
-    return c.make_region(ptr, size /*, flags*/);
+    return c.make_region(ptr, size, false);
 }
 
 #if OOMPH_ENABLE_DEVICE
 template<>
-inline region
-register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+oomph::libfabric::memory_segment
+register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t size)
 {
-    return c.make_region(ptr);
+    return c.make_region(ptr, size, true);
 }
 #endif
 

@@ -231,7 +231,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         // clang-format on
 
         send_tagged_region(reg, size, fi_addr_t(dst), stag, &(s->m_operation_context));
-        m_context->get_controller()->poll_send_queue(m_tx_endpoint.get_tx_cq(), this);
         return {std::move(s)};
     }
 
@@ -274,7 +273,6 @@ class communicator_impl : public communicator_base<communicator_impl>
         // clang-format on
 
         recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
-        m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
         return {std::move(s)};
     }
 

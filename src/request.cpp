@@ -31,7 +31,7 @@ send_request::is_ready() const noexcept
 bool
 send_request::test()
 {
-    if (!m) return true;
+    if (!m || m->is_ready()) return true;
     m->progress();
     return m->is_ready();
 }
@@ -60,7 +60,7 @@ recv_request::is_canceled() const noexcept
 bool
 recv_request::test()
 {
-    if (!m) return true;
+    if (!m || m->is_ready()) return true;
     m->progress();
     return m->is_ready();
 }
@@ -97,7 +97,7 @@ shared_recv_request::is_canceled() const noexcept
 bool
 shared_recv_request::test()
 {
-    if (!m) return true;
+    if (!m || m->is_ready()) return true;
     m->progress();
     return m->is_ready();
 }

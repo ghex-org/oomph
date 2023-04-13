@@ -179,8 +179,12 @@ class controller : public controller_base<controller>
     // --------------------------------------------------------------------
     inline constexpr bool bypass_tx_lock()
     {
-#if defined(HAVE_LIBFABRIC_GNI) || defined(HAVE_LIBFABRIC_CXI)
+#if defined(HAVE_LIBFABRIC_GNI)
         return true;
+#elif defined(HAVE_LIBFABRIC_CXI)
+        // @todo : cxi provider is not yet thread safe using scalable endpoints
+        return (threadlevel_flags() == FI_THREAD_SAFE ||
+                endpoint_type_ == endpoint_type::threadlocalTx);
 #else
         return (threadlevel_flags() == FI_THREAD_SAFE ||
                 endpoint_type_ == endpoint_type::threadlocalTx);

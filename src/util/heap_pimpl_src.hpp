@@ -94,11 +94,4 @@ heap_pimpl<T>::get() const noexcept
 } // namespace util
 } // namespace oomph
 
-#define OOMPH_INSTANTIATE_HEAP_PIMPL(T)                                                            \
-    namespace oomph                                                                                \
-    {                                                                                              \
-    namespace util                                                                                 \
-    {                                                                                              \
-    template class heap_pimpl<T>;                                                                  \
-    }                                                                                              \
-    }
+#define OOMPH_INSTANTIATE_HEAP_PIMPL(T) template class ::oomph::util::heap_pimpl<T>;
