@@ -172,11 +172,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     // --------------------------------------------------------------------
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag.get(), this->rank());
+        std::uint64_t         stag = make_tag64(tag, this->rank());
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -196,13 +196,13 @@ class communicator_impl : public communicator_base<communicator_impl>
             if (!has_reached_recursion_depth())
             {
                 auto inc = recursion();
-                cb(dst, tag.unwrap());
+                cb(dst, tag);
                 return {};
             }
             else
             {
                 // construct request which is also an operation context
-                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(),
+                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag,
                     std::move(cb));
                 s->create_self_ref();
                 while (!m_send_cb_queue.push(s.get())) {}
@@ -212,7 +212,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         // construct request which is also an operation context
         auto s =
-            m_req_state_factory.make(m_context, this, scheduled, dst, tag.unwrap(), std::move(cb));
+            m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
         s->create_self_ref();
 
         // clang-format off
@@ -220,8 +220,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             debug(NS_DEBUG::str<>("Send"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(dst),
-                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
-                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
+                  "tag", tag_disp(std::uint64_t(tag)),
+                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
@@ -236,11 +236,11 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        oomph::util::wrapped_tag tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
+        oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag.get(), src);
+        std::uint64_t         stag = make_tag64(tag, src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -255,7 +255,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         // construct request which is also an operation context
         auto s =
-            m_req_state_factory.make(m_context, this, scheduled, src, tag.unwrap(), std::move(cb));
+            m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb));
         s->create_self_ref();
 
         // clang-format off
@@ -263,8 +263,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             debug(NS_DEBUG::str<>("Recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
-                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
+                  "tag", tag_disp(std::uint64_t(tag)),
+                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
@@ -279,12 +279,12 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
-        rank_type src, oomph::util::wrapped_tag tag,
+        rank_type src, oomph::tag_type tag,
         util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::atomic<std::size_t>*                                 scheduled)
     {
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag.get(), src);
+        std::uint64_t         stag = make_tag64(tag, src);
 
         auto& reg = ptr.handle_ref();
 #ifdef EXTRA_SIZE_CHECKS
@@ -299,7 +299,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         // construct request which is also an operation context
         auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
-            tag.unwrap(), std::move(cb));
+            tag, std::move(cb));
         s->create_self_ref();
 
         // clang-format off
@@ -307,8 +307,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             debug(NS_DEBUG::str<>("Recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag.unwrap())),
-                  "wrapped tag", tag_disp(std::uint64_t(tag.get())),
+                  "tag", tag_disp(std::uint64_t(tag)),
+                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
                   "addr", NS_DEBUG::ptr(reg.get_address()),
                   "size", NS_DEBUG::hex<6>(size),
