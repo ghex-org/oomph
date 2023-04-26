@@ -26,12 +26,12 @@ MODULE oomph_mod
        use iso_c_binding
      end subroutine oomph_finalize
 
-#ifdef OOMPH_ENABLE_BARRIER
+!#if OOMPH_ENABLE_BARRIER
      subroutine oomph_barrier(type) bind(c)
        use iso_c_binding
        integer(c_int), value :: type
      end subroutine oomph_barrier
-#endif
+!#endif
   end interface
 
 END MODULE oomph_mod

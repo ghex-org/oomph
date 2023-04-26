@@ -1,7 +1,12 @@
 find_package(OpenMP REQUIRED)
 
 # list of tests to be executed
-set(parallel_tests_f context_f message_f barrier_f send_recv_ft_f send_recv_cb_f)
+set(parallel_tests_f
+    context_f
+    message_f
+    barrier_f
+    send_recv_ft_f
+    send_recv_cb_f)
     #send_multi_f
     #send_multi_2_f)
 

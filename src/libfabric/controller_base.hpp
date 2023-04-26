@@ -754,9 +754,9 @@ class controller_base
     constexpr int memory_registration_mode_flags()
     {
         // use basic registration for providers except CXI
+#if defined(HAVE_LIBFABRIC_CXI)
         int base_flags =
             FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY | FI_MR_LOCAL | FI_MR_MMU_NOTIFY;
-#if defined(HAVE_LIBFABRIC_CXI)
         return base_flags | FI_MR_ENDPOINT | FI_MR_HMEM;
 #elif defined(HAVE_LIBFABRIC_GNI)
         return FI_MR_BASIC; // FI_MR_SCALABLE one day?;

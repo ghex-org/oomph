@@ -17,7 +17,7 @@
 namespace
 {
 oomph::context* oomph_context;
-#ifdef OOMPH_ENABLE_BARRIER
+#if OOMPH_ENABLE_BARRIER
 oomph::barrier* oomph_barrier_obj = nullptr;
 #endif
 }
@@ -31,12 +31,16 @@ get_context()
 {
     return *oomph_context;
 }
-#ifdef OOMPH_ENABLE_BARRIER
+#if OOMPH_ENABLE_BARRIER
+
+#pragma message "barrier is enabled"
     oomph::barrier&
     barrier()
     {
         return *oomph_barrier_obj;
     }
+#else
+#pragma message "barrier is disabled"
 #endif
     int nthreads = 1;
 } // namespace fort
@@ -49,7 +53,7 @@ oomph_init(int nthreads, MPI_Fint fcomm)
     MPI_Comm ccomm = MPI_Comm_f2c(fcomm);
     oomph_context = new oomph::context{ccomm, nthreads > 1};
     oomph::fort::nthreads = nthreads;
-#ifdef OOMPH_ENABLE_BARRIER
+#if OOMPH_ENABLE_BARRIER
     oomph_barrier_obj = new oomph::barrier(*oomph_context, nthreads);
 #endif
 }
@@ -58,7 +62,7 @@ extern "C" void
 oomph_finalize()
 {
     delete oomph_context;
-#ifdef OOMPH_ENABLE_BARRIER
+#if OOMPH_ENABLE_BARRIER
     delete oomph_barrier_obj;
 #endif
 }
@@ -75,7 +79,7 @@ oomph_get_ncpus()
     return get_nprocs_conf();
 }
 
-#ifdef OOMPH_ENABLE_BARRIER
+#if OOMPH_ENABLE_BARRIER
 extern "C" void
 oomph_barrier(int type)
 {

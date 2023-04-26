@@ -25,7 +25,7 @@ function(oomph_target_compile_options target)
         # flags for CXX builds
         $<${cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra>>
         $<${cxx_lang_gnu}:$<BUILD_INTERFACE:-Wpedantic -Wno-unknown-pragmas 
-            -Wno-unused-local-typedef>>
+            -Wno-unused-local-typedefs>>
         $<${cxx_lang_clang}:$<BUILD_INTERFACE:-Wno-c++17-extensions -Wno-unused-lambda-capture>>
         $<${cxx_lang_intel}:$<BUILD_INTERFACE:-Wno-unknown-pragmas>>
         # flags for CUDA builds

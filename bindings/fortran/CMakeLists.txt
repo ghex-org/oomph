@@ -7,9 +7,9 @@ target_include_directories(oomph_f PRIVATE
     $<INSTALL_INTERFACE:..>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../..>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>)
-if (OOMPH_ENABLE_BARRIER)
-    target_compile_definitions(oomph_f PRIVATE OOMPH_ENABLE_BARRIER)
-endif()
+#if (OOMPH_ENABLE_BARRIER)
+#    target_compile_definitions(oomph_f PRIVATE OOMPH_ENABLE_BARRIER)
+#endif()
 
 oomph_target_compile_options(oomph_f)
 target_link_libraries(oomph_f PRIVATE oomph_common)
