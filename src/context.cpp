@@ -18,6 +18,7 @@
 #include <../util/heap_pimpl_src.hpp>
 
 OOMPH_INSTANTIATE_HEAP_PIMPL(oomph::context_impl)
+OOMPH_INSTANTIATE_HEAP_PIMPL(oomph::detail::message_buffer::heap_ptr_impl)
 
 namespace oomph
 {
