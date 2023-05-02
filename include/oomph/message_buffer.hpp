@@ -31,7 +31,7 @@ class message_buffer
   private:
     friend class context;
     friend class communicator;
-    friend class detail::communicator_state;
+    friend struct detail::communicator_state;
 
   private:
     detail::message_buffer m;

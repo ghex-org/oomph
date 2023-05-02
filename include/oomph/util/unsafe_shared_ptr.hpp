@@ -186,7 +186,7 @@ template<typename D>
 class enable_shared_from_this
 {
     template<typename T, typename Alloc>
-    friend class detail::control_block_impl;
+    friend struct detail::control_block_impl;
 
   private:
     detail::control_block<D>* _shared_from_this_cb = nullptr;
