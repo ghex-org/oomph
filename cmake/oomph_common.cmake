@@ -45,7 +45,7 @@ endfunction()
 function(oomph_shared_lib_options target)
     oomph_target_compile_options(${target})
     oomph_target_link_options(${target})
-    target_link_libraries(${target} PUBLIC hwmalloc)
+    target_link_libraries(${target} PUBLIC HWMALLOC::hwmalloc)
 endfunction()
 
 # ---------------------------------------------------------------------

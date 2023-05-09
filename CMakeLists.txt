@@ -34,7 +34,7 @@ include(ext)
 # ---------------------------------------------------------------------
 add_library(oomph INTERFACE)
 add_library(oomph::oomph ALIAS oomph)
-target_link_libraries(oomph INTERFACE hwmalloc)
+target_link_libraries(oomph INTERFACE HWMALLOC::hwmalloc)
 include(oomph_common)
 
 # ---------------------------------------------------------------------
