@@ -29,14 +29,15 @@ jobs:
             -DOOMPH_GIT_SUBMODULE=OFF \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
             -DOOMPH_WITH_TESTING=ON \
+            -DOOMPH_WITH_BENCHMARKS=ON \
+            -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_WITH_MPI=ON \
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_BENCHMARKS=ON \
-            -DOOMPH_BENCHMARKS_MT=ON \
-            -DOOMPH_USE_FAST_PIMPL=ON \
-            -DOOMPH_USE_GPU=OFF \
+            -DOOMPH_WITH_LIBFABRIC=OFF \
+            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
@@ -65,16 +66,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DOOMPH_GIT_SUBMODULE=OFF \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
+            -DHWMALLOC_ENABLE_DEVICE=ON \
+            -DHWMALLOC_DEVICE_RUNTIME=hip \
             -DOOMPH_WITH_TESTING=ON \
+            -DOOMPH_WITH_BENCHMARKS=ON \
+            -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_WITH_MPI=ON \
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_BENCHMARKS=ON \
-            -DOOMPH_BENCHMARKS_MT=ON \
-            -DOOMPH_USE_FAST_PIMPL=ON \
-            -DHWMALLOC_ENABLE_DEVICE=ON \
-            -DHWMALLOC_DEVICE_RUNTIME=hip \
+            -DOOMPH_WITH_LIBFABRIC=OFF \
+            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
@@ -101,16 +104,18 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DOOMPH_GIT_SUBMODULE=OFF \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
+            -DHWMALLOC_ENABLE_DEVICE=ON \
+            -DHWMALLOC_DEVICE_RUNTIME=cuda \
             -DOOMPH_WITH_TESTING=ON \
+            -DOOMPH_WITH_BENCHMARKS=ON \
+            -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_WITH_MPI=ON \
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_BENCHMARKS=ON \
-            -DOOMPH_BENCHMARKS_MT=ON \
-            -DOOMPH_USE_FAST_PIMPL=ON \
-            -DHWMALLOC_ENABLE_DEVICE=ON \
-            -DHWMALLOC_DEVICE_RUNTIME=cuda \
+            -DOOMPH_WITH_LIBFABRIC=OFF \
+            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
