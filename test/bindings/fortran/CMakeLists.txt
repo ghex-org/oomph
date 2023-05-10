@@ -13,6 +13,7 @@ set(parallel_tests_f
 function(reg_parallel_test_f t_ lib n nthr)
     set(t ${t_}_${lib})
     add_executable(${t} test_${t_}.f90)
+    set_target_properties(${t} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${t}_Mod)
     oomph_target_compile_options(${t})
     set_target_properties(${t} PROPERTIES LINKER_LANGUAGE Fortran)
     target_link_libraries(${t} PRIVATE oomph_f)

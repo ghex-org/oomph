@@ -1,9 +1,8 @@
 add_executable(sizes sizes.cpp)
 target_link_libraries(sizes PRIVATE oomph)
 
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Mod)
-
 add_library(oomph_f SHARED)
+set_target_properties(oomph_f PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Mod)
 
 target_include_directories(oomph_f PRIVATE
     $<INSTALL_INTERFACE:..>
