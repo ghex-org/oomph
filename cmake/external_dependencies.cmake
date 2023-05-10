@@ -8,12 +8,12 @@ endif()
 # ---------------------------------------------------------------------
 # MPI setup
 # ---------------------------------------------------------------------
-find_package(MPI REQUIRED COMPONENTS CXX GLOBAL)
+find_package(MPI REQUIRED COMPONENTS CXX)
 
 # ---------------------------------------------------------------------
 # Boost setup
 # ---------------------------------------------------------------------
-find_package(Boost REQUIRED GLOBAL)
+find_package(Boost REQUIRED)
 
 # ---------------------------------------------------------------------
 # hwmalloc setup
@@ -21,11 +21,11 @@ find_package(Boost REQUIRED GLOBAL)
 cmake_dependent_option(OOMPH_USE_BUNDLED_HWMALLOC "Use bundled hwmalloc lib." ON
     "OOMPH_USE_BUNDLED_LIBS" OFF)
 if(OOMPH_USE_BUNDLED_HWMALLOC)
-    check_git_submodule(hwmalloc hwmalloc)
-    add_subdirectory(hwmalloc)
+    check_git_submodule(hwmalloc ext/hwmalloc)
+    add_subdirectory(ext/hwmalloc)
     add_library(HWMALLOC::hwmalloc ALIAS hwmalloc)
 else()
-    find_package(HWMALLOC REQUIRED GLOBAL)
+    find_package(HWMALLOC REQUIRED)
 endif()
 
 # ---------------------------------------------------------------------
@@ -33,7 +33,7 @@ endif()
 # ---------------------------------------------------------------------
 add_external_cmake_project(
     NAME googletest
-    PATH googletest
+    PATH ext/googletest
     INTERFACE_NAME ext-gtest
     LIBS libgtest.a libgtest_main.a
     CMAKE_ARGS
