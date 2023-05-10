@@ -1,5 +1,6 @@
 include(ExternalProject)
 include(git_submodule)
+include(error_target)
 
 # functionality for adding external projects
 # Arguments:

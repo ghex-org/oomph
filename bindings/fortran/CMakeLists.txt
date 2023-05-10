@@ -1,6 +1,8 @@
 add_executable(sizes sizes.cpp)
 target_link_libraries(sizes PRIVATE oomph)
 
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Mod)
+
 add_library(oomph_f SHARED)
 
 target_include_directories(oomph_f PRIVATE
@@ -43,11 +45,11 @@ install(TARGETS oomph_f
 
 install(
     FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/oomph_defs.mod
-        ${CMAKE_CURRENT_BINARY_DIR}/oomph_mod.mod
-        ${CMAKE_CURRENT_BINARY_DIR}/oomph_communicator_mod.mod
-        ${CMAKE_CURRENT_BINARY_DIR}/oomph_message_mod.mod
-        ${CMAKE_CURRENT_BINARY_DIR}/oomph_request_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/Mod/oomph_defs.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/Mod/oomph_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/Mod/oomph_communicator_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/Mod/oomph_message_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/Mod/oomph_request_mod.mod
     DESTINATION
         ${CMAKE_INSTALL_INCLUDEDIR}/oomph/bindings/fortran)
 

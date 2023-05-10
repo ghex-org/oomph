@@ -27,7 +27,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ---------------------------------------------------------------------
 option(OOMPH_GIT_SUBMODULE "Check submodules during build" ON)
 option(OOMPH_USE_BUNDLED_LIBS "Use bundled 3rd party libraries" OFF)
-include(ext)
+add_subdirectory(ext)
 
 # ---------------------------------------------------------------------
 # Define main oomph library
@@ -35,19 +35,9 @@ include(ext)
 add_library(oomph INTERFACE)
 add_library(oomph::oomph ALIAS oomph)
 target_link_libraries(oomph INTERFACE HWMALLOC::hwmalloc)
-include(oomph_common)
-
-# ---------------------------------------------------------------------
-# MPI setup
-# ---------------------------------------------------------------------
-find_package(MPI REQUIRED COMPONENTS CXX)
 target_link_libraries(oomph INTERFACE MPI::MPI_CXX)
-
-# ---------------------------------------------------------------------
-# Boost setup
-# ---------------------------------------------------------------------
-find_package(Boost REQUIRED)
 target_link_libraries(oomph INTERFACE Boost::boost)
+include(oomph_common)
 
 # ---------------------------------------------------------------------
 # include paths
