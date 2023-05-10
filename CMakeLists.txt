@@ -27,7 +27,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ---------------------------------------------------------------------
 option(OOMPH_GIT_SUBMODULE "Check submodules during build" ON)
 option(OOMPH_USE_BUNDLED_LIBS "Use bundled 3rd party libraries" OFF)
-include(external_dependencies)
+include(oomph_external_dependencies)
 
 # ---------------------------------------------------------------------
 # Define main oomph library

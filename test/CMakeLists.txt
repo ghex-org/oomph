@@ -1,5 +1,3 @@
-#include(gtest)
-
 add_subdirectory(mpi_runner)
 
 set(OOMPH_TEST_LEAK_GPU_MEMORY OFF CACHE BOOL "Do not free memory (bug on Piz Daint)")

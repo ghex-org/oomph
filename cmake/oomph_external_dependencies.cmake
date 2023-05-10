@@ -1,5 +1,5 @@
-include(git_submodule)
-include(external_project)
+include(oomph_git_submodule)
+include(oomph_external_project)
 
 if(OOMPH_GIT_SUBMODULE)
     update_git_submodules()
