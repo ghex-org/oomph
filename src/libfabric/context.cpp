@@ -84,4 +84,3 @@ context_impl::init_libfabric_controller(oomph::context_impl* /*ctx*/, MPI_Comm c
 }
 
 } // namespace oomph
-

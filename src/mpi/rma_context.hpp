@@ -82,4 +82,3 @@ register_device_memory<rma_context>(rma_context& c, void* ptr, std::size_t size)
 #endif
 
 } // namespace oomph
-

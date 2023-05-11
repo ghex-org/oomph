@@ -45,4 +45,3 @@ heap_pimpl<T> make_heap_pimpl(Args&&... args);
 
 } // namespace util
 } // namespace oomph
-

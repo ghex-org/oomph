@@ -112,4 +112,3 @@ operation_context::handle_tagged_send_completion_impl(void* user_data)
 }
 } // namespace libfabric
 } // namespace oomph
-
