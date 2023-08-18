@@ -1,9 +1,7 @@
 [submodule "ext/hwmalloc"]
 	path = ext/hwmalloc
-    #url = https://github.com/ghex-org/hwmalloc.git
-    #branch = master
-	url = https://github.com/boeschf/hwmalloc.git
-    branch = refactoring2
+    url = https://github.com/ghex-org/hwmalloc.git
+    branch = master
 [submodule "ext/googletest"]
 	path = ext/googletest
 	url = https://github.com/google/googletest.git
