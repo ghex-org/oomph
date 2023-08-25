@@ -1,33 +1,28 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
-#include <oomph/util/moved_bit.hpp>
-//#include "../../common/moved_bit.hpp"
-//#include "./error.hpp"
-#include "./endpoint.hpp"
-#include "./address_db.hpp"
-//#include "../util/pthread_spin_mutex.hpp"
-//#include "../mpi/rank_topology.hpp"
 #include <map>
 #include <deque>
 #include <unordered_map>
+
+#include <oomph/util/moved_bit.hpp>
+
+// paths relative to backend
+#include <endpoint.hpp>
+#include <address_db.hpp>
 
 namespace oomph
 {
 struct worker_t
 {
-    using rank_type = communicator::rank_type;
-    using tag_type = communicator::tag_type;
-
     struct ucp_worker_handle
     {
         ucp_worker_h    m_worker;

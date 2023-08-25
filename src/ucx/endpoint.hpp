@@ -1,18 +1,19 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
 #include <oomph/communicator.hpp>
 #include <oomph/util/moved_bit.hpp>
-#include "./address.hpp"
+
+// paths relative to backend
+#include <address.hpp>
 
 namespace oomph
 {
@@ -20,8 +21,6 @@ namespace oomph
 
 struct endpoint_t
 {
-    using rank_type = communicator::rank_type;
-
     rank_type       m_rank;
     ucp_ep_h        m_ep;
     ucp_worker_h    m_worker;

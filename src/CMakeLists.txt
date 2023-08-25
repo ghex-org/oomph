@@ -1,6 +1,15 @@
-target_sources(oomph_common PRIVATE utils.cpp)
-target_sources(oomph_common PRIVATE thread_id.cpp)
-target_sources(oomph_common PRIVATE rank_topology.cpp)
+
+add_subdirectory(common)
+
+set(oomph_sources
+    message_buffer.cpp
+    communicator.cpp
+    context.cpp
+    request.cpp
+    communicator_set.cpp
+    communicator_state.cpp
+    barrier.cpp
+)
 
 if (OOMPH_WITH_MPI)
     add_subdirectory(mpi)

@@ -1,12 +1,11 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2022, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -26,6 +25,10 @@
 // in our locality object.
 #ifdef HAVE_LIBFABRIC_GNI
 #define HAVE_LIBFABRIC_LOCALITY_SIZE 48
+#endif
+
+#ifdef HAVE_LIBFABRIC_CXI
+#define HAVE_LIBFABRIC_LOCALITY_SIZE 4
 #endif
 
 #if defined(HAVE_LIBFABRIC_VERBS) || defined(HAVE_LIBFABRIC_TCP) ||                                \
@@ -174,6 +177,8 @@ struct locality
         return reinterpret_cast<const struct sockaddr_in*>(data_.data())->sin_addr.s_addr;
 #elif defined(HAVE_LIBFABRIC_GNI)
         return data_[0];
+#elif defined(HAVE_LIBFABRIC_CXI)
+        return data_[0];
 #else
         throw fabric_error(0, "unsupported fabric provider, please fix ASAP");
 #endif
@@ -184,6 +189,8 @@ struct locality
 #if defined(HAVE_LIBFABRIC_LOCALITY_SOCKADDR)
         return reinterpret_cast<const struct sockaddr_in*>(&data)->sin_addr.s_addr;
 #elif defined(HAVE_LIBFABRIC_GNI)
+        return data[0];
+#elif defined(HAVE_LIBFABRIC_CXI)
         return data[0];
 #else
         throw fabric_error(0, "unsupported fabric provider, please fix ASAP");
@@ -234,23 +241,6 @@ struct locality
     locality_data data_;
     fi_addr_t     fi_address_;
 };
-
-// ------------------------------------------------------------------
-// format as ip address, port, libfabric address
-// ------------------------------------------------------------------
-iplocality::iplocality(const locality& l)
-: data(l)
-{
-}
-
-std::ostream&
-operator<<(std::ostream& os, const iplocality& p)
-{
-    os << std::dec << NS_DEBUG::ipaddr(p.data.fabric_data()) << " - "
-       << NS_DEBUG::ipaddr(p.data.ip_address()) << ":" << NS_DEBUG::dec<>(p.data.port()) << " ("
-       << NS_DEBUG::dec<>(p.data.fi_address()) << ") ";
-    return os;
-}
 
 } // namespace libfabric
 } // namespace oomph

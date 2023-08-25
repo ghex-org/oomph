@@ -1,7 +1,7 @@
 /*
- * GridTools
+ * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -19,7 +19,7 @@
 #include <sstream>
 #include <vector>
 #include <cstring>
-#ifdef USE_OPENMP
+#ifdef OOMPH_BENCHMARKS_MT
 #include <omp.h>
 #endif
 

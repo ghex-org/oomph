@@ -1,22 +1,23 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
-#include "./pmi.hpp"
 #include <map>
 #include <vector>
 #include <mutex>
 #include <iostream>
-#include "./endpoint.hpp"
-#include "./address.hpp"
+
+// paths relative to backend
+#include <pmi.hpp>
+#include <endpoint.hpp>
+#include <address.hpp>
 
 namespace oomph
 {
@@ -26,7 +27,7 @@ struct address_db_pmi
     // per-communicator instance used to store/query connections
     pmi pmi_impl;
 
-    using key_t = endpoint_t::rank_type;
+    using key_t = rank_type;
     using value_t = address_t;
 
     MPI_Comm           m_mpi_comm;

@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,18 +9,16 @@
  */
 #pragma once
 
-#include <oomph/util/mpi_error.hpp>
-#include <oomph/communicator.hpp>
 #include <set>
 #include <mutex>
+
+#include <oomph/util/mpi_error.hpp>
+#include <oomph/communicator.hpp>
 
 namespace oomph
 {
 class lock_cache
 {
-  public:
-    using rank_type = communicator::rank_type;
-
   private:
     MPI_Win             m_win;
     std::set<rank_type> m_ranks;

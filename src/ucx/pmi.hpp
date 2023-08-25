@@ -1,22 +1,25 @@
-/* 
+/*
  * ghex-org
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
-#include <oomph/util/moved_bit.hpp>
-#include "../debug.hpp"
 #include <stdio.h>
-#include <pmix.h>
 #include <pthread.h>
 #include <stdexcept>
 #include <cstring>
+
+#include <pmix.h>
+
+#include <oomph/util/moved_bit.hpp>
+
+// paths relative to backend
+#include <debug.hpp>
 
 namespace oomph
 {

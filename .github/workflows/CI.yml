@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -24,15 +26,18 @@ jobs:
           mkdir -p build && cd build
           cmake \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DOOMPH_GIT_SUBMODULE=OFF \
+            -DOOMPH_USE_BUNDLED_LIBS=ON \
             -DOOMPH_WITH_TESTING=ON \
+            -DOOMPH_WITH_BENCHMARKS=ON \
+            -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_WITH_MPI=ON \
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_BENCHMARKS=ON \
-            -DOOMPH_BENCHMARKS_MT=ON \
-            -DOOMPH_USE_FAST_PIMPL=ON \
-            -DOOMPH_USE_GPU=OFF \
+            -DOOMPH_WITH_LIBFABRIC=OFF \
+            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
@@ -44,7 +49,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -57,16 +64,20 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ cmake \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DOOMPH_GIT_SUBMODULE=OFF \
+            -DOOMPH_USE_BUNDLED_LIBS=ON \
+            -DHWMALLOC_ENABLE_DEVICE=ON \
+            -DHWMALLOC_DEVICE_RUNTIME=hip \
             -DOOMPH_WITH_TESTING=ON \
+            -DOOMPH_WITH_BENCHMARKS=ON \
+            -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_WITH_MPI=ON \
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_BENCHMARKS=ON \
-            -DOOMPH_BENCHMARKS_MT=ON \
-            -DOOMPH_USE_FAST_PIMPL=ON \
-            -DOOMPH_USE_GPU=ON \
-            -DOOMPH_GPU_TYPE=AMD \
+            -DOOMPH_WITH_LIBFABRIC=OFF \
+            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build
@@ -76,7 +87,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -89,16 +102,20 @@ jobs:
           mkdir -p build && cd build
           cmake \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DOOMPH_GIT_SUBMODULE=OFF \
+            -DOOMPH_USE_BUNDLED_LIBS=ON \
+            -DHWMALLOC_ENABLE_DEVICE=ON \
+            -DHWMALLOC_DEVICE_RUNTIME=cuda \
             -DOOMPH_WITH_TESTING=ON \
+            -DOOMPH_WITH_BENCHMARKS=ON \
+            -DOOMPH_BENCHMARKS_MT=ON \
             -DOOMPH_WITH_MPI=ON \
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_BENCHMARKS=ON \
-            -DOOMPH_BENCHMARKS_MT=ON \
-            -DOOMPH_USE_FAST_PIMPL=ON \
-            -DOOMPH_USE_GPU=ON \
-            -DOOMPH_GPU_TYPE=NVIDIA \
+            -DOOMPH_WITH_LIBFABRIC=OFF \
+            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
       - name: Build

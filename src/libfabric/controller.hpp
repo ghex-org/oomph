@@ -1,12 +1,11 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2022, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -80,7 +79,7 @@ class controller : public controller_base<controller>
     // --------------------------------------------------------------------
     constexpr fi_threading threadlevel_flags()
     {
-#ifdef HAVE_LIBFABRIC_GNI
+#if defined(HAVE_LIBFABRIC_GNI) || defined(HAVE_LIBFABRIC_CXI)
         return FI_THREAD_ENDPOINT;
 #else
         return FI_THREAD_SAFE;
@@ -179,8 +178,12 @@ class controller : public controller_base<controller>
     // --------------------------------------------------------------------
     inline constexpr bool bypass_tx_lock()
     {
-#ifdef HAVE_LIBFABRIC_GNI
+#if defined(HAVE_LIBFABRIC_GNI)
         return true;
+#elif defined(HAVE_LIBFABRIC_CXI)
+        // @todo : cxi provider is not yet thread safe using scalable endpoints
+        return (threadlevel_flags() == FI_THREAD_SAFE ||
+                endpoint_type_ == endpoint_type::threadlocalTx);
 #else
         return (threadlevel_flags() == FI_THREAD_SAFE ||
                 endpoint_type_ == endpoint_type::threadlocalTx);
@@ -227,7 +230,7 @@ class controller : public controller_base<controller>
     }
 
     // --------------------------------------------------------------------
-    int poll_send_queue(fid_cq* send_cq)
+    int poll_send_queue(fid_cq* send_cq, void* user_data)
     {
 #ifdef EXCESSIVE_POLLING_BACKOFF_MICRO_S
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -260,7 +263,7 @@ class controller : public controller_base<controller>
                 (void)err_sz;
 
                 // flags might not be set correctly
-                if (e.flags == (FI_MSG | FI_SEND))
+                if ((e.flags & (FI_MSG | FI_SEND | FI_TAGGED)) != 0)
                 {
                     NS_DEBUG::cnt_err.error("txcq Error FI_EAVAIL for "
                                             "FI_SEND with len",
@@ -268,7 +271,7 @@ class controller : public controller_base<controller>
                         NS_DEBUG::dec<3>(e.err), "flags", debug::bin<16>(e.flags), "error",
                         fi_cq_strerror(send_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
                 }
-                else if (e.flags & FI_RMA)
+                else if ((e.flags & FI_RMA) != 0)
                 {
                     NS_DEBUG::cnt_err.error("txcq Error FI_EAVAIL for "
                                             "FI_RMA with len",
@@ -295,7 +298,7 @@ class controller : public controller_base<controller>
                         fi_tostr(&entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS), "(",
                         debug::dec<>(entry[i].flags), ")", "context",
                         NS_DEBUG::ptr(entry[i].op_context), "length", debug::hex<6>(entry[i].len)));
-                if ((entry[i].flags & (FI_TAGGED | FI_SEND)) != 0)
+                if ((entry[i].flags & (FI_TAGGED | FI_SEND | FI_MSG)) != 0)
                 {
                     DEBUG(NS_DEBUG::cnt_deb,
                         debug(debug::str<>("Completion"), "txcq tagged send completion",
@@ -303,7 +306,7 @@ class controller : public controller_base<controller>
 
                     operation_context* handler =
                         reinterpret_cast<operation_context*>(entry[i].op_context);
-                    processed += handler->handle_tagged_send_completion();
+                    processed += handler->handle_tagged_send_completion(user_data);
                 }
                 else
                 {
@@ -323,7 +326,7 @@ class controller : public controller_base<controller>
     }
 
     // --------------------------------------------------------------------
-    int poll_recv_queue(fid_cq* rx_cq)
+    int poll_recv_queue(fid_cq* rx_cq, void* user_data)
     {
 #ifdef EXCESSIVE_POLLING_BACKOFF_MICRO_S
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -402,7 +405,7 @@ class controller : public controller_base<controller>
 
                     operation_context* handler =
                         reinterpret_cast<operation_context*>(entry[i].op_context);
-                    processed += handler->handle_tagged_recv_completion();
+                    processed += handler->handle_tagged_recv_completion(user_data);
                 }
                 else
                 {

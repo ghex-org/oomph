@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -27,37 +27,37 @@ test_1(oomph::communicator& comm, unsigned int size, int thread_id = 0)
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         for (int d = 1; d<comm.size(); ++d) dsts[d-1] = d;
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
 
         comm.send_multi(msg, dsts, 42 + 42 + thread_id);
         comm.wait_all();
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
     }
     if (comm.rank() > 0 || comm.size() == 1)
     {
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
         auto req = comm.recv(msg, 0, 42);
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 1);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 1u);
 
         EXPECT_TRUE(req.cancel());
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
         comm.recv(msg, 0, 42 + 42 + thread_id).wait();
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
-        for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
+        for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], (int)i);
     }
 }
 
@@ -102,42 +102,42 @@ test_2(oomph::communicator& comm, unsigned int size, int thread_id = 0)
         for (unsigned int i = 0; i < size; ++i) msg[i] = i;
         for (int d = 1; d<comm.size(); ++d) dsts[d-1] = d;
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
         comm.send_multi(msg, dsts, 42 + 42 + thread_id);
         comm.wait_all();
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
     }
     if (comm.rank() > 0 || comm.size() == 1)
     {
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
         int  counter = 0;
         auto h = comm.recv(msg, 0, 42, [&counter](msg_t&, int, int) { ++counter; });
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 1);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 1u);
 
         comm.progress();
         comm.progress();
         comm.progress();
         comm.progress();
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 1);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 1u);
         EXPECT_EQ(counter, 0);
 
         EXPECT_TRUE(h.cancel());
         comm.recv(msg, 0, 42 + 42 + thread_id).wait();
 
-        EXPECT_EQ(comm.scheduled_sends(), 0);
-        EXPECT_EQ(comm.scheduled_recvs(), 0);
+        EXPECT_EQ(comm.scheduled_sends(), 0u);
+        EXPECT_EQ(comm.scheduled_recvs(), 0u);
 
-        for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], i);
+        for (unsigned int i = 0; i < size; ++i) EXPECT_EQ(msg[i], (int)i);
     }
 }
 

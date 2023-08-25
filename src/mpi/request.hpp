@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,7 +9,6 @@
  */
 #pragma once
 
-#include <oomph/request.hpp>
 #include <oomph/util/mpi_error.hpp>
 
 namespace oomph

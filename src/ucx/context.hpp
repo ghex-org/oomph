@@ -1,34 +1,45 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
-#include "../context_base.hpp"
-#include "./config.hpp"
-#include "./rma_context.hpp"
-#include "./region.hpp"
-#include "./worker.hpp"
-#include "./request_data.hpp"
-#include "./address_db.hpp"
 #include <vector>
 #include <memory>
 
+#include <boost/lockfree/queue.hpp>
+
+#include <oomph/context.hpp>
+
+// paths relative to backend
+#include <../context_base.hpp>
+#include <./config.hpp>
+#include <rma_context.hpp>
+#include <region.hpp>
+#include <worker.hpp>
+#include <request_state.hpp>
+#include <request_data.hpp>
+#include <address_db.hpp>
+
 namespace oomph
 {
+#define OOMPH_UCX_TAG_BITS             32
+#define OOMPH_UCX_RANK_BITS            32
+#define OOMPH_UCX_ANY_SOURCE_MASK      0x0000000000000000ul
+#define OOMPH_UCX_SPECIFIC_SOURCE_MASK 0x00000000fffffffful
+#define OOMPH_UCX_TAG_MASK             0xffffffff00000000ul
+
 class context_impl : public context_base
 {
   public: // member types
     using region_type = region;
     using device_region_type = region;
     using heap_type = hwmalloc::heap<context_impl>;
-    using rank_type = communicator::rank_type;
     using worker_type = worker_t;
 
   private: // member types
@@ -40,6 +51,12 @@ class context_impl : public context_base
 
     using worker_vector = std::vector<std::unique_ptr<worker_type>>;
 
+    template<typename T>
+    using lockfree_queue = boost::lockfree::queue<T, boost::lockfree::fixed_sized<false>,
+        boost::lockfree::allocator<std::allocator<void>>>;
+
+    using recv_req_queue_type = lockfree_queue<detail::shared_request_state*>;
+
   private: // members
     type_erased_address_db_t                  m_db;
     ucp_context_h_holder                      m_context;
@@ -48,20 +65,26 @@ class context_impl : public context_base
     std::size_t                               m_req_size;
     std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
     std::vector<std::unique_ptr<worker_type>> m_workers;
+  public:
     ucx_mutex                                 m_mutex;
+    recv_req_queue_type                       m_recv_req_queue;
+    recv_req_queue_type                       m_cancel_recv_req_queue;
 
     friend struct worker_t;
 
   public: // ctors
-    context_impl(MPI_Comm mpi_c, bool thread_safe)
+    context_impl(MPI_Comm mpi_c, bool thread_safe, bool message_pool_never_free,
+        std::size_t message_pool_reserve)
     : context_base(mpi_c, thread_safe)
 #if defined OOMPH_UCX_USE_PMI
     , m_db(address_db_pmi(context_base::m_mpi_comm))
 #else
     , m_db(address_db_mpi(context_base::m_mpi_comm))
 #endif
-    , m_heap{this}
+    , m_heap{this, message_pool_never_free, message_pool_reserve}
     , m_rma_context()
+    , m_recv_req_queue(128)
+    , m_cancel_recv_req_queue(128)
     {
         // read run-time context
         ucp_config_t* config_ptr;
@@ -146,19 +169,88 @@ class context_impl : public context_base
     auto& get_heap() noexcept { return m_heap; }
 
     communicator_impl* get_communicator();
+
+    void progress()
+    {
+        //{
+        //    ucx_lock lock(m_mutex);
+        //    while (ucp_worker_progress(m_worker->get())) {}
+        //}
+        if (m_mutex.try_lock())
+        {
+            ucp_worker_progress(m_worker->get());
+            m_mutex.unlock();
+        }
+        m_recv_req_queue.consume_all(
+            [](detail::shared_request_state* req)
+            {
+                auto ptr = req->release_self_ref();
+                req->invoke_cb();
+            });
+    }
+
+    void enqueue_recv(detail::shared_request_state* d)
+    {
+        while (!m_recv_req_queue.push(d)) {}
+    }
+
+    void enqueue_cancel_recv(detail::shared_request_state* d)
+    {
+        while (!m_cancel_recv_req_queue.push(d)) {}
+    }
+
+    bool cancel_recv(detail::shared_request_state* s)
+    {
+        if (m_thread_safe) m_mutex.lock();
+        ucp_request_cancel(m_worker->get(), s->m_ucx_ptr);
+        while (ucp_worker_progress(m_worker->get())) {}
+        // check whether the cancelled callback was enqueued by consuming all queued cancelled
+        // callbacks and putting them in a temporary vector
+        static thread_local bool                                       found = false;
+        static thread_local std::vector<detail::shared_request_state*> m_cancel_recv_req_vec;
+        m_cancel_recv_req_vec.clear();
+        m_cancel_recv_req_queue.consume_all(
+            [this, s, found_ptr = &found](detail::shared_request_state* r)
+            {
+                if (r == s) *found_ptr = true;
+                else
+                    m_cancel_recv_req_vec.push_back(r);
+            });
+        // re-enqueue all callbacks which were not identical with the current callback
+        for (auto x : m_cancel_recv_req_vec)
+            while (!m_cancel_recv_req_queue.push(x)) {}
+        if (m_thread_safe) m_mutex.unlock();
+
+        // delete callback here if it was actually cancelled
+        if (found)
+        {
+            auto ptr = s->release_self_ref();
+            s->set_canceled();
+            void* ucx_req = s->m_ucx_ptr;
+            // destroy request
+            request_data::get(ucx_req)->destroy();
+            if (m_thread_safe) m_mutex.lock();
+            ucp_request_free(ucx_req);
+            if (m_thread_safe) m_mutex.unlock();
+        }
+        return found;
+    }
+
     const char *get_transport_option(const std::string &opt);
+
+    unsigned int num_tag_bits() const noexcept { return OOMPH_UCX_TAG_BITS; }
 };
 
 template<>
-region
+inline region
 register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 {
     return c.make_region(ptr);
 }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
 template<>
-region
+inline region
 register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 {
     return c.make_region(ptr);

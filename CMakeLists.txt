@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.17)
 # CMake version is set at 3.17 because of find_package(CUDAToolkit)
-project(oomph VERSION 0.1 LANGUAGES CXX)
+
+set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
+
+include(CMakeDependentOption)
+include(oomph_version)
+make_version(OOMPH 0 2 0)
+
+project(oomph VERSION ${OOMPH_VERSION})
+enable_language(CXX)
 
 # ---------------------------------------------------------------------
 # CMake setup, C++ version, build type, modules, etc
@@ -11,34 +20,24 @@ if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
+# ---------------------------------------------------------------------
+# External dependencies
+# ---------------------------------------------------------------------
+option(OOMPH_GIT_SUBMODULE "Check submodules during build" ON)
+option(OOMPH_USE_BUNDLED_LIBS "Use bundled 3rd party libraries" OFF)
+include(oomph_external_dependencies)
 
 # ---------------------------------------------------------------------
 # Define main oomph library
 # ---------------------------------------------------------------------
 add_library(oomph INTERFACE)
 add_library(oomph::oomph ALIAS oomph)
-include(oomph_common)
-
-# ---------------------------------------------------------------------
-# MPI setup
-# ---------------------------------------------------------------------
-find_package(MPI REQUIRED COMPONENTS CXX)
+target_link_libraries(oomph INTERFACE HWMALLOC::hwmalloc)
 target_link_libraries(oomph INTERFACE MPI::MPI_CXX)
-
-# ---------------------------------------------------------------------
-# HWMALLOC setup
-# ---------------------------------------------------------------------
-include(hwmalloc)
-target_link_libraries(oomph INTERFACE hwmalloc)
-
-# ---------------------------------------------------------------------
-# Boost setup
-# ---------------------------------------------------------------------
-find_package(Boost REQUIRED)
 target_link_libraries(oomph INTERFACE Boost::boost)
+include(oomph_common)
 
 # ---------------------------------------------------------------------
 # include paths
@@ -79,6 +78,12 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_config.inc.in
     ${CMAKE_CURRENT_BINARY_DIR}/include/oomph/cmake_config.inc)
 
 # ---------------------------------------------------------------------
+# fortan bindings
+# ---------------------------------------------------------------------
+include(oomph_fortran)
+add_subdirectory(bindings)
+
+# ---------------------------------------------------------------------
 # testing
 # ---------------------------------------------------------------------
 set(OOMPH_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
@@ -91,6 +96,8 @@ endif()
 # benchmarks
 # ---------------------------------------------------------------------
 set(OOMPH_WITH_BENCHMARKS OFF CACHE BOOL "Build benchmarks")
+cmake_dependent_option(OOMPH_BENCHMARKS_MT "Multithreaded benchmarks"
+    ON "OOMPH_WITH_BENCHMARKS" OFF)
 if (OOMPH_WITH_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
@@ -115,7 +122,7 @@ install(
         ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/oomphConfigVersion.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibfabric.cmake
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCX.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)

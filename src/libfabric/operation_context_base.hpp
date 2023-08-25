@@ -1,12 +1,11 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2022, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -69,9 +68,9 @@ struct operation_context_base
     int handle_send_completion_impl() { return 0; }
 
     // tagged send
-    int handle_tagged_send_completion()
+    int handle_tagged_send_completion(void* user_data)
     {
-        return static_cast<Derived*>(this)->handle_tagged_send_completion_impl();
+        return static_cast<Derived*>(this)->handle_tagged_send_completion_impl(user_data);
     }
     int handle_tagged_send_completion_impl() { return 0; }
 
@@ -90,9 +89,9 @@ struct operation_context_base
     int handle_recv_src_completion_impl(fi_addr_t const src_addr, std::uint64_t len) { return 0; }
 
     // tagged recv
-    int handle_tagged_recv_completion()
+    int handle_tagged_recv_completion(void* user_data)
     {
-        return static_cast<Derived*>(this)->handle_tagged_recv_completion_impl();
+        return static_cast<Derived*>(this)->handle_tagged_recv_completion_impl(user_data);
     }
     int handle_tagged_recv_completion_impl(bool /*threadlocal*/) { return 0; }
 

@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,10 +9,9 @@
  */
 #pragma once
 
-#include <oomph/util/placement_new.hpp>
-
 #include <type_traits>
 #include <utility>
+#include <oomph/util/placement_new.hpp>
 
 namespace oomph
 {

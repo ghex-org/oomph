@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,11 +9,19 @@
  */
 #pragma once
 
-#include <oomph/detail/message_buffer.hpp>
 #include <cstddef>
+#include <type_traits>
+#include <oomph/config.hpp>
+#include <oomph/detail/message_buffer.hpp>
 
 namespace oomph
 {
+
+namespace detail
+{
+struct communicator_state;
+}
+
 template<typename T>
 class message_buffer
 {
@@ -23,6 +31,7 @@ class message_buffer
   private:
     friend class context;
     friend class communicator;
+    friend struct detail::communicator_state;
 
   private:
     detail::message_buffer m;
@@ -39,6 +48,21 @@ class message_buffer
     message_buffer() = default;
     message_buffer(message_buffer&&) = default;
     message_buffer& operator=(message_buffer&&) = default;
+
+    template<typename U>
+    message_buffer(message_buffer<U>&& other) noexcept
+    : m{std::move(other.m)}
+    , m_size{(other.m_size * sizeof(U)) / sizeof(T)}
+    {
+    }
+
+    template<typename U>
+    message_buffer& operator=(message_buffer<U>&& other) noexcept
+    {
+        m = std::move(other.m);
+        m_size = (other.m_size * sizeof(U)) / sizeof(T);
+        return *this;
+    }
 
   public:
     operator bool() const noexcept { return m; }
@@ -59,7 +83,7 @@ class message_buffer
 
     bool on_device() const noexcept { return m.on_device(); }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if OOMPH_ENABLE_DEVICE
     T*       device_data() noexcept { return (T*)m.device_data(); }
     T const* device_data() const noexcept { return (T*)m.device_data(); }
 

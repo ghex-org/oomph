@@ -1,7 +1,7 @@
 /*
- * GridTools
+ * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -71,22 +71,18 @@ main(int argc, char** argv)
         int       last_i = 0;
         const int delta_i = niter / 10;
 
-        auto send_callback = [inflight, thread_id, &nlsend_cnt, &comm_cnt, &sent](
+        auto send_callback = [inflight, &nlsend_cnt, &comm_cnt, &sent](
                                  message&, int, int tag) {
-            // std::cout << "send callback called " << rank << " thread "
-            // << omp_get_thread_num() << " tag " << tag << "\n";
             int pthr = tag / inflight;
-            if (pthr != thread_id) nlsend_cnt++;
+            if (pthr != THREADID) nlsend_cnt++;
             comm_cnt++;
             sent++;
         };
 
-        auto recv_callback = [inflight, thread_id, &nlrecv_cnt, &comm_cnt, &received](
+        auto recv_callback = [inflight, &nlrecv_cnt, &comm_cnt, &received](
                                  message&, int, int tag) {
-            // std::cout << "recv callback called " << rank << " thread "
-            // << omp_get_thread_num() << " tag " << tag << "\n";
             int pthr = tag / inflight;
-            if (pthr != thread_id) nlrecv_cnt++;
+            if (pthr != THREADID) nlrecv_cnt++;
             comm_cnt++;
             received++;
         };

@@ -1,27 +1,29 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
-#include <oomph/util/mpi_error.hpp>
-#include "./error.hpp"
-#include "./endpoint.hpp"
-#include "./address.hpp"
 #include <map>
 #include <vector>
+
+#include <oomph/util/mpi_error.hpp>
+
+// paths relative to backend
+#include <error.hpp>
+#include <endpoint.hpp>
+#include <address.hpp>
 
 namespace oomph
 {
 struct address_db_mpi
 {
-    using key_t = endpoint_t::rank_type;
+    using key_t = rank_type;
     using value_t = address_t;
 
     MPI_Comm    m_mpi_comm;

@@ -12,7 +12,6 @@ set(mpi_avail_benchmarks
 set(mpi_wait_benchmarks
     mpi_p2p_bi_wait)
 
-set(OOMPH_BENCHMARKS_MT OFF CACHE BOOL "Multithreaded benchmarks")
 if (OOMPH_BENCHMARKS_MT)
     find_package(OpenMP REQUIRED)
 endif()

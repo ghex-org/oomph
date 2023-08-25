@@ -1,12 +1,11 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2022, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -44,7 +43,7 @@ extern char** environ;
 // This file provides a simple to use printf style debugging
 // tool that can be used on a per file basis to enable output.
 // It is not intended to be exposed to users, but rather as
-// an aid for hpx development.
+// an aid for development.
 // ------------------------------------------------------------
 // Usage: Instantiate a debug print object at the top of a file
 // using a template param of true/false to enable/disable output.
