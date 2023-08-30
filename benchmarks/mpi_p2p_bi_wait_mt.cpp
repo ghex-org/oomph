@@ -148,6 +148,8 @@ main(int argc, char* argv[])
 #pragma omp barrier
 #endif
         }
+        delete []sbuffers;
+        delete []rbuffers;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
