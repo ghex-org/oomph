@@ -143,7 +143,7 @@ register_memory<oomph::context_impl>(oomph::context_impl& c, void* const ptr, st
 
 #if OOMPH_ENABLE_DEVICE
 template<>
-oomph::libfabric::memory_segment
+inline oomph::libfabric::memory_segment
 register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t size)
 {
     return c.make_region(ptr, size, true);
