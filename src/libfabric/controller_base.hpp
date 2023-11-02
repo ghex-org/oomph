@@ -191,12 +191,12 @@ libfabric_rendezvous_threshold(int def_val)
 #define OOMPH_GNI_REG "internal"
 //#define OOMPH_GNI_REG "udreg"
 
-std::vector<std::pair<int, std::string>> gni_strs = {
+static std::vector<std::pair<int, std::string>> gni_strs = {
     {GNI_MR_CACHE, "GNI_MR_CACHE"},
 };
 
 // clang-format off
-std::vector<std::pair<int, std::string>> gni_ints = {
+static std::vector<std::pair<int, std::string>> gni_ints = {
     {GNI_MR_CACHE_LAZY_DEREG, "GNI_MR_CACHE_LAZY_DEREG"},
     {GNI_MR_HARD_REG_LIMIT, "GNI_MR_HARD_REG_LIMIT"},
     {GNI_MR_SOFT_REG_LIMIT, "GNI_MR_SOFT_REG_LIMIT"},
