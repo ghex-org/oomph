@@ -34,6 +34,9 @@ jobs:
           cd oomph
           . /opt/spack/share/spack/setup-env-clean.sh
           spack spec -I --reuse oomph
-          # need `--dirty` here for environment variables to propagate
+          # dev-build does not respect test dependencies - workaround
+          spack install --reuse googletest
+          spack load googletest
+          # need `--dirty` here for environment variables and googletest test dependency to propagate
           spack dev-build --test=root --dirty --reuse oomph@develop
           cat install-time-test-log.txt
