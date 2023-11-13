@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.17)
 # CMake version is set at 3.17 because of find_package(CUDAToolkit)
 
+if (NOT ${CMAKE_VERSION} VERSION_LESS 3.27)
+    # new in 3.27: additionally use uppercase <PACKAGENAME>_ROOT
+    # environment and CMake variables for find_package
+    cmake_policy(SET CMP0144 NEW)
+endif()
+
 set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 
@@ -108,11 +114,11 @@ endif()
 install(EXPORT oomph-targets
     FILE oomph-targets.cmake
     NAMESPACE oomph::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/oomph/cmake)
 
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/oomphConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/oomph/cmake)
 
 write_basic_package_version_file(oomphConfigVersion.cmake
     VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
@@ -125,7 +131,7 @@ install(
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCX.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
     DESTINATION
-        ${CMAKE_INSTALL_LIBDIR}/cmake)
+        ${CMAKE_INSTALL_LIBDIR}/oomph/cmake)
 
 export(EXPORT oomph-targets
     FILE "${CMAKE_CURRENT_BINARY_DIR}/oomph-targets.cmake")
