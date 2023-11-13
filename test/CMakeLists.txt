@@ -65,6 +65,7 @@ function(reg_parallel_test t_ lib n)
         NAME ${t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
             $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(${t} PROPERTIES RUN_SERIAL TRUE)
 endfunction()
 
 if (OOMPH_WITH_MPI)
