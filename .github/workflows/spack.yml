@@ -35,4 +35,5 @@ jobs:
           . /opt/spack/share/spack/setup-env-clean.sh
           spack spec -I --reuse oomph
           # need `--dirty` here for environment variables to propagate
-          spack dev-build --test=root --dirty --verbose --show-log-on-error --reuse oomph@develop
+          spack dev-build --test=root --dirty --reuse oomph@develop
+          cat install-time-test-log.txt
