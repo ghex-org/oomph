@@ -50,7 +50,7 @@ if(OOMPH_USE_BUNDLED_GTEST)
     endif()
 else()
     # Use system provided google test
-    find_package(GTest)
+    find_package(GTest REQUIRED)
     add_library(ext-gtest INTERFACE)
     if (${CMAKE_VERSION} VERSION_LESS "3.20.0")
         target_link_libraries(ext-gtest INTERFACE GTest::GTest GTest::Main)
