@@ -102,6 +102,12 @@ jobs:
         run: |
           pwd
           ls -alrth
+          cd ..
+          pwd
+          ls -alrth
+          cd ..
+          pwd
+          ls -alrth
       #    ls -alrth oomph/build-*/
       #    ls -alrth tmp
       #    #cat /tmp/runner/spack-stage/spack-stage-oomph-develop-*/
