@@ -87,6 +87,3 @@ jobs:
           spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
           spack dev-build --test=root --dirty --reuse --source-path oomph oomph@develop backend=${{ matrix.config.backend }}
-          ls -alrth
-          ls -alrth oomph
-          #cat install-time-test-log.txt
