@@ -52,8 +52,7 @@ jobs:
         run: git clone --depth=1 https://github.com/ghex-org/spack-repos.git repos
 
       - name: clone spack
-        run: git clone -c feature.manyFiles=true --depth 1 --branch ${{ matrix.spack-version }} \
-            https://github.com/spack/spack.git spack
+        run: git clone -c feature.manyFiles=true --depth 1 --branch ${{ matrix.spack-version }} https://github.com/spack/spack.git spack
 
       - name: initialize spack and add online buildcache
         run: |
