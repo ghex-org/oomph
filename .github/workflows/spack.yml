@@ -50,7 +50,7 @@ jobs:
 
       - name: clone ghex spack repo
         run: |
-          git clone --depth=1 --branch add_ghex https://github.com/ghex-org/spack-repos.git repos
+          git clone --depth=1 https://github.com/ghex-org/spack-repos.git repos
 
       - name: clone spack
         run: |
