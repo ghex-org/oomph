@@ -90,11 +90,12 @@ jobs:
           spack dev-build --dirty --reuse oomph@develop backend=${{ matrix.config.backend }}
           #cat install-time-test-log.txt
           ls -alrth
+          ls -alrth build-*
           #ls -alrth build-linux-ubuntu22.04-x86_64_v3-*/
           #ls -alrth /tmp/runner/spack-stage/spack-stage-oomph-develop-*/
 
-      - name: print logs
-        if: always()
-        run: |
-          ls -alrth tmp
-          #cat /tmp/runner/spack-stage/spack-stage-oomph-develop-*/
+      #- name: print logs
+      #  if: always()
+      #  run: |
+      #    ls -alrth tmp
+      #    #cat /tmp/runner/spack-stage/spack-stage-oomph-develop-*/
