@@ -86,6 +86,7 @@ jobs:
           spack install --reuse googletest
           spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
+          pwd
           cd oomph
           spack dev-build --test=root --dirty --reuse oomph@develop backend=${{ matrix.config.backend }}
           #cat install-time-test-log.txt
@@ -96,9 +97,11 @@ jobs:
           #ls -alrth build-linux-ubuntu22.04-x86_64_v3-*/
           #ls -alrth /tmp/runner/spack-stage/spack-stage-oomph-develop-*/
 
-      #- name: print logs
-      #  if: always()
-      #  run: |
+      - name: print logs
+        if: always()
+        run: |
+          pwd
+          ls -alrth
       #    ls -alrth oomph/build-*/
       #    ls -alrth tmp
       #    #cat /tmp/runner/spack-stage/spack-stage-oomph-develop-*/
