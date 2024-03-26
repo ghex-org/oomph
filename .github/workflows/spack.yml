@@ -41,7 +41,7 @@ jobs:
       - name: install additional ubuntu packages
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y gfortran libblas-dev
+          sudo apt-get install -y gfortran
 
       - name: checkout
         uses: actions/checkout@v4
@@ -49,15 +49,11 @@ jobs:
           path: oomph
 
       - name: clone ghex spack repo
-        run: |
-          git clone --depth=1 https://github.com/ghex-org/spack-repos.git repos
+        run: git clone --depth=1 https://github.com/ghex-org/spack-repos.git repos
 
       - name: clone spack
-        run: |
-          git clone -c feature.manyFiles=true --depth 1 \
-            --branch ${{ matrix.spack-version }} \
-            https://github.com/spack/spack.git \
-            spack
+        run: git clone -c feature.manyFiles=true --depth 1 --branch ${{ matrix.spack-version }} \
+            https://github.com/spack/spack.git spack
 
       - name: initialize spack and add online buildcache
         run: |
@@ -91,5 +87,6 @@ jobs:
           spack install --reuse googletest
           spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
-          spack dev-build --test=root --dirty --reuse oomph@develop
-          spack dev-build --dirty --reuse --source-path oomph oomph@develop backend=${{ matrix.config.backend }}
+          cd oomph
+          spack dev-build --dirty --reuse oomph@develop backend=${{ matrix.config.backend }}
+          cat install-time-test-log.txt
