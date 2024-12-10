@@ -174,7 +174,12 @@ class communicator_impl : public communicator_base<communicator_impl>
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
         std::uint64_t         stag = make_tag64(tag, /*this->rank(), */this->m_context->get_context_tag());
 
+#if OOMPH_ENABLE_DEVICE
         auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
+#else
+        auto& reg = ptr.handle_ref();
+#endif
+
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
@@ -211,23 +216,25 @@ class communicator_impl : public communicator_base<communicator_impl>
         s->create_self_ref();
 
         // clang-format off
+        LF_DEB(com_deb,
+            debug(NS_DEBUG::str<>("Send"),
+                  "thisrank", NS_DEBUG::dec<>(rank()),
+                  "rank", NS_DEBUG::dec<>(dst),
+                  "tag", tag_disp(std::uint64_t(tag)),
+                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
+                  "stag", tag_disp(stag),
+                  "addr", NS_DEBUG::ptr(reg.get_address()),
+                  "size", NS_DEBUG::hex<6>(size),
+                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
+                  "req", NS_DEBUG::ptr(s.get())));
+#if OOMPH_ENABLE_DEVICE
         if (!ptr.on_device()) {
-            LF_DEB(com_deb,
-                debug(NS_DEBUG::str<>("Send"),
-                      "thisrank", NS_DEBUG::dec<>(rank()),
-                      "rank", NS_DEBUG::dec<>(dst),
-                      "tag", tag_disp(std::uint64_t(tag)),
-                      //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
-                      "stag", tag_disp(stag),
-                      "addr", NS_DEBUG::ptr(reg.get_address()),
-                      "size", NS_DEBUG::hex<6>(size),
-                      "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                      "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                      "req", NS_DEBUG::ptr(s.get())));
             LF_DEB(com_deb,
                 debug(NS_DEBUG::str<>("send region CRC32"),
                       NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
         }
+#endif
         // clang-format on
 
         send_tagged_region(reg, size, fi_addr_t(dst), stag, &(s->m_operation_context));
@@ -241,7 +248,12 @@ class communicator_impl : public communicator_base<communicator_impl>
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
         std::uint64_t         stag = make_tag64(tag, /*src, */this->m_context->get_context_tag());
 
+#if OOMPH_ENABLE_DEVICE
         auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
+#else
+        auto& reg = ptr.handle_ref();
+#endif
+
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
@@ -257,23 +269,25 @@ class communicator_impl : public communicator_base<communicator_impl>
         s->create_self_ref();
 
         // clang-format off
+        LF_DEB(com_deb,
+            debug(NS_DEBUG::str<>("recv"),
+                  "thisrank", NS_DEBUG::dec<>(rank()),
+                  "rank", NS_DEBUG::dec<>(src),
+                  "tag", tag_disp(std::uint64_t(tag)),
+                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
+                  "stag", tag_disp(stag),
+                  "addr", NS_DEBUG::ptr(reg.get_address()),
+                  "size", NS_DEBUG::hex<6>(size),
+                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
+                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
+                  "req", NS_DEBUG::ptr(s.get())));
+#if OOMPH_ENABLE_DEVICE
         if (!ptr.on_device()) {
-            LF_DEB(com_deb,
-                debug(NS_DEBUG::str<>("recv"),
-                      "thisrank", NS_DEBUG::dec<>(rank()),
-                      "rank", NS_DEBUG::dec<>(src),
-                      "tag", tag_disp(std::uint64_t(tag)),
-                      //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
-                      "stag", tag_disp(stag),
-                      "addr", NS_DEBUG::ptr(reg.get_address()),
-                      "size", NS_DEBUG::hex<6>(size),
-                      "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                      "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                      "req", NS_DEBUG::ptr(s.get())));
             LF_DEB(com_deb,
                 debug(NS_DEBUG::str<>("recv region CRC32"),
                       NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
         }
+#endif
         // clang-format on
 
         recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
@@ -288,7 +302,12 @@ class communicator_impl : public communicator_base<communicator_impl>
         [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
         std::uint64_t         stag = make_tag64(tag, /*src, */this->m_context->get_context_tag());
 
+#if OOMPH_ENABLE_DEVICE
         auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
+#else
+        auto& reg = ptr.handle_ref();
+#endif
+
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
