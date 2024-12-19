@@ -176,9 +176,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::uint64_t stag = make_tag64(tag, /*this->rank(), */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
-        auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
+        auto const & reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
 #else
-        auto& reg = ptr.handle_ref();
+        auto const & reg = ptr.handle();
 #endif
 
 #ifdef EXTRA_SIZE_CHECKS
@@ -250,9 +250,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
-        auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
+        auto const & reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
 #else
-        auto& reg = ptr.handle_ref();
+        auto const & reg = ptr.handle();
 #endif
 
 #ifdef EXTRA_SIZE_CHECKS
@@ -304,9 +304,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
-        auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
+        auto const & reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
 #else
-        auto& reg = ptr.handle_ref();
+        auto const & reg = ptr.handle();
 #endif
 
 #ifdef EXTRA_SIZE_CHECKS
