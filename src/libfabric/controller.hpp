@@ -51,7 +51,7 @@ namespace NS_DEBUG
 // cppcheck-suppress ConfigurationNotChecked
 
 using namespace oomph::debug;
-template <int Level>
+template<int Level>
 inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> cnt_deb("CONTROL");
 //
 static NS_DEBUG::enable_print<true> cnt_err("CONTROL");
@@ -95,7 +95,8 @@ class controller : public controller_base<controller>
 #else
         std::int64_t hmem_flags = 0;
 #endif
-        return hmem_flags | FI_MSG | FI_TAGGED | FI_RMA | FI_READ | FI_WRITE | FI_RECV  | FI_SEND | FI_TRANSMIT | FI_REMOTE_READ | FI_REMOTE_WRITE ;
+        return hmem_flags | FI_MSG | FI_TAGGED | FI_RMA | FI_READ | FI_WRITE | FI_RECV | FI_SEND |
+               FI_TRANSMIT | FI_REMOTE_READ | FI_REMOTE_WRITE;
     }
 
     // --------------------------------------------------------------------
@@ -111,8 +112,8 @@ class controller : public controller_base<controller>
         //
         if (rank > 0)
         {
-            LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("sending here"), iplocality(here_), "size",
-                                          locality_defs::array_size));
+            LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("sending here"), iplocality(here_),
+                                             "size", locality_defs::array_size));
             /*int err = */ MPI_Send(here_.fabric_data(), locality_defs::array_size, MPI_CHAR,
                 0, // dst rank
                 0, // tag
@@ -142,7 +143,8 @@ class controller : public controller_base<controller>
                     i, // src rank
                     0, // tag
                     comm, &status);
-                LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("received address"), debug::dec<>(i)));
+                LF_DEB(NS_DEBUG::cnt_deb<9>,
+                    debug(debug::str<>("received address"), debug::dec<>(i)));
             }
 
             LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("sending all")));
@@ -178,7 +180,8 @@ class controller : public controller_base<controller>
         MPI_Comm_rank(mpi_comm, &rank);
         MPI_Comm_size(mpi_comm, &size);
 
-        LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("initialize_localities"), size, "localities"));
+        LF_DEB(NS_DEBUG::cnt_deb<9>,
+            debug(debug::str<>("initialize_localities"), size, "localities"));
 
         MPI_exchange_localities(av, mpi_comm, rank, size);
         debug_print_av_vector(size);
@@ -258,7 +261,8 @@ class controller : public controller_base<controller>
             // then another thread is polling now, just exit
             if (!bypass_tx_lock() && !lock.owns_lock()) { return -1; }
 
-            static auto polling = NS_DEBUG::cnt_deb<9>.make_timer(1, debug::str<>("poll send queue"));
+            static auto polling =
+                NS_DEBUG::cnt_deb<9>.make_timer(1, debug::str<>("poll send queue"));
             LF_DEB(NS_DEBUG::cnt_deb<9>, timed(polling, NS_DEBUG::ptr(send_cq)));
 
             // poll for completions
@@ -355,7 +359,8 @@ class controller : public controller_base<controller>
             // then another thread is polling now, just exit
             if (!bypass_rx_lock() && !lock.owns_lock()) { return -1; }
 
-            static auto polling = NS_DEBUG::cnt_deb<2>.make_timer(1, debug::str<>("poll recv queue"));
+            static auto polling =
+                NS_DEBUG::cnt_deb<2>.make_timer(1, debug::str<>("poll recv queue"));
             LF_DEB(NS_DEBUG::cnt_deb<2>, timed(polling, NS_DEBUG::ptr(rx_cq)));
 
             // poll for completions
@@ -383,9 +388,9 @@ class controller : public controller_base<controller>
                 }
                 else if (e.err != FI_SUCCESS)
                 {
-                    NS_DEBUG::cnt_err.error(debug::str<>("poll_recv_queue"), "error code", debug::dec<>(-e.err), "flags",
-                        debug::hex<6>(e.flags), "len", debug::hex<6>(e.len), "context",
-                        NS_DEBUG::ptr(e.op_context), "error msg",
+                    NS_DEBUG::cnt_err.error(debug::str<>("poll_recv_queue"), "error code",
+                        debug::dec<>(-e.err), "flags", debug::hex<6>(e.flags), "len",
+                        debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context), "error msg",
                         fi_cq_strerror(rx_cq, e.prov_errno, e.err_data, (char*)e.buf, e.len));
                 }
                 operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);

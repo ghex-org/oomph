@@ -32,7 +32,7 @@ using operation_context = libfabric::operation_context;
 
 using tag_disp = NS_DEBUG::detail::hex<12, uintptr_t>;
 
-template <int Level>
+template<int Level>
 inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> com_deb("COMMUNI");
 
 static NS_DEBUG::enable_print<false> com_err("COMMUNI");
@@ -78,10 +78,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     // --------------------------------------------------------------------
     /// generate a tag with 0xRRRRRRRRtttttttt rank, tag.
     /// original tag can be 32bits, then we add 32bits of rank info.
-    inline std::uint64_t make_tag64(std::uint32_t tag, /*std::uint32_t rank, */std::uintptr_t ctxt)
+    inline std::uint64_t make_tag64(std::uint32_t tag, /*std::uint32_t rank, */ std::uintptr_t ctxt)
     {
-        return (((ctxt & 0x0000000000FFFFFF) << 24) |
-                ((std::uint64_t(tag) & 0x0000000000FFFFFF)));
+        return (((ctxt & 0x0000000000FFFFFF) << 24) | ((std::uint64_t(tag) & 0x0000000000FFFFFF)));
     }
 
     // --------------------------------------------------------------------
@@ -176,9 +175,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::uint64_t stag = make_tag64(tag, /*this->rank(), */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
-        auto const & reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
+        auto const& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
 #else
-        auto const & reg = ptr.handle();
+        auto const& reg = ptr.handle();
 #endif
 
 #ifdef EXTRA_SIZE_CHECKS
@@ -203,8 +202,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             else
             {
                 // construct request which is also an operation context
-                auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag,
-                    std::move(cb));
+                auto s =
+                    m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
                 s->create_self_ref();
                 while (!m_send_cb_queue.push(s.get())) {}
                 return {std::move(s)};
@@ -212,8 +211,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         }
 
         // construct request which is also an operation context
-        auto s =
-            m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
+        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
         s->create_self_ref();
 
         // clang-format off
@@ -250,9 +248,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
-        auto const & reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
+        auto const& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
 #else
-        auto const & reg = ptr.handle();
+        auto const& reg = ptr.handle();
 #endif
 
 #ifdef EXTRA_SIZE_CHECKS
@@ -265,8 +263,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_context->get_controller()->recvs_posted_++;
 
         // construct request which is also an operation context
-        auto s =
-            m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb));
+        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb));
         s->create_self_ref();
 
         // clang-format off
@@ -304,9 +301,9 @@ class communicator_impl : public communicator_base<communicator_impl>
         std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
-        auto const & reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
+        auto const& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
 #else
-        auto const & reg = ptr.handle();
+        auto const& reg = ptr.handle();
 #endif
 
 #ifdef EXTRA_SIZE_CHECKS
@@ -412,7 +409,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                     // our recv was cancelled correctly
                     found = true;
                     LF_DEB(com_deb<9>, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
-                                        NS_DEBUG::ptr(op_ctx)));
+                                           NS_DEBUG::ptr(op_ctx)));
                     auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }

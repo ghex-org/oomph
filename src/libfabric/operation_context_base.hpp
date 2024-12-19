@@ -37,7 +37,7 @@ struct operation_context_base
   private:
     // libfabric requires some space for it's internal bookkeeping
     // so the first member of this struct must be fi_context
-    fi_context             context_reserved_space;
+    fi_context context_reserved_space;
     // operation_context_type type_;
 
   public:

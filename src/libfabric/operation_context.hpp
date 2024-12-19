@@ -18,7 +18,7 @@
 namespace oomph::libfabric
 {
 
-template <int Level>
+template<int Level>
 inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> opctx_deb("OP__CXT");
 
 // This struct holds the ready state of a future
@@ -33,7 +33,8 @@ struct operation_context : public operation_context_base<operation_context>
     : operation_context_base(/*ctx_any*/)
     , m_req{req}
     {
-        [[maybe_unused]] auto scp = opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__, "request", req);
+        [[maybe_unused]] auto scp =
+            opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__, "request", req);
     }
 
     // --------------------------------------------------------------------
