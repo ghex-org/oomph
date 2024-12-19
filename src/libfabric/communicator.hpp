@@ -32,8 +32,9 @@ using operation_context = libfabric::operation_context;
 
 using tag_disp = NS_DEBUG::detail::hex<12, uintptr_t>;
 
-// cppcheck-suppress ConfigurationNotChecked
-static NS_DEBUG::enable_print<false> com_deb("COMMUNI");
+template <int Level>
+inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> com_deb("COMMUNI");
+
 static NS_DEBUG::enable_print<false> com_err("COMMUNI");
 
 class communicator_impl : public communicator_base<communicator_impl>
@@ -63,7 +64,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_recv_cb_queue(128)
     , m_recv_cb_cancel(8)
     {
-        LF_DEB(com_deb, debug(NS_DEBUG::str<>("MPI_comm"), NS_DEBUG::ptr(mpi_comm())));
+        LF_DEB(com_deb<9>, debug(NS_DEBUG::str<>("MPI_comm"), NS_DEBUG::ptr(mpi_comm())));
         m_tx_endpoint = m_context->get_controller()->get_tx_endpoint();
         m_rx_endpoint = m_context->get_controller()->get_rx_endpoint();
     }
@@ -94,7 +95,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             if (ret == 0) { return; }
             else if (ret == -FI_EAGAIN)
             {
-                // com_deb.error("Reposting", msg);
+                // com_deb<9>.error("Reposting", msg);
                 // no point stressing the system
                 m_context->get_controller()->poll_for_work_completions(this);
             }
@@ -114,9 +115,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     void send_tagged_region(region_type const& send_region, std::size_t size, fi_addr_t dst_addr_,
         uint64_t tag_, operation_context* ctxt)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
         // clang-format off
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<9>,
             debug(NS_DEBUG::str<>("send_tagged_region"),
                   "->", NS_DEBUG::dec<2>(dst_addr_),
                   send_region,
@@ -133,9 +134,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     void inject_tagged_region(region_type const& send_region, std::size_t size, fi_addr_t dst_addr_,
         uint64_t tag_)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
         // clang-format on
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<9>,
             debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_), send_region,
                 "tag", tag_disp(tag_), "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
         // clang-format off
@@ -150,9 +151,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     void recv_tagged_region(region_type const& recv_region, std::size_t size, fi_addr_t src_addr_,
         uint64_t tag_, operation_context* ctxt)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
         // clang-format off
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<1>,
             debug(NS_DEBUG::str<>("recv_tagged_region"),
                   "<-", NS_DEBUG::dec<2>(src_addr_),
                   recv_region,
@@ -171,8 +172,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag, /*this->rank(), */this->m_context->get_context_tag());
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t stag = make_tag64(tag, /*this->rank(), */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
         auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
@@ -216,7 +217,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         s->create_self_ref();
 
         // clang-format off
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<9>,
             debug(NS_DEBUG::str<>("Send"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(dst),
@@ -230,7 +231,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "req", NS_DEBUG::ptr(s.get())));
 #if OOMPH_ENABLE_DEVICE
         if (!ptr.on_device()) {
-            LF_DEB(com_deb,
+            LF_DEB(com_deb<9>,
                 debug(NS_DEBUG::str<>("send region CRC32"),
                       NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
         }
@@ -245,8 +246,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag, /*src, */this->m_context->get_context_tag());
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
         auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
@@ -269,7 +270,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         s->create_self_ref();
 
         // clang-format off
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<9>,
             debug(NS_DEBUG::str<>("recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
@@ -283,7 +284,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                   "req", NS_DEBUG::ptr(s.get())));
 #if OOMPH_ENABLE_DEVICE
         if (!ptr.on_device()) {
-            LF_DEB(com_deb,
+            LF_DEB(com_deb<9>,
                 debug(NS_DEBUG::str<>("recv region CRC32"),
                       NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
         }
@@ -299,8 +300,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::atomic<std::size_t>*                                 scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag, /*src, */this->m_context->get_context_tag());
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
         auto& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle_ref();
@@ -323,7 +324,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         s->create_self_ref();
 
         // clang-format off
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<9>,
             debug(NS_DEBUG::str<>("shared_recv"),
                   "thisrank", NS_DEBUG::dec<>(rank()),
                   "rank", NS_DEBUG::dec<>(src),
@@ -356,7 +357,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             [](oomph::detail::request_state* req)
             {
                 [[maybe_unused]] auto scp =
-                    com_deb.scope("m_send_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                    com_deb<9>.scope("m_send_cb_queue.consume_all", NS_DEBUG::ptr(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
@@ -365,7 +366,7 @@ class communicator_impl : public communicator_base<communicator_impl>
             [](oomph::detail::request_state* req)
             {
                 [[maybe_unused]] auto scp =
-                    com_deb.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                    com_deb<9>.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
@@ -391,7 +392,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         // submit the cancellation request
         bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
-        LF_DEB(com_deb,
+        LF_DEB(com_deb<9>,
             debug(NS_DEBUG::str<>("Cancel"), "ok", ok, "op_ctx", NS_DEBUG::ptr(op_ctx)));
 
         // if the cancel operation failed completely, return
@@ -410,7 +411,7 @@ class communicator_impl : public communicator_base<communicator_impl>
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    LF_DEB(com_deb, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
+                    LF_DEB(com_deb<9>, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
                                         NS_DEBUG::ptr(op_ctx)));
                     auto ptr = s->release_self_ref();
                     s->set_canceled();
