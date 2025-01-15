@@ -30,7 +30,7 @@ struct operation_context : public operation_context_base<operation_context>
 
     template<typename RequestState>
     operation_context(RequestState* req)
-    : operation_context_base(/*ctx_any*/)
+    : operation_context_base()
     , m_req{req}
     {
         [[maybe_unused]] auto scp =
