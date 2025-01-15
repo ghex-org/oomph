@@ -88,7 +88,7 @@ struct region_provider
             /*.auth_key       = */ nullptr,
             /*.iface          = */ FI_HMEM_SYSTEM,
             /*.device         = */ {0},
-#if (FI_MAJOR_VERSION > 1) || ((FI_MAJOR_VERSION == 1) && FI_MINOR_VERSION >= 17)
+#if (FI_MAJOR_VERSION > 1) || ((FI_MAJOR_VERSION == 1) && FI_MINOR_VERSION > 17)
             /*.hmem_data      = */ nullptr,
 #endif
 #if (FI_MAJOR_VERSION >= 2)
