@@ -209,6 +209,9 @@ static std::vector<std::pair<int, std::string>> gni_ints = {
 // clang-format on
 #endif
 
+// the libfabric library expects us to ask for an API supported version, so if we know we support
+// api 2.0, then we ask for that, but the cxi legacy library on daint only supports 1.15, \
+// so drop back to that version if needed
 #if defined(HAVE_LIBFABRIC_CXI_1_15)
 #define LIBFABRIC_FI_VERSION_MAJOR 1
 #define LIBFABRIC_FI_VERSION_MINOR 15
