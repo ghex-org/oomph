@@ -231,7 +231,7 @@ class controller : public controller_base<controller>
     inline controller_base::unique_lock get_rx_lock()
     {
         if (bypass_rx_lock()) return unique_lock();
-        return std::move(unique_lock(recv_mutex_));
+        return unique_lock(recv_mutex_);
     }
 
     // --------------------------------------------------------------------

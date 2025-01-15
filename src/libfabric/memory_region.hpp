@@ -57,6 +57,7 @@ struct fi_mr_attr {
     const struct fid_mr *base_mr;
     size_t              sub_mr_cnt;
 };
+
 */
 
 // This is the only part of the code that actually
@@ -77,7 +78,7 @@ struct region_provider
         //
         struct iovec addresses = {/*.iov_base = */ const_cast<void*>(buf), /*.iov_len = */ len};
         fi_mr_attr   attr = {
-              /*.mr_iov         = */ &addresses,
+            /*.mr_iov         = */ &addresses,
             /*.iov_count      = */ 1,
             /*.access         = */ access_flags,
             /*.offset         = */ offset,
