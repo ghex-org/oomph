@@ -482,8 +482,8 @@ class controller_base
                 debug::dec<>(recv_deletes_), "deletes error",
                 debug::dec<>(messages_handled_ - recv_deletes_)));
 
-        tx_endpoints_.consume_all([](endpoint_wrapper& ep) { ep.cleanup(); });
-        rx_endpoints_.consume_all([](endpoint_wrapper& ep) { ep.cleanup(); });
+        tx_endpoints_.consume_all([](auto&& ep) { ep.cleanup(); });
+        rx_endpoints_.consume_all([](auto&& ep) { ep.cleanup(); });
 
         // No cleanup threadlocals : done by consume_all cleanup above
         // eps_->tl_tx_.endpoint_.cleanup();
