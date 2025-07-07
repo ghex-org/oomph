@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include <oomph/util/moved_bit.hpp>
 #include <iostream>
 #include <map>
+#include <oomph/util/moved_bit.hpp>
 #include <string>
 
 // helper classes and functions for keeping track of lifetime
@@ -53,11 +53,11 @@ struct ctor_stats_data
 
 struct ctor_stats
 {
-    ctor_stats_data*       data;
+    ctor_stats_data* data;
     oomph::util::moved_bit moved;
 
     ctor_stats(ctor_stats_data& d)
-    : data{&d}
+      : data{&d}
     {
         ++(data->n_ctor);
         ++(data->alloc_ref_count);
@@ -78,10 +78,11 @@ struct ctor_stats
     ctor_stats& operator=(ctor_stats const&) = delete;
 
     ctor_stats(ctor_stats&& other)
-    : data{other.data}
-    , moved{std::move(other.moved)}
+      : data{other.data}
+      , moved{std::move(other.moved)}
     {
-        if (!moved) ++(data->n_move_ctor);
+        if (!moved)
+            ++(data->n_move_ctor);
         else
             ++(data->n_move_ctor_of_moved);
     }
@@ -91,13 +92,15 @@ struct ctor_stats
         data = other.data;
         if (!moved)
         {
-            if (!other.moved) ++(data->n_move_assign);
+            if (!other.moved)
+                ++(data->n_move_assign);
             else
                 ++(data->n_move_assign_of_moved);
         }
         else
         {
-            if (!other.moved) ++(data->n_move_assign_to_moved);
+            if (!other.moved)
+                ++(data->n_move_assign_to_moved);
             else
                 ++(data->n_move_assign_of_moved_to_moved);
         }
@@ -115,7 +118,7 @@ struct function_registry
 {
     std::map<std::string, ctor_stats_data> m_data;
 
-    template<typename F>
+    template <typename F>
     F make(std::string const& id)
     {
         return F(m_data[id]);

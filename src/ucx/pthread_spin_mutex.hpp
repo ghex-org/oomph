@@ -11,30 +11,26 @@
 
 #include <pthread.h>
 
-namespace oomph
-{
-namespace pthread_spin
-{
-class mutex
-{
-  private: // members
-    pthread_spinlock_t m_lock;
-
-  public:
-    mutex() noexcept { pthread_spin_init(&m_lock, PTHREAD_PROCESS_PRIVATE); }
-    mutex(const mutex&) = delete;
-    mutex(mutex&&) = delete;
-    ~mutex() { pthread_spin_destroy(&m_lock); }
-
-    inline bool try_lock() noexcept { return (pthread_spin_trylock(&m_lock) == 0); }
-
-    inline void lock() noexcept
+namespace oomph { namespace pthread_spin {
+    class mutex
     {
-        while (!try_lock()) { sched_yield(); }
-    }
+    private:    // members
+        pthread_spinlock_t m_lock;
 
-    inline void unlock() noexcept { pthread_spin_unlock(&m_lock); }
-};
+    public:
+        mutex() noexcept { pthread_spin_init(&m_lock, PTHREAD_PROCESS_PRIVATE); }
+        mutex(mutex const&) = delete;
+        mutex(mutex&&) = delete;
+        ~mutex() { pthread_spin_destroy(&m_lock); }
 
-} // namespace pthread_spin
-} // namespace oomph
+        inline bool try_lock() noexcept { return (pthread_spin_trylock(&m_lock) == 0); }
+
+        inline void lock() noexcept
+        {
+            while (!try_lock()) { sched_yield(); }
+        }
+
+        inline void unlock() noexcept { pthread_spin_unlock(&m_lock); }
+    };
+
+}}    // namespace oomph::pthread_spin

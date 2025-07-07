@@ -32,42 +32,42 @@
 
 class mpi_listener : public testing::EmptyTestEventListener
 {
-  private:
+private:
     using UnitTest = testing::UnitTest;
     using TestCase = testing::TestCase;
     using TestInfo = testing::TestInfo;
     using TestPartResult = testing::TestPartResult;
 
-    int           rank_ = 0;
-    int           size_ = 0;
+    int rank_ = 0;
+    int size_ = 0;
     std::ofstream fid_;
-    char          buffer_[1024];
-    int           test_case_failures_ = 0;
-    int           test_case_tests_ = 0;
-    int           test_failures_ = 0;
+    char buffer_[1024];
+    int test_case_failures_ = 0;
+    int test_case_tests_ = 0;
+    int test_failures_ = 0;
 
     bool does_print() const { return rank_ == 0; }
 
-    void print(const char* s)
+    void print(char const* s)
     {
         fid_ << s;
         if (does_print()) { std::cout << s; }
     }
 
-    void print(const std::string& s) { print(s.c_str()); }
+    void print(std::string const& s) { print(s.c_str()); }
 
     /// convenience function that handles the logic of using snprintf
     /// and forwarding the results to file and/or stdout.
     ///
     /// TODO : it might be an idea to use a resizeable buffer
-    template<typename... Args>
-    void printf_helper(const char* s, Args&&... args)
+    template <typename... Args>
+    void printf_helper(char const* s, Args&&... args)
     {
         snprintf(buffer_, sizeof(buffer_), s, std::forward<Args>(args)...);
         print(buffer_);
     }
 
-  public:
+public:
     mpi_listener(std::string f_base = "")
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
@@ -79,17 +79,17 @@ class mpi_listener : public testing::EmptyTestEventListener
         if (!fid_)
         {
             throw std::runtime_error("PID:" + std::to_string(rank_) + " could not open file " +
-                                     fname + " for test output");
+                fname + " for test output");
         }
     }
 
     /// Messages that are printed at the start and end of the test program.
     /// i.e. once only.
-    virtual void OnTestProgramStart(const UnitTest&) override
+    virtual void OnTestProgramStart(UnitTest const&) override
     {
         printf_helper("*** test output for rank %d of %d\n\n", rank_, size_);
     }
-    virtual void OnTestProgramEnd(const UnitTest&) override
+    virtual void OnTestProgramEnd(UnitTest const&) override
     {
         printf_helper("*** end test output for rank %d of %d\n", rank_, size_);
     }
@@ -98,12 +98,12 @@ class mpi_listener : public testing::EmptyTestEventListener
     /// On startup a counter that counts the number of tests that fail in
     /// this test case is initialized to zero, and will be incremented for each
     /// test that fails.
-    virtual void OnTestCaseStart(const TestCase&) override
+    virtual void OnTestCaseStart(TestCase const&) override
     {
         test_case_failures_ = 0;
         test_case_tests_ = 0;
     }
-    virtual void OnTestCaseEnd(const TestCase& test_case) override
+    virtual void OnTestCaseEnd(TestCase const& test_case) override
     {
         if (test_case_failures_)
         {
@@ -119,21 +119,21 @@ class mpi_listener : public testing::EmptyTestEventListener
     }
 
     // Called before a test starts.
-    virtual void OnTestStart(const TestInfo& test_info) override
+    virtual void OnTestStart(TestInfo const& test_info) override
     {
         printf_helper("  TEST  %s::%s\n", test_info.test_case_name(), test_info.name());
         test_failures_ = 0;
     }
 
     // Called after a failed assertion or a SUCCEED() invocation.
-    virtual void OnTestPartResult(const TestPartResult& test_part_result) override
+    virtual void OnTestPartResult(TestPartResult const& test_part_result) override
     {
-        const char* banner =
+        char const* banner =
             "--------------------------------------------------------------------------------";
 
         // indent all lines in the summary by 4 spaces
         std::string summary = "    " + std::string(test_part_result.summary());
-        auto        pos = summary.find("\n");
+        auto pos = summary.find("\n");
         while (pos != summary.size() && pos != std::string::npos)
         {
             summary.replace(pos, 1, "\n    ");
@@ -149,7 +149,7 @@ class mpi_listener : public testing::EmptyTestEventListener
     }
 
     // Called after a test ends.
-    virtual void OnTestEnd(const TestInfo&) override
+    virtual void OnTestEnd(TestInfo const&) override
     {
         test_case_tests_++;
 

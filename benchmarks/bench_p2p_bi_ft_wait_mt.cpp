@@ -7,19 +7,18 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <oomph/context.hpp>
 #include <oomph/barrier.hpp>
-#include "./mpi_environment.hpp"
+#include <oomph/context.hpp>
+#include <vector>
 #include "./args.hpp"
+#include "./mpi_environment.hpp"
 #include "./timer.hpp"
 #include "./utils.hpp"
-#include <vector>
 
-const char *syncmode = "future";
-const char *waitmode = "wait";
+char const* syncmode = "future";
+char const* waitmode = "wait";
 
-int
-main(int argc, char** argv)
+int main(int argc, char** argv)
 {
     using namespace oomph;
     using message = oomph::message_buffer<char>;
@@ -33,13 +32,13 @@ main(int argc, char** argv)
 
     context ctxt(MPI_COMM_WORLD, multi_threaded);
     barrier b(ctxt, cmd_args.num_threads);
-    timer   t0;
-    timer   t1;
+    timer t0;
+    timer t1;
 
-    const auto inflight = cmd_args.inflight;
-    const auto num_threads = cmd_args.num_threads;
-    const auto buff_size = cmd_args.buff_size;
-    const auto niter = cmd_args.n_iter;
+    auto const inflight = cmd_args.inflight;
+    auto const num_threads = cmd_args.num_threads;
+    auto const buff_size = cmd_args.buff_size;
+    auto const niter = cmd_args.n_iter;
 
     if (env.rank == 0)
     {
@@ -49,26 +48,28 @@ main(int argc, char** argv)
     }
 
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp parallel
+# pragma omp parallel
 #endif
     {
-        auto       comm = ctxt.get_communicator();
-        const auto rank = comm.rank();
-        const auto size = comm.size();
-        const auto thread_id = THREADID;
-        const auto peer_rank = (rank + 1) % size;
+        auto comm = ctxt.get_communicator();
+        auto const rank = comm.rank();
+        auto const size = comm.size();
+        auto const thread_id = THREADID;
+        auto const peer_rank = (rank + 1) % size;
 
-        int       dbg = 0;
-        int       sent = 0, received = 0;
-        int       last_received = 0;
-        int       last_sent = 0;
-        const int delta_i = niter / 10;
+        int dbg = 0;
+        int sent = 0, received = 0;
+        int last_received = 0;
+        int last_sent = 0;
+        int const delta_i = niter / 10;
 
         if (thread_id == 0 && rank == 0)
-        { std::cout << "\n\nrunning test " << __FILE__ << "\n\n"; };
+        {
+            std::cout << "\n\nrunning test " << __FILE__ << "\n\n";
+        };
 
-        std::vector<message>      smsgs(inflight);
-        std::vector<message>      rmsgs(inflight);
+        std::vector<message> smsgs(inflight);
+        std::vector<message> rmsgs(inflight);
         std::vector<send_request> sreqs(inflight);
         std::vector<recv_request> rreqs(inflight);
         for (int j = 0; j < inflight; j++)
@@ -95,8 +96,8 @@ main(int argc, char** argv)
                 dbg = 0;
                 std::cout << rank << " total bwdt MB/s:      "
                           << ((received - last_received + sent - last_sent) * size *
-                                 (double)buff_size / 2) /
-                                 t0.stoc()
+                                 (double) buff_size / 2) /
+                        t0.stoc()
                           << "\n";
                 t0.tic();
                 last_received = received;
@@ -116,7 +117,7 @@ main(int argc, char** argv)
 
             comm.wait_all();
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp barrier
+# pragma omp barrier
 #endif
 
             ///* wait for all */
@@ -131,8 +132,8 @@ main(int argc, char** argv)
 
         if (thread_id == 0 && rank == 0)
         {
-            const auto t = t1.stoc();
-            double bw = ((double)niter*size*buff_size)/t;
+            auto const t = t1.stoc();
+            double bw = ((double) niter * size * buff_size) / t;
             // clang-format off
             std::cout << "time:                   " << t / 1000000 << "s\n";
             std::cout << "final MB/s: " << bw << "\n";

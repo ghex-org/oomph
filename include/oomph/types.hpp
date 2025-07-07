@@ -9,10 +9,9 @@
  */
 #pragma once
 
-namespace oomph
-{
+namespace oomph {
 
-using tag_type = int;
-using rank_type = int;
+    using tag_type = int;
+    using rank_type = int;
 
-} // namespace oomph
+}    // namespace oomph

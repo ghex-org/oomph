@@ -11,30 +11,38 @@
 
 #include <cstdint>
 
-namespace oomph
-{
-class thread_id
-{
-    using id_type = std::uintptr_t const;
+namespace oomph {
+    class thread_id
+    {
+        using id_type = std::uintptr_t const;
 
-  private:
-    id_type* const m;
+    private:
+        id_type* const m;
 
-  public:
-    thread_id();
-    ~thread_id();
-    thread_id(thread_id const&) = delete;
-    thread_id(thread_id&) = delete;
-    thread_id& operator=(thread_id const&) = delete;
-    thread_id& operator=(thread_id&&) = delete;
+    public:
+        thread_id();
+        ~thread_id();
+        thread_id(thread_id const&) = delete;
+        thread_id(thread_id&) = delete;
+        thread_id& operator=(thread_id const&) = delete;
+        thread_id& operator=(thread_id&&) = delete;
 
-  public:
-    friend bool operator==(thread_id const& a, thread_id const& b) noexcept { return (a.m == b.m); }
-    friend bool operator!=(thread_id const& a, thread_id const& b) noexcept { return (a.m != b.m); }
-    friend bool operator<(thread_id const& a, thread_id const& b) noexcept { return (a.m < b.m); }
+    public:
+        friend bool operator==(thread_id const& a, thread_id const& b) noexcept
+        {
+            return (a.m == b.m);
+        }
+        friend bool operator!=(thread_id const& a, thread_id const& b) noexcept
+        {
+            return (a.m != b.m);
+        }
+        friend bool operator<(thread_id const& a, thread_id const& b) noexcept
+        {
+            return (a.m < b.m);
+        }
 
-    operator std::uintptr_t() const& noexcept { return *m; }
-};
+        operator std::uintptr_t() const& noexcept { return *m; }
+    };
 
-thread_id const& tid();
-} // namespace oomph
+    thread_id const& tid();
+}    // namespace oomph

@@ -25,7 +25,7 @@ struct mpi_test_fixture : public ::testing::Test
 
     //void TearDown() {}
 
-  protected:
+protected:
     int world_rank;
     int world_size;
 };

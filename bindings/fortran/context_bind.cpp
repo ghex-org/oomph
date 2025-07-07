@@ -7,47 +7,33 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <oomph/barrier.hpp>
-#include <bindings/fortran/oomph_defs.hpp>
 #include <bindings/fortran/context_bind.hpp>
+#include <bindings/fortran/oomph_defs.hpp>
 #include <mpi.h>
+#include <oomph/barrier.hpp>
 #include <sched.h>
 #include <sys/sysinfo.h>
 
-namespace
-{
-oomph::context* oomph_context;
+namespace {
+    oomph::context* oomph_context;
 #if OOMPH_ENABLE_BARRIER
-oomph::barrier* oomph_barrier_obj = nullptr;
+    oomph::barrier* oomph_barrier_obj = nullptr;
 #endif
-}
+}    // namespace
 
-namespace oomph
-{
-namespace fort
-{
-context&
-get_context()
-{
-    return *oomph_context;
-}
+namespace oomph { namespace fort {
+    context& get_context() { return *oomph_context; }
 #if OOMPH_ENABLE_BARRIER
 
-#pragma message "barrier is enabled"
-    oomph::barrier&
-    barrier()
-    {
-        return *oomph_barrier_obj;
-    }
+# pragma message "barrier is enabled"
+    oomph::barrier& barrier() { return *oomph_barrier_obj; }
 #else
-#pragma message "barrier is disabled"
+# pragma message "barrier is disabled"
 #endif
     int nthreads = 1;
-} // namespace fort
-} // namespace oomph
+}}    // namespace oomph::fort
 
-extern "C" void
-oomph_init(int nthreads, MPI_Fint fcomm)
+extern "C" void oomph_init(int nthreads, MPI_Fint fcomm)
 {
     /* the fortran-side mpi communicator must be translated to C */
     MPI_Comm ccomm = MPI_Comm_f2c(fcomm);
@@ -58,8 +44,7 @@ oomph_init(int nthreads, MPI_Fint fcomm)
 #endif
 }
 
-extern "C" void
-oomph_finalize()
+extern "C" void oomph_finalize()
 {
     delete oomph_context;
 #if OOMPH_ENABLE_BARRIER
@@ -67,33 +52,18 @@ oomph_finalize()
 #endif
 }
 
-extern "C" int
-oomph_get_current_cpu()
-{
-    return sched_getcpu();
-}
+extern "C" int oomph_get_current_cpu() { return sched_getcpu(); }
 
-extern "C" int
-oomph_get_ncpus()
-{
-    return get_nprocs_conf();
-}
+extern "C" int oomph_get_ncpus() { return get_nprocs_conf(); }
 
 #if OOMPH_ENABLE_BARRIER
-extern "C" void
-oomph_barrier(int type)
+extern "C" void oomph_barrier(int type)
 {
     switch (type)
-        {
-        case (oomph::fort::OomphBarrierThread):
-            oomph::fort::barrier().thread_barrier();
-            break;
-        case (oomph::fort::OomphBarrierRank):
-            oomph::fort::barrier().rank_barrier();
-            break;
-        default:
-            oomph::fort::barrier()();
-            break;
-        }
+    {
+    case (oomph::fort::OomphBarrierThread): oomph::fort::barrier().thread_barrier(); break;
+    case (oomph::fort::OomphBarrierRank): oomph::fort::barrier().rank_barrier(); break;
+    default: oomph::fort::barrier()(); break;
+    }
 }
 #endif

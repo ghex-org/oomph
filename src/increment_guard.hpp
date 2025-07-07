@@ -9,35 +9,34 @@
  */
 #pragma once
 
-namespace oomph
-{
+namespace oomph {
 
-template<typename T>
-class increment_guard
-{
-  private:
-    T* m = nullptr;
-
-  public:
-    increment_guard(T& r) noexcept
-    : m{&r}
+    template <typename T>
+    class increment_guard
     {
-        ++(*m);
-    }
+    private:
+        T* m = nullptr;
 
-    increment_guard(increment_guard&& other) noexcept
-    : m(other.m)
-    {
-        other.m = nullptr;
-    }
+    public:
+        increment_guard(T& r) noexcept
+          : m{&r}
+        {
+            ++(*m);
+        }
 
-    increment_guard(increment_guard const&) = delete;
-    increment_guard& operator=(increment_guard const&) = delete;
-    increment_guard& operator=(increment_guard&&) = delete;
+        increment_guard(increment_guard&& other) noexcept
+          : m(other.m)
+        {
+            other.m = nullptr;
+        }
 
-    ~increment_guard()
-    {
-        if (m) --(*m);
-    }
-};
-} // namespace oomph
+        increment_guard(increment_guard const&) = delete;
+        increment_guard& operator=(increment_guard const&) = delete;
+        increment_guard& operator=(increment_guard&&) = delete;
+
+        ~increment_guard()
+        {
+            if (m) --(*m);
+        }
+    };
+}    // namespace oomph

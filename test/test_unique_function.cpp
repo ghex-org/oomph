@@ -20,7 +20,7 @@ struct simple_function
     int i = 0;
 
     simple_function(int i_ = 0)
-    : i{i_}
+      : i{i_}
     {
     }
 
@@ -39,9 +39,9 @@ struct simple_function
 
 TEST(unqiue_function, simple_function)
 {
-    simple_function                        f1(1);
-    simple_function                        f2(2);
-    simple_function                        f3(0);
+    simple_function f1(1);
+    simple_function f2(2);
+    simple_function f3(0);
     oomph::util::unique_function<int(int)> uf1{std::move(f1)};
     EXPECT_EQ(1, uf1(3));
     EXPECT_EQ(3, uf1(4));
@@ -53,10 +53,8 @@ TEST(unqiue_function, simple_function)
     EXPECT_EQ(3, uf1(4));
 }
 
-
 void test_stats(ctor_stats_data const& stats, int n_ctor, int n_dtor, int n_dtor_of_moved,
     int n_move_ctor, int n_calls);
-
 
 // small function which fits within the stack buffer
 struct small_function
@@ -64,7 +62,7 @@ struct small_function
     ctor_stats stats;
 
     small_function(ctor_stats_data& d)
-    : stats{d}
+      : stats{d}
     {
     }
 
@@ -87,7 +85,7 @@ struct large_function : public small_function
     std::array<char, 256> buffer;
 
     large_function(ctor_stats_data& d)
-    : small_function(d)
+      : small_function(d)
     {
     }
 };
@@ -95,9 +93,8 @@ struct large_function : public small_function
 // test (move) constructor
 // =======================
 
-template<typename F1, typename F2>
-void
-test_ctor(function_registry& registry)
+template <typename F1, typename F2>
+void test_ctor(function_registry& registry)
 {
     using namespace oomph::util;
 
@@ -107,14 +104,14 @@ test_ctor(function_registry& registry)
         uf();
     }
     {
-        auto                    f = registry.template make<F1>("b_F1_0");
+        auto f = registry.template make<F1>("b_F1_0");
         unique_function<void()> uf(std::move(f));
         uf();
         uf();
     }
     {
-        auto                    f1 = registry.template make<F1>("c_F1_0");
-        auto                    f2 = registry.template make<F1>("c_F1_1");
+        auto f1 = registry.template make<F1>("c_F1_0");
+        auto f2 = registry.template make<F1>("c_F1_1");
         unique_function<void()> uf;
         uf = std::move(f1);
         uf();
@@ -122,8 +119,8 @@ test_ctor(function_registry& registry)
         uf();
     }
     {
-        auto                    f1 = registry.template make<F1>("d_F1_0");
-        auto                    f2 = registry.template make<F2>("d_F2_0");
+        auto f1 = registry.template make<F1>("d_F1_0");
+        auto f2 = registry.template make<F2>("d_F2_0");
         unique_function<void()> uf;
         uf = std::move(f1);
         uf();
@@ -169,9 +166,8 @@ TEST(unqiue_function, ctor_large)
 // test move assign
 // ================
 
-template<typename F1, typename F2>
-void
-test_move(function_registry& registry)
+template <typename F1, typename F2>
+void test_move(function_registry& registry)
 {
     using namespace oomph::util;
 
@@ -248,8 +244,7 @@ TEST(unqiue_function, move_large)
 }
 
 // implementation of check function
-void
-test_stats(ctor_stats_data const& stats, int n_ctor, int n_dtor, int n_dtor_of_moved,
+void test_stats(ctor_stats_data const& stats, int n_ctor, int n_dtor, int n_dtor_of_moved,
     int n_move_ctor, int n_calls)
 {
     EXPECT_EQ(stats.n_ctor, n_ctor);

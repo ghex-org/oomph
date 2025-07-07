@@ -16,24 +16,21 @@
 // paths relative to backend
 #include <error.hpp>
 #ifdef OOMPH_UCX_USE_PMI
-#include <address_db_pmi.hpp>
+# include <address_db_pmi.hpp>
 #else
-#include <address_db_mpi.hpp>
+# include <address_db_mpi.hpp>
 #endif
 
 #ifdef OOMPH_UCX_USE_SPIN_LOCK
-#include <pthread_spin_mutex.hpp>
-namespace oomph
-{
-using ucx_mutex = pthread_spin::mutex;
+# include <pthread_spin_mutex.hpp>
+namespace oomph {
+    using ucx_mutex = pthread_spin::mutex;
 }
 #else
-namespace oomph
-{
-using ucx_mutex = std::mutex;
+namespace oomph {
+    using ucx_mutex = std::mutex;
 }
 #endif
-namespace oomph
-{
-using ucx_lock = std::lock_guard<ucx_mutex>;
+namespace oomph {
+    using ucx_lock = std::lock_guard<ucx_mutex>;
 }

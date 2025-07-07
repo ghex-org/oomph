@@ -7,11 +7,10 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <bindings/fortran/oomph_defs.hpp>
 #include <bindings/fortran/object_wrapper.hpp>
+#include <bindings/fortran/oomph_defs.hpp>
 
-extern "C" void
-oomph_obj_free(oomph::fort::obj_wrapper** wrapper_ref)
+extern "C" void oomph_obj_free(oomph::fort::obj_wrapper** wrapper_ref)
 {
     auto wrapper = *wrapper_ref;
 

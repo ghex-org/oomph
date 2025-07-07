@@ -10,10 +10,6 @@
 #pragma once
 #include <oomph/context.hpp>
 
-namespace oomph
-{
-namespace fort
-{
-context& get_context();
-} // namespace fort
-} // namespace oomph
+namespace oomph { namespace fort {
+    context& get_context();
+}}    // namespace oomph::fort

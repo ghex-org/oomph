@@ -7,36 +7,33 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <oomph/context.hpp>
-#include <gtest/gtest.h>
-#include "./mpi_runner/mpi_test_fixture.hpp"
-#include <iostream>
 #include <array>
+#include <gtest/gtest.h>
 #include <iomanip>
+#include <iostream>
+#include <oomph/context.hpp>
 #include <thread>
+#include "./mpi_runner/mpi_test_fixture.hpp"
 
-const int SIZE = 1000000;
+int const SIZE = 1000000;
 
-template<typename M>
-void
-reset_msg(M& msg)
+template <typename M>
+void reset_msg(M& msg)
 {
     for (std::size_t i = 0; i < msg.size(); ++i) msg[i] = -1;
 }
 
-template<typename M>
-void
-init_msg(M& msg)
+template <typename M>
+void init_msg(M& msg)
 {
     for (std::size_t i = 0; i < msg.size(); ++i) msg[i] = i;
 }
 
-template<typename M>
-bool
-check_msg(M const& msg)
+template <typename M>
+bool check_msg(M const& msg)
 {
     bool ok = true;
-    for (std::size_t i = 0; i < msg.size(); ++i) ok = ok && (msg[i] == (int)i);
+    for (std::size_t i = 0; i < msg.size(); ++i) ok = ok && (msg[i] == (int) i);
     return ok;
 }
 

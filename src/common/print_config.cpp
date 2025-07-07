@@ -9,16 +9,14 @@
  */
 #include <iostream>
 
-namespace oomph
-{
-void
-print_config()
-{
-    std::cout << std::endl;
-    std::cout << " -- OOMPH compile configuration:" << std::endl;
-    std::cout << std::endl;
+namespace oomph {
+    void print_config()
+    {
+        std::cout << std::endl;
+        std::cout << " -- OOMPH compile configuration:" << std::endl;
+        std::cout << std::endl;
 #include <oomph/cmake_config.inc>
-    std::cout << std::endl;
-}
+        std::cout << std::endl;
+    }
 
-} // namespace oomph
+}    // namespace oomph

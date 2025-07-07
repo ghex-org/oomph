@@ -12,18 +12,17 @@
 // paths relative to backend
 #include <../communicator_set.hpp>
 
-namespace oomph
-{
+namespace oomph {
 
-struct communicator_set::impl
-{
-    void insert(context_impl const*, communicator_impl*) {}
+    struct communicator_set::impl
+    {
+        void insert(context_impl const*, communicator_impl*) {}
 
-    void erase(context_impl const*, communicator_impl*) {}
+        void erase(context_impl const*, communicator_impl*) {}
 
-    void erase(context_impl const*) {}
+        void erase(context_impl const*) {}
 
-    void progress(context_impl const*) {}
-};
+        void progress(context_impl const*) {}
+    };
 
-} // namespace oomph
+}    // namespace oomph

@@ -7,28 +7,27 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <atomic>
 #include <iostream>
 #include <mpi.h>
 #include <string.h>
-#include <atomic>
 
 // do not include OOMPH functionality
 #define OOMPH_BENCHMARKS_PURE_MPI
-#include "./mpi_environment.hpp"
 #include "./args.hpp"
+#include "./mpi_environment.hpp"
 #include "./timer.hpp"
 #include "./utils.hpp"
 
 #ifdef OOMPH_BENCHMARKS_MT
-#include <omp.h>
+# include <omp.h>
 #endif /* OOMPH_BENCHMARKS_MT */
 
-int
-main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     using namespace oomph;
 
-    int   rank, size, peer_rank;
+    int rank, size, peer_rank;
     timer t0, t1;
 
     args cmd_args(argc, argv);
@@ -38,9 +37,9 @@ main(int argc, char* argv[])
     mpi_environment env(multi_threaded, argc, argv);
     if (env.size != 2) return exit(argv[0]);
 
-    const auto inflight = cmd_args.inflight;
-    const auto buff_size = cmd_args.buff_size;
-    const auto niter = cmd_args.n_iter;
+    auto const inflight = cmd_args.inflight;
+    auto const buff_size = cmd_args.buff_size;
+    auto const niter = cmd_args.n_iter;
 
     if (env.rank == 0)
     {
@@ -50,18 +49,18 @@ main(int argc, char* argv[])
     }
 
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp parallel
+# pragma omp parallel
 #endif
     {
-        int             thrid = 0, nthr = 1;
-        MPI_Comm        mpi_comm = MPI_COMM_NULL;
+        int thrid = 0, nthr = 1;
+        MPI_Comm mpi_comm = MPI_COMM_NULL;
         unsigned char** sbuffers = new unsigned char*[inflight];
         unsigned char** rbuffers = new unsigned char*[inflight];
-        MPI_Request*    sreq = new MPI_Request[inflight];
-        MPI_Request*    rreq = new MPI_Request[inflight];
+        MPI_Request* sreq = new MPI_Request[inflight];
+        MPI_Request* rreq = new MPI_Request[inflight];
 
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp master
+# pragma omp master
 #endif
         {
             MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -80,7 +79,7 @@ main(int argc, char* argv[])
         {
             if (thrid == tid) { MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm); }
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp barrier
+# pragma omp barrier
 #endif
         }
 
@@ -96,7 +95,7 @@ main(int argc, char* argv[])
 
         if (thrid == 0) MPI_Barrier(mpi_comm);
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp barrier
+# pragma omp barrier
 #endif
 
         if (thrid == 0)
@@ -108,8 +107,8 @@ main(int argc, char* argv[])
                           << "\n";
         }
 
-        int  i = 0, dbg = 0;
-        int  last_i = 0;
+        int i = 0, dbg = 0;
+        int last_i = 0;
         char header[256];
         snprintf(header, 256, "%d total bwdt ", rank);
         while (i < niter)
@@ -117,7 +116,7 @@ main(int argc, char* argv[])
             if (thrid == 0 && dbg >= (niter / 10))
             {
                 dbg = 0;
-                t0.vtoc(header, (double)(i - last_i) * size * buff_size);
+                t0.vtoc(header, (double) (i - last_i) * size * buff_size);
                 t0.tic();
                 last_i = i;
             }
@@ -145,18 +144,18 @@ main(int argc, char* argv[])
             }
 #endif
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp barrier
+# pragma omp barrier
 #endif
         }
-        delete []sbuffers;
-        delete []rbuffers;
+        delete[] sbuffers;
+        delete[] rbuffers;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (rank == 1)
     {
         t1.vtoc();
-        t1.vtoc("final ", (double)niter * size * buff_size);
+        t1.vtoc("final ", (double) niter * size * buff_size);
     }
 
     return 0;

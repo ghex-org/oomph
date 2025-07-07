@@ -15,11 +15,11 @@
 struct my_int
 {
     ctor_stats m_stats;
-    int        m_i;
+    int m_i;
 
     my_int(ctor_stats_data& d, int i)
-    : m_stats{d}
-    , m_i(i)
+      : m_stats{d}
+      , m_i(i)
     {
     }
 
