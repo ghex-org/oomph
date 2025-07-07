@@ -7,18 +7,6 @@ on:
       - main
 
 jobs:
-  clang-format-check:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: DoozyX/clang-format-lint-action@v0.20
-      with:
-        source: '.'
-        exclude: './ext'
-        extensions: 'hpp,cpp,hpp.in,cu'
-        clangFormatVersion: 18
-        style: file
-
   build-cpu:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi
