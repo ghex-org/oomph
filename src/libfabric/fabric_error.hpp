@@ -19,7 +19,7 @@
 
 namespace NS_DEBUG {
     // cppcheck-suppress ConfigurationNotChecked
-    static NS_DEBUG::enable_print<false> err_deb("ERROR__");
+    static NS_DEBUG::enable_print<true> err_deb("ERROR__");
 }    // namespace NS_DEBUG
 
 namespace NS_LIBFABRIC {

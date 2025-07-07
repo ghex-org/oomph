@@ -49,8 +49,8 @@ namespace oomph {
         // --------------------------------------------------
         // create a singleton ptr to a libfabric controller that
         // can be shared between oomph context objects
-        static std::shared_ptr<controller_type> init_libfabric_controller(
-            oomph::context_impl* ctx, MPI_Comm comm, int rank, int size, int threads);
+        static std::shared_ptr<controller_type> init_libfabric_controller(oomph::context_impl* ctx,
+            MPI_Comm comm, int rank, int size, int threads, bool debug = false);
 
         // queue for shared recv callbacks
         callback_queue m_recv_cb_queue;
@@ -59,7 +59,7 @@ namespace oomph {
 
     public:
         context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-            std::size_t message_pool_reserve);
+            std::size_t message_pool_reserve, bool debug = false);
         context_impl(context_impl const&) = delete;
         context_impl(context_impl&&) = delete;
 
