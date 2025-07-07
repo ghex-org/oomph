@@ -9,56 +9,55 @@
  */
 #pragma once
 
+#include <map>
 #include <mutex>
 #include <set>
-#include <map>
 
 // paths relative to backend
-#include <context.hpp>
-#include <communicator.hpp>
 #include <../communicator_set.hpp>
 #include <../thread_id.hpp>
+#include <communicator.hpp>
+#include <context.hpp>
 
-namespace oomph
-{
+namespace oomph {
 
-struct communicator_set::impl
-{
-    using set_type = std::set<communicator_impl*>;
-    using map_type = std::map<std::uintptr_t, set_type>;
-    using mutex = std::mutex;
-    using lock_guard = std::lock_guard<mutex>;
-
-    mutex                                   m_mtx;
-    std::map<context_impl const*, map_type> m_map;
-
-    void insert(context_impl const* ctxt, communicator_impl* comm)
+    struct communicator_set::impl
     {
-        auto const& _tid = tid();
-        lock_guard  lock(m_mtx);
-        m_map[ctxt][_tid].insert(comm);
-    }
+        using set_type = std::set<communicator_impl*>;
+        using map_type = std::map<std::uintptr_t, set_type>;
+        using mutex = std::mutex;
+        using lock_guard = std::lock_guard<mutex>;
 
-    void erase(context_impl const* ctxt, communicator_impl* comm)
-    {
-        auto const& _tid = tid();
-        lock_guard  lock(m_mtx);
-        m_map[ctxt][_tid].erase(comm);
-    }
+        mutex m_mtx;
+        std::map<context_impl const*, map_type> m_map;
 
-    void erase(context_impl const* ctxt)
-    {
-        lock_guard lock(m_mtx);
-        m_map.erase(ctxt);
-    }
+        void insert(context_impl const* ctxt, communicator_impl* comm)
+        {
+            auto const& _tid = tid();
+            lock_guard lock(m_mtx);
+            m_map[ctxt][_tid].insert(comm);
+        }
 
-    void progress(context_impl const* ctxt)
-    {
-        auto const& _tid = tid();
-        lock_guard  lock(m_mtx);
-        auto&       s = m_map[ctxt][_tid];
-        for (auto c : s) c->progress();
-    }
-};
+        void erase(context_impl const* ctxt, communicator_impl* comm)
+        {
+            auto const& _tid = tid();
+            lock_guard lock(m_mtx);
+            m_map[ctxt][_tid].erase(comm);
+        }
 
-} // namespace oomph
+        void erase(context_impl const* ctxt)
+        {
+            lock_guard lock(m_mtx);
+            m_map.erase(ctxt);
+        }
+
+        void progress(context_impl const* ctxt)
+        {
+            auto const& _tid = tid();
+            lock_guard lock(m_mtx);
+            auto& s = m_map[ctxt][_tid];
+            for (auto c : s) c->progress();
+        }
+    };
+
+}    // namespace oomph

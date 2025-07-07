@@ -11,8 +11,7 @@
 #include <gtest/gtest.h>
 #include "./mpi_listener.hpp"
 
-GTEST_API_ int
-main(int argc, char** argv)
+GTEST_API_ int main(int argc, char** argv)
 {
     int required = MPI_THREAD_MULTIPLE;
     int provided;

@@ -10,40 +10,39 @@
 #pragma once
 
 #include <hwmalloc/numa.hpp>
-#include <oomph/config.hpp>
 #include <oomph/communicator.hpp>
+#include <oomph/config.hpp>
 #include <oomph/context.hpp>
 #include <oomph/util/heap_pimpl.hpp>
 
-namespace oomph
-{
+namespace oomph {
 
-// singleton
-class communicator_set
-{
-  private:
-    struct impl;
-    util::heap_pimpl<impl> m_impl;
+    // singleton
+    class communicator_set
+    {
+    private:
+        struct impl;
+        util::heap_pimpl<impl> m_impl;
 
-  private:
-    communicator_set();
-    communicator_set(communicator_set const&) = delete;
-    communicator_set& operator=(communicator_set const&) = delete;
+    private:
+        communicator_set();
+        communicator_set(communicator_set const&) = delete;
+        communicator_set& operator=(communicator_set const&) = delete;
 
-  public:
-    ~communicator_set() = default;
+    public:
+        ~communicator_set() = default;
 
-  public:
-    static communicator_set& get();
+    public:
+        static communicator_set& get();
 
-  public:
-    void insert(context_impl const* ctxt, communicator_impl* comm);
+    public:
+        void insert(context_impl const* ctxt, communicator_impl* comm);
 
-    void erase(context_impl const* ctxt, communicator_impl* comm);
+        void erase(context_impl const* ctxt, communicator_impl* comm);
 
-    void erase(context_impl const* ctxt);
+        void erase(context_impl const* ctxt);
 
-    void progress(context_impl const* ctxt);
-};
+        void progress(context_impl const* ctxt);
+    };
 
-} // namespace oomph
+}    // namespace oomph

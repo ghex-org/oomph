@@ -11,37 +11,33 @@
 
 #include <memory>
 
-namespace oomph
-{
-namespace util
-{
-template<typename T>
-class heap_pimpl
-{
-  private:
-    std::unique_ptr<T> m;
+namespace oomph { namespace util {
+    template <typename T>
+    class heap_pimpl
+    {
+    private:
+        std::unique_ptr<T> m;
 
-  public:
-    ~heap_pimpl();
-    heap_pimpl() noexcept;
-    heap_pimpl(T* ptr) noexcept;
-    template<typename... Args>
-    heap_pimpl(Args&&... args);
-    heap_pimpl(heap_pimpl const&) = delete;
-    heap_pimpl(heap_pimpl&&) noexcept;
-    heap_pimpl& operator=(heap_pimpl const&) = delete;
-    heap_pimpl& operator=(heap_pimpl&&) noexcept;
+    public:
+        ~heap_pimpl();
+        heap_pimpl() noexcept;
+        heap_pimpl(T* ptr) noexcept;
+        template <typename... Args>
+        heap_pimpl(Args&&... args);
+        heap_pimpl(heap_pimpl const&) = delete;
+        heap_pimpl(heap_pimpl&&) noexcept;
+        heap_pimpl& operator=(heap_pimpl const&) = delete;
+        heap_pimpl& operator=(heap_pimpl&&) noexcept;
 
-    T*       operator->() noexcept;
-    T const* operator->() const noexcept;
-    T&       operator*() noexcept;
-    T const& operator*() const noexcept;
-    T*       get() noexcept;
-    T const* get() const noexcept;
-};
+        T* operator->() noexcept;
+        T const* operator->() const noexcept;
+        T& operator*() noexcept;
+        T const& operator*() const noexcept;
+        T* get() noexcept;
+        T const* get() const noexcept;
+    };
 
-template<typename T, typename... Args>
-heap_pimpl<T> make_heap_pimpl(Args&&... args);
+    template <typename T, typename... Args>
+    heap_pimpl<T> make_heap_pimpl(Args&&... args);
 
-} // namespace util
-} // namespace oomph
+}}    // namespace oomph::util

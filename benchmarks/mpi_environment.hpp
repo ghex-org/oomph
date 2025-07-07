@@ -9,43 +9,39 @@
  */
 #pragma once
 
-#include <mpi.h>
 #include <iostream>
+#include <mpi.h>
 
-namespace oomph
-{
-struct mpi_environment
-{
-    int size;
-    int rank;
-
-    mpi_environment(bool thread_safe, int& argc, char**& argv)
+namespace oomph {
+    struct mpi_environment
     {
-        int mode;
-        if (thread_safe)
+        int size;
+        int rank;
+
+        mpi_environment(bool thread_safe, int& argc, char**& argv)
         {
-            MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
-            if (mode != MPI_THREAD_MULTIPLE)
+            int mode;
+            if (thread_safe)
             {
-                std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
-                std::terminate();
+                MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
+                if (mode != MPI_THREAD_MULTIPLE)
+                {
+                    std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+                    std::terminate();
+                }
             }
+            else { MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode); }
+            MPI_Comm_size(MPI_COMM_WORLD, &size);
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         }
-        else
+
+        mpi_environment(mpi_environment const&) = delete;
+
+        ~mpi_environment()
         {
-            MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode);
+            MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Finalize();
         }
-        MPI_Comm_size(MPI_COMM_WORLD, &size);
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    }
+    };
 
-    mpi_environment(mpi_environment const&) = delete;
-
-    ~mpi_environment()
-    {
-        MPI_Barrier(MPI_COMM_WORLD);
-        MPI_Finalize();
-    }
-};
-
-} // namespace oomph
+}    // namespace oomph

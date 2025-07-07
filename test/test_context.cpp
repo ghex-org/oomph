@@ -7,15 +7,15 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <oomph/context.hpp>
 #include <gtest/gtest.h>
-#include "./mpi_runner/mpi_test_fixture.hpp"
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <oomph/context.hpp>
 #include <thread>
+#include "./mpi_runner/mpi_test_fixture.hpp"
 
-const std::size_t size = 1024;
-const int         num_threads = 4;
+std::size_t const size = 1024;
+int const num_threads = 4;
 
 TEST_F(mpi_test_fixture, context_ordered)
 {

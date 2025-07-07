@@ -9,26 +9,21 @@
  */
 
 // paths relative to backend
-#include <context.hpp>
 #include <communicator.hpp>
+#include <context.hpp>
 
-namespace oomph
-{
-communicator_impl*
-context_impl::get_communicator()
-{
-    auto comm = new communicator_impl{this};
-    m_comms_set.insert(comm);
-    return comm;
-}
-
-const char *context_impl::get_transport_option(const std::string &opt) {
-    if (opt == "name") {
-        return "mpi";
+namespace oomph {
+    communicator_impl* context_impl::get_communicator()
+    {
+        auto comm = new communicator_impl{this};
+        m_comms_set.insert(comm);
+        return comm;
     }
-    else {
-        return "unspecified";
-    }
-}
 
-} // namespace oomph
+    char const* context_impl::get_transport_option(std::string const& opt)
+    {
+        if (opt == "name") { return "mpi"; }
+        else { return "unspecified"; }
+    }
+
+}    // namespace oomph

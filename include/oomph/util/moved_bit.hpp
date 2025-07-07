@@ -11,34 +11,30 @@
 
 #include <utility>
 
-namespace oomph
-{
-namespace util
-{
-struct moved_bit
-{
-    bool m_moved = false;
-
-    moved_bit() = default;
-    moved_bit(bool state) noexcept
-    : m_moved{state}
+namespace oomph { namespace util {
+    struct moved_bit
     {
-    }
-    moved_bit(const moved_bit&) = default;
-    moved_bit(moved_bit&& other) noexcept
-    : m_moved{std::exchange(other.m_moved, true)}
-    {
-    }
+        bool m_moved = false;
 
-    moved_bit& operator=(const moved_bit&) = default;
-    moved_bit& operator=(moved_bit&& other) noexcept
-    {
-        m_moved = std::exchange(other.m_moved, true);
-        return *this;
-    }
+        moved_bit() = default;
+        moved_bit(bool state) noexcept
+          : m_moved{state}
+        {
+        }
+        moved_bit(moved_bit const&) = default;
+        moved_bit(moved_bit&& other) noexcept
+          : m_moved{std::exchange(other.m_moved, true)}
+        {
+        }
 
-    operator bool() const { return m_moved; }
-};
+        moved_bit& operator=(moved_bit const&) = default;
+        moved_bit& operator=(moved_bit&& other) noexcept
+        {
+            m_moved = std::exchange(other.m_moved, true);
+            return *this;
+        }
 
-} // namespace util
-} // namespace oomph
+        operator bool() const { return m_moved; }
+    };
+
+}}    // namespace oomph::util

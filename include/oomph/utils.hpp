@@ -9,7 +9,6 @@
  */
 #pragma once
 
-namespace oomph
-{
-void print_config();
+namespace oomph {
+    void print_config();
 }

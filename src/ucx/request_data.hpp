@@ -12,55 +12,55 @@
 // paths relative to backend
 #include <request_state.hpp>
 
-namespace oomph
-{
-class communicator_impl;
+namespace oomph {
+    class communicator_impl;
 
-struct request_data
-{
-    detail::request_state*        m_req;
-    detail::shared_request_state* m_shared_req;
-    //bool                          m_empty;
-
-    void destroy()
+    struct request_data
     {
-        //m_comm = nullptr;
-        //m_cb.~cb_t();
-        //m_empty = true;
-        m_req = nullptr;
-        m_shared_req = nullptr;
-    }
+        detail::request_state* m_req;
+        detail::shared_request_state* m_shared_req;
+        //bool                          m_empty;
 
-    bool empty() const noexcept { return !((bool)m_req || (bool)m_shared_req); }
+        void destroy()
+        {
+            //m_comm = nullptr;
+            //m_cb.~cb_t();
+            //m_empty = true;
+            m_req = nullptr;
+            m_shared_req = nullptr;
+        }
 
-    static request_data* construct(void* ptr, detail::request_state* req)
-    {
-        return ::new (get_impl(ptr)) request_data{req, nullptr};
-    }
+        bool empty() const noexcept { return !((bool) m_req || (bool) m_shared_req); }
 
-    static request_data* construct(void* ptr, detail::shared_request_state* req)
-    {
-        return ::new (get_impl(ptr)) request_data{nullptr, req};
-    }
+        static request_data* construct(void* ptr, detail::request_state* req)
+        {
+            return ::new (get_impl(ptr)) request_data{req, nullptr};
+        }
 
-    // return pointer to an instance from ucx provided storage pointer
-    static request_data* get(void* ptr) { return std::launder(get_impl(ptr)); }
+        static request_data* construct(void* ptr, detail::shared_request_state* req)
+        {
+            return ::new (get_impl(ptr)) request_data{nullptr, req};
+        }
 
-    // initialize request on pristine request data allocated by ucx
-    static void init(void* ptr) { get(ptr)->destroy(); }
+        // return pointer to an instance from ucx provided storage pointer
+        static request_data* get(void* ptr) { return std::launder(get_impl(ptr)); }
 
-  private:
-    static request_data* get_impl(void* ptr)
-    {
-        // alignment mask
-        static constexpr std::uintptr_t mask = ~(alignof(request_data) - 1u);
-        return reinterpret_cast<request_data*>(
-            (reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data) - 1) &
-            mask);
-    }
-};
+        // initialize request on pristine request data allocated by ucx
+        static void init(void* ptr) { get(ptr)->destroy(); }
 
-using request_data_size =
-    std::integral_constant<std::size_t, sizeof(request_data) + alignof(request_data)>;
+    private:
+        static request_data* get_impl(void* ptr)
+        {
+            // alignment mask
+            static constexpr std::uintptr_t mask = ~(alignof(request_data) - 1u);
+            return reinterpret_cast<request_data*>(
+                (reinterpret_cast<std::uintptr_t>((unsigned char*) ptr) + alignof(request_data) -
+                    1) &
+                mask);
+        }
+    };
 
-} // namespace oomph
+    using request_data_size =
+        std::integral_constant<std::size_t, sizeof(request_data) + alignof(request_data)>;
+
+}    // namespace oomph

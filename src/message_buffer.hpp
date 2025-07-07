@@ -13,21 +13,17 @@
 #include <oomph/detail/message_buffer.hpp>
 
 // paths relative to backend
-#include <context.hpp>
 #include <communicator.hpp>
+#include <context.hpp>
 
-namespace oomph
-{
-namespace detail
-{
-using heap_ptr = typename context_impl::heap_type::pointer;
+namespace oomph { namespace detail {
+    using heap_ptr = typename context_impl::heap_type::pointer;
 
-class message_buffer::heap_ptr_impl
-{
-  public:
-    heap_ptr m;
-    void     release() { m.release(); }
-};
+    class message_buffer::heap_ptr_impl
+    {
+    public:
+        heap_ptr m;
+        void release() { m.release(); }
+    };
 
-} // namespace detail
-} // namespace oomph
+}}    // namespace oomph::detail

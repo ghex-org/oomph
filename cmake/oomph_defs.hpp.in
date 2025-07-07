@@ -11,19 +11,19 @@
 
 #include <oomph/config.hpp>
 
-namespace oomph
-{
-    namespace fort
+namespace oomph { namespace fort {
+    // clang-format off
+    using fp_type = @OOMPH_FORTRAN_FP@;
+    // clang-format on
+    typedef enum
     {
-        using fp_type = @OOMPH_FORTRAN_FP@;
-        typedef enum {
-            OomphBarrierGlobal=1,
-            OomphBarrierThread=2,
-            OomphBarrierRank=3
-        } oomph_barrier_type;
-        typedef enum {
-            OomphAllocatorHost=1,
-            OomphAllocatorDevice=2
-        } oomph_allocator_type;
-    }
-}
+        OomphBarrierGlobal = 1,
+        OomphBarrierThread = 2,
+        OomphBarrierRank = 3
+    } oomph_barrier_type;
+    typedef enum
+    {
+        OomphAllocatorHost = 1,
+        OomphAllocatorDevice = 2
+    } oomph_allocator_type;
+}}    // namespace oomph::fort

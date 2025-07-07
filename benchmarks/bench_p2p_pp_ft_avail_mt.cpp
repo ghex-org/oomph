@@ -7,20 +7,20 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <oomph/context.hpp>
 #include <oomph/barrier.hpp>
-#include "./mpi_environment.hpp"
+#include <oomph/context.hpp>
 #include "./args.hpp"
+#include "./mpi_environment.hpp"
 #include "./timer.hpp"
 #include "./utils.hpp"
 //
 #include <atomic>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <cstring>
 #ifdef OOMPH_BENCHMARKS_MT
-#include <omp.h>
+# include <omp.h>
 #endif
 
 // enable cleaned up debugging output
@@ -35,8 +35,7 @@
     std::cerr << temp.str(); }
 // clang-format on
 
-std::string
-print_send_recv_info(std::tuple<int, int, int, int, int, int>& tup)
+std::string print_send_recv_info(std::tuple<int, int, int, int, int, int>& tup)
 {
     std::stringstream temp;
     temp << " Sends Posted " << std::get<0>(tup) << " Sends Completed " << std::get<1>(tup)
@@ -45,20 +44,20 @@ print_send_recv_info(std::tuple<int, int, int, int, int, int>& tup)
     return temp.str();
 }
 
-const char* syncmode = "future";
-const char* waitmode = "avail";
+char const* syncmode = "future";
+char const* waitmode = "avail";
 
 std::atomic<int> sends_posted(0);
 std::atomic<int> sends_completed(0);
 std::atomic<int> receives_posted(0);
 
 // keep track of sends on a thread local basis
-template<typename Future>
+template <typename Future>
 struct alignas(64) msg_tracker
 {
     using message = oomph::message_buffer<char>;
     std::vector<message> msgs;
-    std::vector<Future>  reqs;
+    std::vector<Future> reqs;
     //
     msg_tracker() = default;
     //
@@ -75,8 +74,7 @@ struct alignas(64) msg_tracker
     }
 };
 
-int
-main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     using namespace oomph;
     using message = oomph::message_buffer<char>;
@@ -90,13 +88,13 @@ main(int argc, char* argv[])
 
     context ctxt(MPI_COMM_WORLD, multi_threaded);
     barrier b(ctxt, cmd_args.num_threads);
-    timer   t0;
-    timer   t1;
+    timer t0;
+    timer t1;
 
-    const auto inflight = cmd_args.inflight;
-    const auto num_threads = cmd_args.num_threads;
-    const auto n_secs = cmd_args.n_secs;
-    const auto buff_size = cmd_args.buff_size;
+    auto const inflight = cmd_args.inflight;
+    auto const num_threads = cmd_args.num_threads;
+    auto const n_secs = cmd_args.n_secs;
+    auto const buff_size = cmd_args.buff_size;
 
     if (env.rank == 0)
     {
@@ -106,8 +104,8 @@ main(int argc, char* argv[])
     }
 
     // How often do we display debug msgs
-    const int debug_freq = 5;
-    const int msecond = (1000 * n_secs) / debug_freq;
+    int const debug_freq = 5;
+    int const msecond = (1000 * n_secs) / debug_freq;
 
     // true when time exceeded
     std::atomic<bool> time_up = false;
@@ -120,27 +118,27 @@ main(int argc, char* argv[])
     // so we can post a "done sends" message
     std::atomic<int> threads_completed(0);
     // only one thread is reponsible for the "done sends" msg
-    std::atomic<int>  master_thread(-1);
+    std::atomic<int> master_thread(-1);
     std::atomic<bool> sends_complete_checked_flag = false;
 
     std::atomic<int> num_messages_expected = std::numeric_limits<int>::max() / 2;
 
     //    int mode;
-    double       elapsed;
+    double elapsed;
     oomph::timer ttimer;
 
 #ifdef OOMPH_BENCHMARKS_MT
-#pragma omp parallel
+# pragma omp parallel
 #endif
     {
         // ----------------------------------------------------------------
         // variables in parallel section are thread local
         // ----------------------------------------------------------------
-        auto       comm = ctxt.get_communicator();
-        const auto rank = comm.rank();
-        const auto size = comm.size();
-        const auto thread_id = THREADID;
-        const auto peer_rank = (rank + 1) % size;
+        auto comm = ctxt.get_communicator();
+        auto const rank = comm.rank();
+        auto const size = comm.size();
+        auto const thread_id = THREADID;
+        auto const peer_rank = (rank + 1) % size;
 
         // track sends/recvs
         msg_tracker<oomph::send_request> sends;
@@ -150,14 +148,14 @@ main(int argc, char* argv[])
 
         // when all threads have finished sending,
         // we use these to sync total msg count between ranks
-        message      done_send = comm.make_buffer<char>(sizeof(int));
-        message      done_recv = comm.make_buffer<char>(sizeof(int));
+        message done_send = comm.make_buffer<char>(sizeof(int));
+        message done_recv = comm.make_buffer<char>(sizeof(int));
         send_request fsend;
         recv_request frecv;
 
         // NB. these are thread local
-        bool thread_sends_complete = false;      // true when thread completed sends
-        bool thread_sends_complete_flag = false; // true after thread signals counter
+        bool thread_sends_complete = false;         // true when thread completed sends
+        bool thread_sends_complete_flag = false;    // true after thread signals counter
 
         // loop for allowed time : sending and receiving
         do {
@@ -253,11 +251,11 @@ main(int argc, char* argv[])
             // number of messages sent by the peer + (inflight*num_threads)
             // then all messages sent by them have been received.
         } while (!sends_complete_checked_flag ||
-                 receives_posted != (num_messages_expected + inflight * num_threads));
+            receives_posted != (num_messages_expected + inflight * num_threads));
 
-//        buffered_out("rank: " << rank << "\tthread "
-//                              << " Done" << thread_id << "\tsend: " << sends_posted
-//                              << "\trecv: " << receives_posted);
+        //        buffered_out("rank: " << rank << "\tthread "
+        //                              << " Done" << thread_id << "\tsend: " << sends_posted
+        //                              << "\trecv: " << receives_posted);
 
         // barrier + progress here before final checks
         b.thread_barrier();
@@ -272,7 +270,8 @@ main(int argc, char* argv[])
         {
             if (!recvs.reqs[j].test())
             {
-                if (recvs.reqs[j].cancel()) receives_posted--;
+                if (recvs.reqs[j].cancel())
+                    receives_posted--;
                 else
                     throw std::runtime_error("Receive cancel failed");
             }
@@ -297,7 +296,7 @@ main(int argc, char* argv[])
         // total traffic is amount sends_posted in both directions
         if (rank == 0 && thread_id == 0)
         {
-            double bw = ((double)(sends_posted + receives_posted) * buff_size) / elapsed;
+            double bw = ((double) (sends_posted + receives_posted) * buff_size) / elapsed;
             // clang-format off
             std::cout << "time:       " << elapsed/1000000 << "s\n";
             std::cout << "final MB/s: " << bw << "\n";

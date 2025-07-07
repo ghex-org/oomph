@@ -10,19 +10,19 @@
 #pragma once
 
 #include <cstdlib>
-#include <new>
-#include <limits>
 #include <iostream>
+#include <limits>
+#include <new>
 
-template<class T>
+template <class T>
 struct reporting_allocator
 {
     using value_type = T;
 
     reporting_allocator() noexcept {}
 
-    template<class U>
-    constexpr reporting_allocator(const reporting_allocator<U>&) noexcept
+    template <class U>
+    constexpr reporting_allocator(reporting_allocator<U> const&) noexcept
     {
     }
 
@@ -46,7 +46,7 @@ struct reporting_allocator
         std::free(p);
     }
 
-  private:
+private:
     void report(T* p, std::size_t n, bool alloc = true) const
     {
         std::cout << (alloc ? "Alloc: " : "Dealloc: ") << sizeof(T) * n << " bytes at " << std::hex
@@ -54,15 +54,13 @@ struct reporting_allocator
     }
 };
 
-template<class T, class U>
-bool
-operator==(const reporting_allocator<T>&, const reporting_allocator<U>&)
+template <class T, class U>
+bool operator==(reporting_allocator<T> const&, reporting_allocator<U> const&)
 {
     return true;
 }
-template<class T, class U>
-bool
-operator!=(const reporting_allocator<T>&, const reporting_allocator<U>&)
+template <class T, class U>
+bool operator!=(reporting_allocator<T> const&, reporting_allocator<U> const&)
 {
     return false;
 }

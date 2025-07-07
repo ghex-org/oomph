@@ -11,9 +11,9 @@
 
 #include <oomph/util/pimpl.hpp>
 #if OOMPH_USE_FAST_PIMPL
-#   include "./stack_pimpl_src.hpp"
-//#   define OOMPH_INSTANTIATE_PIMPL(T) OOMPH_INSTANTIATE_STACK_PIMPL(T)  
+# include "./stack_pimpl_src.hpp"
+//#   define OOMPH_INSTANTIATE_PIMPL(T) OOMPH_INSTANTIATE_STACK_PIMPL(T)
 #else
-#   include "./heap_pimpl_src.hpp"
-//#   define OOMPH_INSTANTIATE_PIMPL(T) OOMPH_INSTANTIATE_HEAP_PIMPL(T)  
+# include "./heap_pimpl_src.hpp"
+//#   define OOMPH_INSTANTIATE_PIMPL(T) OOMPH_INSTANTIATE_HEAP_PIMPL(T)
 #endif
