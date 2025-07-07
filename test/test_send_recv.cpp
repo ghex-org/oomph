@@ -7,13 +7,13 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <atomic>
+#include <driver_types.h>
 #include <gtest/gtest.h>
-#include <iomanip>
-#include <iostream>
 #include <oomph/context.hpp>
+// use this path because device version in build dir needs to find include
+#include <atomic>
 #include <thread>
-#include "./mpi_runner/mpi_test_fixture.hpp"
+#include "../test/mpi_runner/mpi_test_fixture.hpp"
 
 #define NITERS 50
 #define SIZE 64
@@ -248,13 +248,13 @@ void test_send_recv(
     }
 }
 
-TEST_F(mpi_test_fixture, send_recv)
-{
-    launch_test(test_send_recv<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv<test_environment_device>);
+#ifndef TEST_DEVICE_MODE_ONLY
+TEST_F(mpi_test_fixture, send_recv) { launch_test(test_send_recv<test_environment>); }
+#else
+# if HWMALLOC_ENABLE_DEVICE
+TEST_F(mpi_test_fixture, send_recv_device) { launch_test(test_send_recv<test_environment_device>); }
+# endif
 #endif
-}
 
 // callback: pass by l-value reference
 // ===================================
@@ -315,13 +315,16 @@ void test_send_recv_cb(
     EXPECT_EQ(sent, NITERS);
 }
 
-TEST_F(mpi_test_fixture, send_recv_cb)
+#ifndef TEST_DEVICE_MODE_ONLY
+TEST_F(mpi_test_fixture, send_recv_cb) { launch_test(test_send_recv_cb<test_environment>); }
+#else
+# if HWMALLOC_ENABLE_DEVICE
+TEST_F(mpi_test_fixture, send_recv_cb_device)
 {
-    launch_test(test_send_recv_cb<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb<test_environment_device>);
-#endif
 }
+# endif
+#endif
 
 // callback: pass by r-value reference (give up ownership)
 // =======================================================
@@ -388,13 +391,19 @@ void test_send_recv_cb_disown(
     EXPECT_EQ(sent, NITERS);
 }
 
+#ifndef TEST_DEVICE_MODE_ONLY
 TEST_F(mpi_test_fixture, send_recv_cb_disown)
 {
     launch_test(test_send_recv_cb_disown<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb_disown<test_environment_device>);
-#endif
 }
+#else
+# if HWMALLOC_ENABLE_DEVICE
+TEST_F(mpi_test_fixture, send_recv_cb_disown_device)
+{
+    launch_test(test_send_recv_cb_disown<test_environment_device>);
+}
+# endif
+#endif
 
 // callback: pass by r-value reference (give up ownership), shared recv
 // ====================================================================
@@ -410,7 +419,7 @@ void test_send_shared_recv_cb_disown(
 
     thread_id = env.thread_id;
 
-    //volatile int received = 0;
+    // volatile int received = 0;
     int volatile sent = 0;
 
     auto send_callback = [&](message msg, rank_type, tag_type) {
@@ -418,9 +427,10 @@ void test_send_shared_recv_cb_disown(
         env.smsg = std::move(msg);
     };
     auto recv_callback = [&](message msg, rank_type, tag_type) {
-        //std::cout << thread_id << " " << env.thread_id << std::endl;
-        //if (thread_id != env.thread_id) std::cout << "other thread picked up callback" << std::endl;
-        //else std::cout << "my thread picked up callback" << std::endl;
+        // std::cout << thread_id << " " << env.thread_id << std::endl;
+        // if (thread_id != env.thread_id) std::cout << "other thread picked up
+        // callback" << std::endl; else std::cout << "my thread picked up callback"
+        // << std::endl;
         env.rmsg = std::move(msg);
         ++shared_received[env.thread_id];
     };
@@ -467,13 +477,19 @@ void test_send_shared_recv_cb_disown(
     EXPECT_EQ(sent, NITERS);
 }
 
+#ifndef TEST_DEVICE_MODE_ONLY
 TEST_F(mpi_test_fixture, send_shared_recv_cb_disown)
 {
     launch_test(test_send_shared_recv_cb_disown<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_shared_recv_cb_disown<test_environment_device>);
-#endif
 }
+#else
+# if HWMALLOC_ENABLE_DEVICE
+TEST_F(mpi_test_fixture, send_shared_recv_cb_disown_device)
+{
+    launch_test(test_send_shared_recv_cb_disown<test_environment_device>);
+}
+# endif
+#endif
 
 // callback: pass by l-value reference, and resubmit
 // =================================================
@@ -522,13 +538,19 @@ void test_send_recv_cb_resubmit(
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
 
+#ifndef TEST_DEVICE_MODE_ONLY
 TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
 {
     launch_test(test_send_recv_cb_resubmit<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb_resubmit<test_environment_device>);
-#endif
 }
+#else
+# if HWMALLOC_ENABLE_DEVICE
+TEST_F(mpi_test_fixture, send_recv_cb_resubmit_device)
+{
+    launch_test(test_send_recv_cb_resubmit<test_environment_device>);
+}
+# endif
+#endif
 
 // callback: pass by r-value reference (give up ownership), and resubmit
 // =====================================================================
@@ -580,10 +602,16 @@ void test_send_recv_cb_resubmit_disown(
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
 
+#ifndef TEST_DEVICE_MODE_ONLY
 TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
 {
     launch_test(test_send_recv_cb_resubmit_disown<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
-#endif
 }
+#else
+# if HWMALLOC_ENABLE_DEVICE
+TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown_device)
+{
+    launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
+}
+# endif
+#endif
