@@ -205,7 +205,7 @@ static std::vector<std::pair<int, std::string>> gni_ints = {
 # define LIBFABRIC_FI_VERSION_MINOR 15
 #else
 # define LIBFABRIC_FI_VERSION_MAJOR 2
-# define LIBFABRIC_FI_VERSION_MINOR 0
+# define LIBFABRIC_FI_VERSION_MINOR 2
 #endif
 
 namespace NS_DEBUG {
@@ -746,7 +746,24 @@ namespace NS_LIBFABRIC {
         }
 
         // --------------------------------------------------------------------
-        constexpr uint64_t caps_flags() { return static_cast<Derived*>(this)->caps_flags(); }
+        uint64_t caps_flags(uint64_t available_flags) const
+        {
+            uint64_t required_flags =
+                static_cast<Derived const*>(this)->caps_flags(available_flags);
+            //
+            uint64_t final_flags = required_flags;
+            for (uint64_t bit = 0; bit < 64; ++bit)
+            {
+                uint64_t f = (1ULL << bit);
+                if ((required_flags & f) && ((available_flags & f) == 0))
+                {
+                    NS_DEBUG::cnb_err.error(
+                        debug::str<>("caps flags unavailable"), fi_tostr(&f, FI_TYPE_CAPS));
+                    final_flags &= ~f;
+                }
+            }
+            return final_flags;
+        }
 
         // --------------------------------------------------------------------
         constexpr fi_threading threadlevel_flags()
@@ -764,7 +781,7 @@ namespace NS_LIBFABRIC {
             base_flags = base_flags | FI_MR_LOCAL;
 
 #if defined(HAVE_LIBFABRIC_CXI)
-            return base_flags | FI_MR_MMU_NOTIFY | FI_MR_ENDPOINT;
+            return base_flags | FI_MR_MMU_NOTIFY /*| FI_MR_ENDPOINT*/;
 
 #elif defined(HAVE_LIBFABRIC_EFA)
             return base_flags | FI_MR_MMU_NOTIFY | FI_MR_ENDPOINT;
@@ -775,6 +792,7 @@ namespace NS_LIBFABRIC {
 
         // --------------------------------------------------------------------
         uint32_t rendezvous_threshold() { return msg_rendezvous_threshold_; }
+
         // --------------------------------------------------------------------
         // initialize the basic fabric/domain/name
         void open_fabric(std::string const& provider, int threads, bool rootnode)
@@ -798,7 +816,35 @@ namespace NS_LIBFABRIC {
             LF_DEB(NS_DEBUG::cnb_deb,
                 debug(debug::str<>("fabric provider"), fabric_hints_->fabric_attr->prov_name));
 
+            // get an info object to see what might be available before we set any flags
+            uint64_t flags = 0;
+            int ret = fi_getinfo(FI_VERSION(LIBFABRIC_FI_VERSION_MAJOR, LIBFABRIC_FI_VERSION_MINOR),
+                nullptr, nullptr, flags, fabric_hints_, &fabric_info_);
+            if (ret) throw NS_LIBFABRIC::fabric_error(ret, "Failed to get fabric info");
+            if (display_fabric_info_ && fabric_info_)
+            {
+                char const* info_str = fi_tostr(fabric_info_, FI_TYPE_INFO);
+                if (info_str)
+                {
+                    LF_DEB(NS_DEBUG::cnb_err,
+                        trace(debug::str<>("Fabric info"), "pre-check ->",
+                            fabric_hints_->fabric_attr->prov_name, "\n",
+                            fi_tostr(fabric_info_, FI_TYPE_INFO)));
+                }
+            }
+
+            fabric_hints_->caps = caps_flags(fabric_info_->caps);
+            if ((fabric_info_->mode & FI_CONTEXT) == 0)
+            {
+                LF_DEB(NS_DEBUG::cnb_err,
+                    debug(debug::str<>("mode FI_CONTEXT!=0"),
+                        fi_tostr(&fabric_hints_->domain_attr->mode, FI_TYPE_MODE)));
+            }
+            fabric_hints_->mode = fabric_info_->mode;
+            fabric_hints_->domain_attr->name = strdup(fabric_info_->domain_attr->name);
             fabric_hints_->domain_attr->mr_mode = memory_registration_mode_flags();
+            std::cout << fi_tostr(&fabric_hints_->domain_attr->mr_mode, FI_TYPE_MR_MODE)
+                      << std::endl;
 
             // Enable/Disable the use of progress threads
             auto progress = libfabric_progress_type();
@@ -827,13 +873,12 @@ namespace NS_LIBFABRIC {
             LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("fabric endpoint"), "RDM"));
             fabric_hints_->ep_attr->type = FI_EP_RDM;
 
-            uint64_t flags = 0;
             LF_DEB(NS_DEBUG::cnb_deb,
                 debug(debug::str<>("get fabric info"), "FI_VERSION",
                     debug::dec(LIBFABRIC_FI_VERSION_MAJOR),
                     debug::dec(LIBFABRIC_FI_VERSION_MINOR)));
 
-            int ret = fi_getinfo(FI_VERSION(LIBFABRIC_FI_VERSION_MAJOR, LIBFABRIC_FI_VERSION_MINOR),
+            ret = fi_getinfo(FI_VERSION(LIBFABRIC_FI_VERSION_MAJOR, LIBFABRIC_FI_VERSION_MINOR),
                 nullptr, nullptr, flags, fabric_hints_, &fabric_info_);
             if (ret) throw NS_LIBFABRIC::fabric_error(ret, "Failed to get fabric info");
 
