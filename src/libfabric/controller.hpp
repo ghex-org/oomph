@@ -75,15 +75,14 @@ namespace oomph::libfabric {
         }
 
         // --------------------------------------------------------------------
-        constexpr uint64_t caps_flags()
+        uint64_t caps_flags(uint64_t /*available_flags*/) const
         {
-#if OOMPH_ENABLE_DEVICE && !defined(HAVE_LIBFABRIC_TCP)
-            std::int64_t hmem_flags = FI_HMEM;
-#else
-            std::int64_t hmem_flags = 0;
+            uint64_t flags_required = FI_MSG | FI_TAGGED | FI_RMA | FI_READ | FI_WRITE | FI_RECV |
+                FI_SEND | FI_REMOTE_READ | FI_REMOTE_WRITE;
+#if OOMPH_ENABLE_DEVICE
+            flags_required |= FI_HMEM;
 #endif
-            return hmem_flags | FI_MSG | FI_TAGGED | FI_RMA | FI_READ | FI_WRITE | FI_RECV |
-                FI_SEND | FI_TRANSMIT | FI_REMOTE_READ | FI_REMOTE_WRITE;
+            return flags_required;
         }
 
         // --------------------------------------------------------------------
