@@ -10,7 +10,6 @@
 #pragma once
 
 #include <stdexcept>
-#include <string.h>
 #include <string>
 //
 #include <rdma/fi_errno.h>
