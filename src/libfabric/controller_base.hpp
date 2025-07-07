@@ -666,7 +666,7 @@ namespace NS_LIBFABRIC {
             // once enabled we can get the address
             enable_endpoint(eps_->ep_rx_.get_ep(), "rx here");
             here_ = get_endpoint_address(&eps_->ep_rx_.get_ep()->fid);
-            LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), iplocality(here_)));
+            LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("setting 'here'"), here_.to_str()));
 
             //        // if we are using scalable endpoints, then setup tx/rx contexts
             //        // we will us a single endpoint for all Tx/Rx contexts
@@ -787,25 +787,9 @@ namespace NS_LIBFABRIC {
                 throw NS_LIBFABRIC::fabric_error(-1, "Failed to allocate fabric hints");
             }
 
-            LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("Here locality"), iplocality(here_)));
-
-#if defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_TCP) || defined(HAVE_LIBFABRIC_VERBS)
-            fabric_hints_->addr_format = FI_SOCKADDR_IN;
-#elif defined(HAVE_LIBFABRIC_EFA)
-            fabric_hints_->addr_format = FI_ADDR_EFA;
-#elif defined(HAVE_LIBFABRIC_SHM)
-            fabric_hints_->addr_format = FI_ADDR_STR;
-#endif
-
-            fabric_hints_->caps = caps_flags();
-
-            fabric_hints_->mode = FI_CONTEXT /*| FI_MR_LOCAL*/;
-            if (provider.c_str() == std::string("tcp"))
-            {
-                fabric_hints_->fabric_attr->prov_name =
-                    strdup(std::string(provider + ";ofi_rxm").c_str());
-            }
-            else if (provider.c_str() == std::string("verbs"))
+            // setup the provider we want to use before getting info
+            if ((provider.c_str() == std::string("tcp")) ||
+                (provider.c_str() == std::string("verbs")))
             {
                 fabric_hints_->fabric_attr->prov_name =
                     strdup(std::string(provider + ";ofi_rxm").c_str());
@@ -1254,7 +1238,7 @@ namespace NS_LIBFABRIC {
             {
                 LF_DEB(NS_DEBUG::cnb_deb,
                     debug(debug::str<>("raw address data"), "size", debug::dec<4>(addrlen), " : ",
-                        locality::to_str(local_addr, av_)));
+                        locality(local_addr, av_).to_str()));
 
                 std::stringstream temp2;
                 for (std::size_t i = 0; i < locality_defs::array_length; ++i)
@@ -1264,7 +1248,7 @@ namespace NS_LIBFABRIC {
                 LF_DEB(NS_DEBUG::cnb_deb,
                     debug(debug::str<>("raw address data"), temp2.str().c_str()));
             }
-            return locality(local_addr);
+            return locality(local_addr, av_);
         }
 
         // --------------------------------------------------------------------
@@ -1329,7 +1313,7 @@ namespace NS_LIBFABRIC {
                 if ((ret == 0) && (addrlen <= locality_defs::array_size))
                 {
                     LF_DEB(NS_DEBUG::cnb_deb,
-                        debug(debug::str<>("address vector"), debug::dec<3>(i), iplocality(addr)));
+                        debug(debug::str<>("address vector"), debug::dec<3>(i), addr.to_str()));
                 }
                 else
                 {
@@ -1494,9 +1478,9 @@ namespace NS_LIBFABRIC {
             [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
 
             LF_DEB(NS_DEBUG::cnb_deb,
-                trace(debug::str<>("inserting AV"), iplocality(address), NS_DEBUG::ptr(av)));
+                trace(debug::str<>("inserting AV"), address.to_str(), NS_DEBUG::ptr(av)));
             fi_addr_t fi_addr = 0xffff'ffff;
-            int ret = fi_av_insert(av, address.fabric_data(), 1, &fi_addr, 0, nullptr);
+            int ret = fi_av_insert(av, address.fabric_data().data(), 1, &fi_addr, 0, nullptr);
             if (ret < 0) { throw NS_LIBFABRIC::fabric_error(ret, "fi_av_insert"); }
             else if (ret == 0)
             {
@@ -1504,10 +1488,10 @@ namespace NS_LIBFABRIC {
                 NS_LIBFABRIC::fabric_error(ret, "fi_av_insert did not return 1");
             }
             // address was generated correctly, now update the locality with the fi_addr
-            locality new_locality(address, fi_addr);
+            locality new_locality(address, fi_addr, av);
             LF_DEB(NS_DEBUG::cnb_deb,
-                trace(debug::str<>("AV add"), "rank", debug::dec<>(fi_addr),
-                    iplocality(new_locality), "fi_addr", debug::hex<4>(fi_addr)));
+                trace(debug::str<>("AV add"), "rank", debug::dec<>(fi_addr), new_locality.to_str(),
+                    "fi_addr", debug::hex<4>(fi_addr)));
             return new_locality;
         }
     };

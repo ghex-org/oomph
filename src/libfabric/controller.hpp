@@ -95,14 +95,17 @@ namespace oomph::libfabric {
         void MPI_exchange_localities(fid_av* av, MPI_Comm comm, int rank, int size)
         {
             [[maybe_unused]] auto scp = NS_DEBUG::cnt_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
-            std::vector<char> localities(size * locality_defs::array_size, 0);
+
+            // array of empty locality objects
+            std::vector<locality::locality_data> localities(size);
             //
             if (rank > 0)
             {
                 LF_DEB(NS_DEBUG::cnt_deb<9>,
-                    debug(debug::str<>("sending here"), iplocality(here_), "size",
+                    debug(debug::str<>("sending here"), here_.to_str(), "size",
                         locality_defs::array_size));
-                /*int err = */ MPI_Send(here_.fabric_data(), locality_defs::array_size, MPI_CHAR,
+                /*int err = */ MPI_Send(here_.fabric_data().data(), locality_defs::array_size,
+                    MPI_CHAR,
                     0,    // dst rank
                     0,    // tag
                     comm);
@@ -120,14 +123,14 @@ namespace oomph::libfabric {
             else
             {
                 LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("receiving addresses")));
-                memcpy(&localities[0], here_.fabric_data(), locality_defs::array_size);
+                memcpy(&localities[0], here_.fabric_data().data(), locality_defs::array_size);
                 for (int i = 1; i < size; ++i)
                 {
                     LF_DEB(NS_DEBUG::cnt_deb<9>,
                         debug(debug::str<>("receiving address"), debug::dec<>(i)));
                     MPI_Status status;
-                    /*int err = */ MPI_Recv(&localities[i * locality_defs::array_size],
-                        size * locality_defs::array_size, MPI_CHAR,
+                    /*int err = */ MPI_Recv(&localities[i], size * locality_defs::array_size,
+                        MPI_CHAR,
                         i,    // src rank
                         0,    // tag
                         comm, &status);
@@ -152,10 +155,8 @@ namespace oomph::libfabric {
             LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("populating vector")));
             for (int i = 0; i < size; ++i)
             {
-                locality temp;
-                int offset = i * locality_defs::array_size;
-                memcpy(temp.fabric_data_writable(), &localities[offset], locality_defs::array_size);
-                insert_address(av, temp);
+                locality temp(localities[i], av);
+                insert_address(temp);
             }
         }
 
