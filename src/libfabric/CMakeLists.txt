@@ -19,9 +19,8 @@ list(TRANSFORM oomph_sources PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/../
 target_sources(oomph_libfabric PRIVATE ${oomph_sources_libfabric})
 target_sources(oomph_libfabric PRIVATE context.cpp)
 target_sources(oomph_libfabric PRIVATE operation_context.cpp)
-target_sources(oomph_libfabric PRIVATE locality.cpp)
 
-# if we are using GPU, then the libfabric library was probably built with 
+# if we are using GPU, then the libfabric library was probably built with
 # gpu support, and we should link to cuda to prevent link errors
 if (HWMALLOC_ENABLE_DEVICE)
   include(CheckLanguage)

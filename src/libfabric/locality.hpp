@@ -23,8 +23,7 @@
 //
 #include "oomph_libfabric_defines.hpp"
 
-// Different providers use different address formats that we must accommodate
-// in our locality object.
+// Different providers use different address formats that we must accommodate in our locality object.
 #ifdef HAVE_LIBFABRIC_GNI
 # define HAVE_LIBFABRIC_LOCALITY_SIZE 48
 #endif
@@ -44,31 +43,24 @@
 #if defined(HAVE_LIBFABRIC_VERBS) || defined(HAVE_LIBFABRIC_TCP) ||                                \
     defined(HAVE_LIBFABRIC_SOCKETS) || defined(HAVE_LIBFABRIC_PSM2)
 # define HAVE_LIBFABRIC_LOCALITY_SIZE 16
-# define HAVE_LIBFABRIC_LOCALITY_SOCKADDR
 #endif
 
 #if defined(HAVE_LIBFABRIC_SHM)
 # define HAVE_LIBFABRIC_LOCALITY_SIZE 24
 #endif
 
+#if defined(HAVE_LIBFABRIC_LNX)
+# define HAVE_LIBFABRIC_LOCALITY_SIZE 32
+#endif
+
 namespace oomph {
     // cppcheck-suppress ConfigurationNotChecked
-    static NS_DEBUG::enable_print<false> loc_deb("LOCALTY");
+    static NS_DEBUG::enable_print<true> loc_deb("LOCALTY");
 }    // namespace oomph
 
 namespace oomph { namespace libfabric {
 
     struct locality;
-
-    // ------------------------------------------------------------------
-    // format as ip address, port, libfabric address
-    // ------------------------------------------------------------------
-    struct iplocality
-    {
-        locality const& data;
-        iplocality(locality const& a);
-        friend std::ostream& operator<<(std::ostream& os, iplocality const& p);
-    };
 
     // --------------------------------------------------------------------
     // Locality, in this structure we store the information required by
@@ -91,45 +83,50 @@ namespace oomph { namespace libfabric {
 
         static char const* type() { return "libfabric"; }
 
-        explicit locality(locality_data const& in_data)
+        explicit locality(locality_data const& in_data, struct fid_av* av)
         {
             std::memcpy(&data_[0], &in_data[0], locality_defs::array_size);
             fi_address_ = 0;
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("expl constructing"), iplocality((*this))));
+            av_ = av;
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("explicit construct"), to_str()));
         }
 
         locality()
         {
             std::memset(&data_[0], 0x00, locality_defs::array_size);
             fi_address_ = 0;
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("default construct"), iplocality((*this))));
+            av_ = nullptr;
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("default construct"), to_str()));
         }
 
         locality(locality const& other)
           : data_(other.data_)
           , fi_address_(other.fi_address_)
+          , av_(other.av_)
         {
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("copy construct"), iplocality((*this))));
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("copy construct"), to_str()));
         }
 
-        locality(locality const& other, fi_addr_t addr)
+        locality(locality const& other, fi_addr_t addr, struct fid_av* av)
           : data_(other.data_)
           , fi_address_(addr)
+          , av_(av)
         {
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("copy fi construct"), iplocality((*this))));
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("copy fi construct"), to_str()));
         }
 
         locality(locality&& other)
           : data_(std::move(other.data_))
           , fi_address_(other.fi_address_)
+          , av_(other.av_)
         {
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("move construct"), iplocality((*this))));
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("move construct"), to_str()));
         }
 
         // provided to support sockets mode bootstrap
         explicit locality(std::string const& address, std::string const& portnum)
         {
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("explicit construct"), address, ":", portnum));
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("explicit construct-2"), address, ":", portnum));
             //
             struct sockaddr_in socket_data;
             memset(&socket_data, 0, sizeof(socket_data));
@@ -139,79 +136,23 @@ namespace oomph { namespace libfabric {
             //
             std::memcpy(&data_[0], &socket_data, locality_defs::array_size);
             fi_address_ = 0;
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("string constructing"), iplocality((*this))));
-        }
-
-        // some condition marking this locality as valid
-        explicit inline operator bool() const
-        {
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("bool operator"), iplocality((*this))));
-            return (ip_address() != 0);
-        }
-
-        inline bool valid() const
-        {
-            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("valid operator"), iplocality((*this))));
-            return (ip_address() != 0);
+            av_ = nullptr;
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("string constructing"), to_str()));
         }
 
         locality& operator=(locality const& other)
         {
             data_ = other.data_;
             fi_address_ = other.fi_address_;
-            LF_DEB(loc_deb,
-                trace(NS_DEBUG::str<>("copy operator"), iplocality(*this), iplocality(other)));
+            av_ = other.av_;
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("copy operator"), to_str(), other.to_str()));
             return *this;
         }
 
         bool operator==(locality const& other)
         {
-            LF_DEB(loc_deb,
-                trace(NS_DEBUG::str<>("equality operator"), iplocality(*this), iplocality(other)));
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("equality operator"), to_str(), other.to_str()));
             return std::memcmp(&data_, &other.data_, locality_defs::array_size) == 0;
-        }
-
-        bool less_than(locality const& other)
-        {
-            LF_DEB(loc_deb,
-                trace(NS_DEBUG::str<>("less operator"), iplocality(*this), iplocality(other)));
-            if (ip_address() < other.ip_address()) return true;
-            if (ip_address() == other.ip_address()) return port() < other.port();
-            return false;
-        }
-
-        uint32_t const& ip_address() const
-        {
-#if defined(HAVE_LIBFABRIC_LOCALITY_SOCKADDR)
-            return reinterpret_cast<const struct sockaddr_in*>(data_.data())->sin_addr.s_addr;
-#elif defined(HAVE_LIBFABRIC_GNI)
-            return data_[0];
-#elif defined(HAVE_LIBFABRIC_CXI)
-            return data_[0];
-#elif defined(HAVE_LIBFABRIC_EFA)
-            return data_[0];
-#elif defined(HAVE_LIBFABRIC_SHM)
-            return data_[0];
-#else
-            throw fabric_error(0, "unsupported fabric provider, please fix ASAP");
-#endif
-        }
-
-        static uint32_t const& ip_address(locality_data const& data)
-        {
-#if defined(HAVE_LIBFABRIC_LOCALITY_SOCKADDR)
-            return reinterpret_cast<const struct sockaddr_in*>(&data)->sin_addr.s_addr;
-#elif defined(HAVE_LIBFABRIC_GNI)
-            return data[0];
-#elif defined(HAVE_LIBFABRIC_CXI)
-            return data[0];
-#elif defined(HAVE_LIBFABRIC_EFA)
-            return data[0];
-#elif defined(HAVE_LIBFABRIC_SHM)
-            return data[0];
-#else
-            throw fabric_error(0, "unsupported fabric provider, please fix ASAP");
-#endif
         }
 
         inline fi_addr_t const& fi_address() const { return fi_address_; }
@@ -225,37 +166,25 @@ namespace oomph { namespace libfabric {
             return port;
         }
 
-        inline void const* fabric_data() const { return data_.data(); }
+        inline locality_data const& fabric_data() const { return data_; }
 
         inline char* fabric_data_writable() { return reinterpret_cast<char*>(data_.data()); }
 
-        static std::string to_str(locality_data const& data, struct fid_av* av)
+        std::string to_str() const
         {
             char sbuf[256];
             size_t buflen = 256;
-            char const* straddr_ret = fi_av_straddr(av, data.data(), sbuf, &buflen);
-            std::string result = straddr_ret ? straddr_ret : "";
-            // free((char*)(straddr_ret));
+            if (!av_) { return "No address vector"; }
+            char const* straddr_ret = fi_av_straddr(av_, data_.data(), sbuf, &buflen);
+            std::string result = straddr_ret ? straddr_ret : "Address formatting Error";
             return result;
         }
 
     private:
         friend bool operator==(locality const& lhs, locality const& rhs)
         {
-            LF_DEB(loc_deb,
-                trace(NS_DEBUG::str<>("equality friend"), iplocality(lhs), iplocality(rhs)));
+            LF_DEB(loc_deb, trace(NS_DEBUG::str<>("equality friend"), lhs.to_str(), rhs.to_str()));
             return ((lhs.data_ == rhs.data_) && (lhs.fi_address_ == rhs.fi_address_));
-        }
-
-        friend bool operator<(locality const& lhs, locality const& rhs)
-        {
-            uint32_t const& a1 = lhs.ip_address();
-            uint32_t const& a2 = rhs.ip_address();
-            fi_addr_t const& f1 = lhs.fi_address();
-            fi_addr_t const& f2 = rhs.fi_address();
-            LF_DEB(
-                loc_deb, trace(NS_DEBUG::str<>("less friend"), iplocality(lhs), iplocality(rhs)));
-            return (a1 < a2) || (a1 == a2 && f1 < f2);
         }
 
         friend std::ostream& operator<<(std::ostream& os, locality const& loc)
@@ -267,6 +196,7 @@ namespace oomph { namespace libfabric {
     private:
         locality_data data_;
         fi_addr_t fi_address_;
+        struct fid_av* av_;
     };
 
 }}    // namespace oomph::libfabric
