@@ -12,7 +12,9 @@
 #include <oomph/config.hpp>
 
 namespace oomph { namespace fort {
-    using fp_type = @OOMPH_FORTRAN_FP @;
+    // clang-format off
+    using fp_type = @OOMPH_FORTRAN_FP@;
+    // clang-format on
     typedef enum
     {
         OomphBarrierGlobal = 1,

@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <boost/callable_traits.hpp>
+#include <oomph/message_buffer.hpp>
 #include <oomph/request.hpp>
 #include <oomph/util/pool_factory.hpp>
 //#include <oomph/util/tag_range.hpp>
