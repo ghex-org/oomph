@@ -15,7 +15,6 @@
 #include <rdma/fi_domain.h>
 //
 #include <iostream>
-#include <memory>
 #include <utility>
 
 #include "fabric_error.hpp"
@@ -77,7 +76,7 @@ struct fi_mr_attr {
             //
             struct iovec addresses = {/*.iov_base = */ const_cast<void*>(buf), /*.iov_len = */ len};
             fi_mr_attr attr = {
-                /*.mr_iov         = */ &addresses,
+                /*.mr_iov         = */ {&addresses},
                 /*.iov_count      = */ 1,
                 /*.access         = */ access_flags,
                 /*.offset         = */ offset,

@@ -10,7 +10,6 @@
 #pragma once
 
 #include <stack>
-#include <thread>
 
 #include <hwmalloc/heap.hpp>
 #include <hwmalloc/register.hpp>
