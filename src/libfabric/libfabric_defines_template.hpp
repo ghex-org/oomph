@@ -19,7 +19,10 @@
 
 #ifndef LF_DEB
 # define LF_DEB(printer, Expr)                                                                     \
-     if constexpr (printer.is_enabled()) { printer.Expr; };
+     {                                                                                             \
+         using namespace NS_DEBUG;                                                                 \
+         if constexpr (printer.is_enabled()) { printer.Expr; };                                    \
+     }
 #endif
 
 #define LFSOURCE_DIR "@OOMPH_SRC_LIBFABRIC_DIR@"
