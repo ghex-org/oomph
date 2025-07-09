@@ -63,7 +63,7 @@ namespace oomph {
           , m_recv_cb_queue(128)
           , m_recv_cb_cancel(8)
         {
-            LF_DEB(com_deb<9>, debug(NS_DEBUG::str<>("MPI_comm"), NS_DEBUG::ptr(mpi_comm())));
+            LF_DEB(com_deb<9>, debug(str<>("MPI_comm"), hptr(mpi_comm())));
             m_tx_endpoint = m_context->get_controller()->get_tx_endpoint();
             m_rx_endpoint = m_context->get_controller()->get_rx_endpoint();
         }
@@ -115,15 +115,15 @@ namespace oomph {
         void send_tagged_region(region_type const& send_region, std::size_t size,
             fi_addr_t dst_addr_, uint64_t tag_, operation_context* ctxt)
         {
-            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
             // clang-format off
         LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("send_tagged_region"),
-                  "->", NS_DEBUG::dec<2>(dst_addr_),
+            debug(str<>("send_tagged_region"),
+                  "->", dec<2>(dst_addr_),
                   send_region,
                   "tag", tag_disp(tag_),
-                  "context", NS_DEBUG::ptr(ctxt),
-                  "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+                  "context", hptr(ctxt),
+                  "tx endpoint", hptr(m_tx_endpoint.get_ep())));
             // clang-format on
             execute_fi_function(fi_tsend, "fi_tsend", m_tx_endpoint.get_ep(),
                 send_region.get_address(), size, send_region.get_local_key(), dst_addr_, tag_,
@@ -135,12 +135,11 @@ namespace oomph {
         void inject_tagged_region(
             region_type const& send_region, std::size_t size, fi_addr_t dst_addr_, uint64_t tag_)
         {
-            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
             // clang-format on
             LF_DEB(com_deb<9>,
-                debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_),
-                    send_region, "tag", tag_disp(tag_), "tx endpoint",
-                    NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
+                debug(str<>("inject tagged"), "->", dec<2>(dst_addr_), send_region, "tag",
+                    tag_disp(tag_), "tx endpoint", hptr(m_tx_endpoint.get_ep())));
             // clang-format off
         execute_fi_function(fi_tinject, "fi_tinject", m_tx_endpoint.get_ep(),
             send_region.get_address(), size, dst_addr_, tag_);
@@ -153,15 +152,15 @@ namespace oomph {
     void recv_tagged_region(region_type const& recv_region, std::size_t size, fi_addr_t src_addr_,
         uint64_t tag_, operation_context* ctxt)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
         // clang-format off
         LF_DEB(com_deb<1>,
-            debug(NS_DEBUG::str<>("recv_tagged_region"),
-                  "<-", NS_DEBUG::dec<2>(src_addr_),
+            debug(str<>("recv_tagged_region"),
+                  "<-", dec<2>(src_addr_),
                   recv_region,
                   "tag", tag_disp(tag_),
-                  "context", NS_DEBUG::ptr(ctxt),
-                  "rx endpoint", NS_DEBUG::ptr(m_rx_endpoint.get_ep())));
+                  "context", hptr(ctxt),
+                  "rx endpoint", hptr(m_rx_endpoint.get_ep())));
             // clang-format on
             constexpr uint64_t ignore = 0;
             execute_fi_function(fi_trecv, "fi_trecv", m_rx_endpoint.get_ep(),
@@ -175,7 +174,7 @@ namespace oomph {
             rank_type dst, oomph::tag_type tag,
             util::unique_function<void(rank_type, oomph::tag_type)>&& cb, std::size_t* scheduled)
         {
-            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
             std::uint64_t stag =
                 make_tag64(tag, /*this->rank(), */ this->m_context->get_context_tag());
 
@@ -189,8 +188,8 @@ namespace oomph {
             if (size != reg.get_size())
             {
                 LF_DEB(com_err,
-                    error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size),
-                        "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+                    error(str<>("send mismatch"), "size", hex<6>(size), "reg size",
+                        hex<6>(reg.get_size())));
             }
 #endif
             m_context->get_controller()->sends_posted_++;
@@ -222,22 +221,22 @@ namespace oomph {
 
             // clang-format off
         LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("Send"),
-                  "thisrank", NS_DEBUG::dec<>(rank()),
-                  "rank", NS_DEBUG::dec<>(dst),
+            debug(str<>("Send"),
+                  "thisrank", dec<>(rank()),
+                  "rank", dec<>(dst),
                   "tag", tag_disp(std::uint64_t(tag)),
                   //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
-                  "addr", NS_DEBUG::ptr(reg.get_address()),
-                  "size", NS_DEBUG::hex<6>(size),
-                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                  "req", NS_DEBUG::ptr(s.get())));
+                  "addr", hptr(reg.get_address()),
+                  "size", hex<6>(size),
+                  "reg size", hex<6>(reg.get_size()),
+                  "op_ctx", hptr(&(s->m_operation_context)),
+                  "req", hptr(s.get())));
 #if OOMPH_ENABLE_DEVICE
         if (!ptr.on_device()) {
             LF_DEB(com_deb<9>,
-                debug(NS_DEBUG::str<>("send region CRC32"),
-                      NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
+                debug(str<>("send region CRC32"),
+                      mem_crc32(reg.get_address(), size, "CRC32")));
         }
 #endif
             // clang-format on
@@ -250,7 +249,7 @@ namespace oomph {
             oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
             std::size_t* scheduled)
         {
-            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
             std::uint64_t stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
@@ -263,8 +262,8 @@ namespace oomph {
             if (size != reg.get_size())
             {
                 LF_DEB(com_err,
-                    error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size),
-                        "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+                    error(str<>("recv mismatch"), "size", hex<6>(size), "reg size",
+                        hex<6>(reg.get_size())));
             }
 #endif
             m_context->get_controller()->recvs_posted_++;
@@ -275,22 +274,22 @@ namespace oomph {
 
             // clang-format off
         LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("recv"),
-                  "thisrank", NS_DEBUG::dec<>(rank()),
-                  "rank", NS_DEBUG::dec<>(src),
+            debug(str<>("recv"),
+                  "thisrank", dec<>(rank()),
+                  "rank", dec<>(src),
                   "tag", tag_disp(std::uint64_t(tag)),
                   //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
-                  "addr", NS_DEBUG::ptr(reg.get_address()),
-                  "size", NS_DEBUG::hex<6>(size),
-                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                  "req", NS_DEBUG::ptr(s.get())));
+                  "addr", hptr(reg.get_address()),
+                  "size", hex<6>(size),
+                  "reg size", hex<6>(reg.get_size()),
+                  "op_ctx", hptr(&(s->m_operation_context)),
+                  "req", hptr(s.get())));
 #if OOMPH_ENABLE_DEVICE
         if (!ptr.on_device()) {
             LF_DEB(com_deb<9>,
-                debug(NS_DEBUG::str<>("recv region CRC32"),
-                      NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
+                debug(str<>("recv region CRC32"),
+                      mem_crc32(reg.get_address(), size, "CRC32")));
         }
 #endif
             // clang-format on
@@ -304,7 +303,7 @@ namespace oomph {
             util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
             std::atomic<std::size_t>* scheduled)
         {
-            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
             std::uint64_t stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
@@ -317,8 +316,8 @@ namespace oomph {
             if (size != reg.get_size())
             {
                 LF_DEB(com_err,
-                    error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size),
-                        "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+                    error(str<>("recv mismatch"), "size", hex<6>(size), "reg size",
+                        hex<6>(reg.get_size())));
             }
 #endif
             m_context->get_controller()->recvs_posted_++;
@@ -330,17 +329,17 @@ namespace oomph {
 
             // clang-format off
         LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("shared_recv"),
-                  "thisrank", NS_DEBUG::dec<>(rank()),
-                  "rank", NS_DEBUG::dec<>(src),
+            debug(str<>("shared_recv"),
+                  "thisrank", dec<>(rank()),
+                  "rank", dec<>(src),
                   "tag", tag_disp(std::uint64_t(tag)),
                   //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
                   "stag", tag_disp(stag),
-                  "addr", NS_DEBUG::ptr(reg.get_address()),
-                  "size", NS_DEBUG::hex<6>(size),
-                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                  "req", NS_DEBUG::ptr(s.get())));
+                  "addr", hptr(reg.get_address()),
+                  "size", hex<6>(size),
+                  "reg size", hex<6>(reg.get_size()),
+                  "op_ctx", hptr(&(s->m_operation_context)),
+                  "req", hptr(s.get())));
             // clang-format on
 
             recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
@@ -360,14 +359,14 @@ namespace oomph {
             // (by other threads)
             m_send_cb_queue.consume_all([](oomph::detail::request_state* req) {
                 [[maybe_unused]] auto scp =
-                    com_deb<9>.scope("m_send_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                    com_deb<9>.scope("m_send_cb_queue.consume_all", NS_DEBUG::hptr(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
 
             m_recv_cb_queue.consume_all([](oomph::detail::request_state* req) {
                 [[maybe_unused]] auto scp =
-                    com_deb<9>.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                    com_deb<9>.scope("m_recv_cb_queue.consume_all", NS_DEBUG::hptr(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
@@ -391,8 +390,7 @@ namespace oomph {
 
             // submit the cancellation request
             bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
-            LF_DEB(com_deb<9>,
-                debug(NS_DEBUG::str<>("Cancel"), "ok", ok, "op_ctx", NS_DEBUG::ptr(op_ctx)));
+            LF_DEB(com_deb<9>, debug(str<>("Cancel"), "ok", ok, "op_ctx", hptr(op_ctx)));
 
             // if the cancel operation failed completely, return
             if (!ok) return false;
@@ -411,8 +409,7 @@ namespace oomph {
                         // our recv was cancelled correctly
                         found = true;
                         LF_DEB(com_deb<9>,
-                            debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
-                                NS_DEBUG::ptr(op_ctx)));
+                            debug(str<>("Cancel"), "succeeded", "op_ctx", hptr(op_ctx)));
                         auto ptr = s->release_self_ref();
                         s->set_canceled();
                     }

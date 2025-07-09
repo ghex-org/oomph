@@ -36,8 +36,7 @@ namespace oomph {
         m_ctxt_tag = reinterpret_cast<std::uintptr_t>(this);
         OOMPH_CHECK_MPI_RESULT(MPI_Bcast(&m_ctxt_tag, 1, MPI_UINT64_T, 0, comm));
         LF_DEB(src_deb,
-            debug(NS_DEBUG::str<>("Broadcast"), "rank", debug::dec<3>(rank), "context",
-                debug::ptr(m_ctxt_tag)));
+            debug(str<>("Broadcast"), "rank", dec<3>(rank), "context", hptr(m_ctxt_tag)));
 
         // TODO fix the thread safety
         // problem: controller is a singleton and has problems when 2 contexts are created
@@ -93,8 +92,8 @@ namespace oomph {
         if (!instance.get())
         {
             LF_DEB(src_deb,
-                debug(NS_DEBUG::str<>("New Controller"), "rank", debug::dec<3>(rank), "size",
-                    debug::dec<3>(size), "threads", debug::dec<3>(threads)));
+                debug(NS_DEBUG::str<>("New Controller"), "rank", dec<3>(rank), "size", dec<3>(size),
+                    "threads", dec<3>(threads)));
             instance.reset(new controller_type());
             if (debug) instance->enable_debug();
             instance->initialize(HAVE_LIBFABRIC_PROVIDER, rank == 0, size, threads, comm);

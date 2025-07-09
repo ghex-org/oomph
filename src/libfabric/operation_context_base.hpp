@@ -33,7 +33,7 @@ namespace NS_LIBFABRIC {
         operation_context_base()
           : context_reserved_space()
         {
-            [[maybe_unused]] auto scp = ctx_bas.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = ctx_bas.scope(NS_DEBUG::hptr(this), __func__);
         }
 
         // error

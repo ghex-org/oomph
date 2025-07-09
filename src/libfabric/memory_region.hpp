@@ -72,7 +72,7 @@ struct fi_mr_attr {
             struct fid_mr** mr)
         {
             [[maybe_unused]] auto scp = NS_MEMORY::mrn_deb.scope(
-                __func__, NS_DEBUG::ptr(buf), NS_DEBUG::dec<>(len), device_id);
+                __func__, NS_DEBUG::hptr(buf), NS_DEBUG::dec<>(len), device_id);
             //
             struct iovec addresses = {/*.iov_base = */ const_cast<void*>(buf), /*.iov_len = */ len};
             fi_mr_attr attr = {
@@ -263,18 +263,17 @@ struct fi_mr_attr {
         {
             (void) region;
 #if 1 || has_debug
+            using namespace NS_DEBUG;
             os << "region "
-               << NS_DEBUG::ptr(&region)
-               //<< " fi_region "  << NS_DEBUG::ptr(region.region_)
-               << " address " << NS_DEBUG::ptr(region.address_) << " size "
-               << NS_DEBUG::hex<6>(region.size_)
-               //<< " used_space " << NS_DEBUG::hex<6>(region.used_space_/*size_*/)
+               << hptr(&region)
+               //<< " fi_region "  << hptr(region.region_)
+               << " address " << hptr(region.address_) << " size "
+               << hex<6>(region.size_)
+               //<< " used_space " << hex<6>(region.used_space_/*size_*/)
                << " loc key "
-               << NS_DEBUG::ptr(
-                      region.region_ ? region_provider::get_local_key(region.region_) : nullptr)
+               << hptr(region.region_ ? region_provider::get_local_key(region.region_) : nullptr)
                << " rem key "
-               << NS_DEBUG::ptr(
-                      region.region_ ? region_provider::get_remote_key(region.region_) : 0);
+               << hptr(region.region_ ? region_provider::get_remote_key(region.region_) : 0);
             ///// clang-format off
             ///// clang-format on
 #endif
@@ -352,28 +351,25 @@ struct fi_mr_attr {
             region_ = nullptr;
             //
             base_addr_ = memory_handle::address_;
-            LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("memory_segment"), *this, device_id));
+            LF_DEB(NS_MEMORY::mrn_deb, trace(str<>("memory_segment"), *this, device_id));
 
             int ret = region_provider::fi_register_memory(pd, device_id, buffer, length,
                 region_provider::access_flags(), 0, key++, &(region_));
             if (!ret)
             {
                 LF_DEB(NS_MEMORY::mrn_deb,
-                    trace(NS_DEBUG::str<>("Registered region"), "device", device_id, *this));
+                    trace(str<>("Registered region"), "device", device_id, *this));
             }
 
             if (bind_mr)
             {
                 ret = fi_mr_bind(region_, (struct fid*) ep, 0);
                 if (ret) { throw NS_LIBFABRIC::fabric_error(int(ret), "fi_mr_bind"); }
-                else { LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("Bound region"), *this)); }
+                else { LF_DEB(NS_MEMORY::mrn_deb, trace(str<>("Bound region"), *this)); }
 
                 ret = fi_mr_enable(region_);
                 if (ret) { throw NS_LIBFABRIC::fabric_error(int(ret), "fi_mr_enable"); }
-                else
-                {
-                    LF_DEB(NS_MEMORY::mrn_deb, trace(NS_DEBUG::str<>("Enabled region"), *this));
-                }
+                else { LF_DEB(NS_MEMORY::mrn_deb, trace(str<>("Enabled region"), *this)); }
             }
         }
 
@@ -398,7 +394,7 @@ struct fi_mr_attr {
 #if has_debug
             // clang-format off
             os << *static_cast<const memory_handle*>(&region)
-               << " base address " << NS_DEBUG::ptr(region.base_addr_);
+               << " base address " << NS_DEBUG::hptr(region.base_addr_);
             // clang-format on
 #endif
             return os;

@@ -69,13 +69,13 @@ namespace oomph { namespace detail {
           , m_operation_context{this}
         {
             [[maybe_unused]] auto scp =
-                libfabric::opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+                libfabric::opctx_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
         }
 
         ~shared_request_state()
         {
             [[maybe_unused]] auto scp =
-                libfabric::opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+                libfabric::opctx_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
         }
 
         void progress();
