@@ -93,55 +93,52 @@ namespace oomph::libfabric {
         // send address to rank 0 and receive array of all localities
         void MPI_exchange_localities(fid_av* av, MPI_Comm comm, int rank, int size)
         {
-            [[maybe_unused]] auto scp = NS_DEBUG::cnt_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = NS_DEBUG::cnt_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
 
             // array of empty locality objects
             std::vector<locality::locality_data> localities(size);
             //
             if (rank > 0)
             {
-                LF_DEB(NS_DEBUG::cnt_deb<9>,
-                    debug(debug::str<>("sending here"), here_.to_str(), "size",
-                        locality_defs::array_size));
+                LF_DEB(cnt_deb<9>,
+                    debug(
+                        str<>("sending here"), here_.to_str(), "size", locality_defs::array_size));
                 /*int err = */ MPI_Send(here_.fabric_data().data(), locality_defs::array_size,
                     MPI_CHAR,
                     0,    // dst rank
                     0,    // tag
                     comm);
 
-                LF_DEB(NS_DEBUG::cnt_deb<9>,
-                    debug(debug::str<>("receiving all"), "size", locality_defs::array_size));
+                LF_DEB(
+                    cnt_deb<9>, debug(str<>("receiving all"), "size", locality_defs::array_size));
 
                 MPI_Status status;
                 /*err = */ MPI_Recv(localities.data(), size * locality_defs::array_size, MPI_CHAR,
                     0,    // src rank
                     0,    // tag
                     comm, &status);
-                LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("received addresses")));
+                LF_DEB(cnt_deb<9>, debug(str<>("received addresses")));
             }
             else
             {
-                LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("receiving addresses")));
+                LF_DEB(cnt_deb<9>, debug(str<>("receiving addresses")));
                 memcpy(&localities[0], here_.fabric_data().data(), locality_defs::array_size);
                 for (int i = 1; i < size; ++i)
                 {
-                    LF_DEB(NS_DEBUG::cnt_deb<9>,
-                        debug(debug::str<>("receiving address"), debug::dec<>(i)));
+                    LF_DEB(cnt_deb<9>, debug(str<>("receiving address"), dec<>(i)));
                     MPI_Status status;
                     /*int err = */ MPI_Recv(&localities[i], size * locality_defs::array_size,
                         MPI_CHAR,
                         i,    // src rank
                         0,    // tag
                         comm, &status);
-                    LF_DEB(NS_DEBUG::cnt_deb<9>,
-                        debug(debug::str<>("received address"), debug::dec<>(i)));
+                    LF_DEB(cnt_deb<9>, debug(str<>("received address"), dec<>(i)));
                 }
 
-                LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("sending all")));
+                LF_DEB(cnt_deb<9>, debug(str<>("sending all")));
                 for (int i = 1; i < size; ++i)
                 {
-                    LF_DEB(
-                        NS_DEBUG::cnt_deb<9>, debug(debug::str<>("sending to"), debug::dec<>(i)));
+                    LF_DEB(cnt_deb<9>, debug(str<>("sending to"), dec<>(i)));
                     /*int err = */ MPI_Send(&localities[0], size * locality_defs::array_size,
                         MPI_CHAR,
                         i,    // dst rank
@@ -151,7 +148,7 @@ namespace oomph::libfabric {
             }
 
             // all ranks should now have a full localities vector
-            LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("populating vector")));
+            LF_DEB(cnt_deb<9>, debug(str<>("populating vector")));
             for (int i = 0; i < size; ++i)
             {
                 locality temp(localities[i], av);
@@ -164,18 +161,17 @@ namespace oomph::libfabric {
         // and insert each one into the address vector
         void exchange_addresses(fid_av* av, MPI_Comm mpi_comm)
         {
-            [[maybe_unused]] auto scp = NS_DEBUG::cnt_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+            [[maybe_unused]] auto scp = NS_DEBUG::cnt_deb<9>.scope(NS_DEBUG::hptr(this), __func__);
 
             int rank, size;
             MPI_Comm_rank(mpi_comm, &rank);
             MPI_Comm_size(mpi_comm, &size);
 
-            LF_DEB(NS_DEBUG::cnt_deb<9>,
-                debug(debug::str<>("initialize_localities"), size, "localities"));
+            LF_DEB(cnt_deb<9>, debug(str<>("initialize_localities"), size, "localities"));
 
             MPI_exchange_localities(av, mpi_comm, rank, size);
             debug_print_av_vector(size);
-            LF_DEB(NS_DEBUG::cnt_deb<9>, debug(debug::str<>("Done localities")));
+            LF_DEB(cnt_deb<9>, debug(str<>("Done localities")));
         }
 
         // --------------------------------------------------------------------
@@ -252,8 +248,8 @@ namespace oomph::libfabric {
                 if (!bypass_tx_lock() && !lock.owns_lock()) { return -1; }
 
                 static auto polling =
-                    NS_DEBUG::cnt_deb<9>.make_timer(1, debug::str<>("poll send queue"));
-                LF_DEB(NS_DEBUG::cnt_deb<9>, timed(polling, NS_DEBUG::ptr(send_cq)));
+                    NS_DEBUG::cnt_deb<9>.make_timer(1, NS_DEBUG::str<>("poll send queue"));
+                LF_DEB(cnt_deb<9>, timed(polling, hptr(send_cq)));
 
                 // poll for completions
                 {
@@ -269,21 +265,21 @@ namespace oomph::libfabric {
                     // flags might not be set correctly
                     if ((e.flags & (FI_MSG | FI_SEND | FI_TAGGED)) != 0)
                     {
-                        NS_DEBUG::cnt_err.error("txcq Error FI_EAVAIL for "
-                                                "FI_SEND with len",
-                            debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context), "code",
-                            NS_DEBUG::dec<3>(e.err), "flags", debug::bin<16>(e.flags), "error",
-                            fi_cq_strerror(
-                                send_cq, e.prov_errno, e.err_data, (char*) e.buf, e.len));
+                        LF_DEB(cnt_err,
+                            error("txcq Error FI_EAVAIL for FI_SEND with len", hex<6>(e.len),
+                                "context", hptr(e.op_context), "code", dec<3>(e.err), "flags",
+                                bin<16>(e.flags), "error",
+                                fi_cq_strerror(
+                                    send_cq, e.prov_errno, e.err_data, (char*) e.buf, e.len)));
                     }
                     else if ((e.flags & FI_RMA) != 0)
                     {
-                        NS_DEBUG::cnt_err.error("txcq Error FI_EAVAIL for "
-                                                "FI_RMA with len",
-                            debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context), "code",
-                            NS_DEBUG::dec<3>(e.err), "flags", debug::bin<16>(e.flags), "error",
-                            fi_cq_strerror(
-                                send_cq, e.prov_errno, e.err_data, (char*) e.buf, e.len));
+                        LF_DEB(cnt_err,
+                            error("txcq Error FI_EAVAIL for FI_RMA with len", hex<6>(e.len),
+                                "context", hptr(e.op_context), "code", dec<3>(e.err), "flags",
+                                bin<16>(e.flags), "error",
+                                fi_cq_strerror(
+                                    send_cq, e.prov_errno, e.err_data, (char*) e.buf, e.len)));
                     }
                     operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);
                     handler->handle_error(e);
@@ -299,17 +295,16 @@ namespace oomph::libfabric {
                 for (int i = 0; i < ret; ++i)
                 {
                     ++sends_complete;
-                    LF_DEB(NS_DEBUG::cnt_deb<9>,
-                        debug(debug::str<>("Completion"), i, debug::dec<2>(i), "txcq flags",
+                    LF_DEB(cnt_deb<9>,
+                        debug(str<>("Completion"), i, dec<2>(i), "txcq flags",
                             fi_tostr(&entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS), "(",
-                            debug::dec<>(entry[i].flags), ")", "context",
-                            NS_DEBUG::ptr(entry[i].op_context), "length",
-                            debug::hex<6>(entry[i].len)));
+                            dec<>(entry[i].flags), ")", "context", hptr(entry[i].op_context),
+                            "length", hex<6>(entry[i].len)));
                     if ((entry[i].flags & (FI_TAGGED | FI_SEND | FI_MSG)) != 0)
                     {
-                        LF_DEB(NS_DEBUG::cnt_deb<9>,
-                            debug(debug::str<>("Completion"), "txcq tagged send completion",
-                                NS_DEBUG::ptr(entry[i].op_context)));
+                        LF_DEB(cnt_deb<9>,
+                            debug(str<>("Completion"), "txcq tagged send completion",
+                                hptr(entry[i].op_context)));
 
                         operation_context* handler =
                             reinterpret_cast<operation_context*>(entry[i].op_context);
@@ -317,8 +312,9 @@ namespace oomph::libfabric {
                     }
                     else
                     {
-                        NS_DEBUG::cnt_err.error("Received an unknown txcq completion",
-                            debug::dec<>(entry[i].flags), debug::bin<64>(entry[i].flags));
+                        LF_DEB(cnt_err,
+                            error("Received an unknown txcq completion", dec<>(entry[i].flags),
+                                bin<64>(entry[i].flags)));
                         std::terminate();
                     }
                 }
@@ -328,7 +324,7 @@ namespace oomph::libfabric {
             {
                 // do nothing, we will try again on the next check
             }
-            else { NS_DEBUG::cnt_err.error("unknown error in completion txcq read"); }
+            else { LF_DEB(cnt_err, error("unknown error in completion txcq read")); }
             return 0;
         }
 
@@ -353,8 +349,8 @@ namespace oomph::libfabric {
                 if (!bypass_rx_lock() && !lock.owns_lock()) { return -1; }
 
                 static auto polling =
-                    NS_DEBUG::cnt_deb<2>.make_timer(1, debug::str<>("poll recv queue"));
-                LF_DEB(NS_DEBUG::cnt_deb<2>, timed(polling, NS_DEBUG::ptr(rx_cq)));
+                    NS_DEBUG::cnt_deb<2>.make_timer(1, NS_DEBUG::str<>("poll recv queue"));
+                LF_DEB(cnt_deb<2>, timed(polling, hptr(rx_cq)));
 
                 // poll for completions
                 {
@@ -370,10 +366,9 @@ namespace oomph::libfabric {
                     // from the manpage 'man 3 fi_cq_readerr'
                     if (e.err == FI_ECANCELED)
                     {
-                        LF_DEB(NS_DEBUG::cnt_deb<1>,
-                            debug(debug::str<>("rxcq Cancelled"), "flags", debug::hex<6>(e.flags),
-                                "len", debug::hex<6>(e.len), "context",
-                                NS_DEBUG::ptr(e.op_context)));
+                        LF_DEB(cnt_deb<1>,
+                            debug(str<>("rxcq Cancelled"), "flags", hex<6>(e.flags), "len",
+                                hex<6>(e.len), "context", hptr(e.op_context)));
                         // the request was cancelled, we can simply exit
                         // as the canceller will have doone any cleanup needed
                         operation_context* handler =
@@ -383,11 +378,12 @@ namespace oomph::libfabric {
                     }
                     else if (e.err != FI_SUCCESS)
                     {
-                        NS_DEBUG::cnt_err.error(debug::str<>("poll_recv_queue"), "error code",
-                            debug::dec<>(-e.err), "flags", debug::hex<6>(e.flags), "len",
-                            debug::hex<6>(e.len), "context", NS_DEBUG::ptr(e.op_context),
-                            "error msg",
-                            fi_cq_strerror(rx_cq, e.prov_errno, e.err_data, (char*) e.buf, e.len));
+                        LF_DEB(cnt_err,
+                            error(str<>("poll_recv_queue"), "error code", dec<>(-e.err), "flags",
+                                hex<6>(e.flags), "len", hex<6>(e.len), "context",
+                                hptr(e.op_context), "error msg",
+                                fi_cq_strerror(
+                                    rx_cq, e.prov_errno, e.err_data, (char*) e.buf, e.len)));
                     }
                     operation_context* handler = reinterpret_cast<operation_context*>(e.op_context);
                     if (handler) handler->handle_error(e);
@@ -403,17 +399,16 @@ namespace oomph::libfabric {
                 for (int i = 0; i < ret; ++i)
                 {
                     ++recvs_complete;
-                    LF_DEB(NS_DEBUG::cnt_deb<2>,
-                        debug(debug::str<>("Completion"), i, "rxcq flags",
+                    LF_DEB(cnt_deb<2>,
+                        debug(str<>("Completion"), i, "rxcq flags",
                             fi_tostr(&entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS), "(",
-                            debug::dec<>(entry[i].flags), ")", "context",
-                            NS_DEBUG::ptr(entry[i].op_context), "length",
-                            debug::hex<6>(entry[i].len)));
+                            dec<>(entry[i].flags), ")", "context", hptr(entry[i].op_context),
+                            "length", hex<6>(entry[i].len)));
                     if ((entry[i].flags & (FI_TAGGED | FI_RECV)) != 0)
                     {
-                        LF_DEB(NS_DEBUG::cnt_deb<2>,
-                            debug(debug::str<>("Completion"), "rxcq tagged recv completion",
-                                NS_DEBUG::ptr(entry[i].op_context)));
+                        LF_DEB(cnt_deb<2>,
+                            debug(str<>("Completion"), "rxcq tagged recv completion",
+                                hptr(entry[i].op_context)));
 
                         operation_context* handler =
                             reinterpret_cast<operation_context*>(entry[i].op_context);
@@ -421,8 +416,9 @@ namespace oomph::libfabric {
                     }
                     else
                     {
-                        NS_DEBUG::cnt_err.error("Received an unknown rxcq completion",
-                            debug::dec<>(entry[i].flags), debug::bin<64>(entry[i].flags));
+                        LF_DEB(cnt_err,
+                            error("Received an unknown rxcq completion", dec<>(entry[i].flags),
+                                bin<64>(entry[i].flags)));
                         std::terminate();
                     }
                 }
@@ -432,7 +428,7 @@ namespace oomph::libfabric {
             {
                 // do nothing, we will try again on the next check
             }
-            else { NS_DEBUG::cnt_err.error("unknown error in completion rxcq read"); }
+            else { LF_DEB(cnt_err, error("unknown error in completion rxcq read")); }
             return 0;
         }
 
@@ -442,7 +438,7 @@ namespace oomph::libfabric {
             (void) info;    // unused variable warning
             (void) tx;      // unused variable warning
 
-            LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("fi_dupinfo")));
+            LF_DEB(cnb_deb, debug(str<>("fi_dupinfo")));
             struct fi_info* hints = fi_dupinfo(info);
             if (!hints) throw NS_LIBFABRIC::fabric_error(0, "fi_dupinfo");
             // clear any Rx address data that might be set

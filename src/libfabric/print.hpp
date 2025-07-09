@@ -118,18 +118,18 @@ namespace NS_DEBUG {
     // ------------------------------------------------------------------
     // format as pointer
     // ------------------------------------------------------------------
-    struct ptr
+    struct hptr
     {
-        ptr(void const* v)
+        hptr(void const* v)
           : data_(v)
         {
         }
-        ptr(std::uintptr_t const v)
+        hptr(std::uintptr_t const v)
           : data_(reinterpret_cast<void const*>(v))
         {
         }
         void const* data_;
-        friend std::ostream& operator<<(std::ostream& os, ptr const& d)
+        friend std::ostream& operator<<(std::ostream& os, hptr const& d)
         {
             os << std::right << "0x" << std::setfill('0') << std::setw(12) << std::noshowbase
                << std::hex << reinterpret_cast<uintptr_t>(d.data_);
@@ -231,32 +231,6 @@ namespace NS_DEBUG {
     };
 
     // ------------------------------------------------------------------
-    // format as ip address
-    // ------------------------------------------------------------------
-    struct ipaddr
-    {
-        ipaddr(void const* a)
-          : data_(reinterpret_cast<uint8_t const*>(a))
-          , ipdata_(0)
-        {
-        }
-        ipaddr(uint32_t const a)
-          : data_(reinterpret_cast<uint8_t const*>(&ipdata_))
-          , ipdata_(a)
-        {
-        }
-        uint8_t const* data_;
-        uint32_t const ipdata_;
-
-        friend std::ostream& operator<<(std::ostream& os, ipaddr const& p)
-        {
-            os << std::dec << int(p.data_[0]) << "." << int(p.data_[1]) << "." << int(p.data_[2])
-               << "." << int(p.data_[3]);
-            return os;
-        }
-    };
-
-    // ------------------------------------------------------------------
     // helper fuction for printing CRC32
     // ------------------------------------------------------------------
     inline uint32_t crc32(void const* address, size_t length)
@@ -284,9 +258,10 @@ namespace NS_DEBUG {
         char const* txt_;
         friend std::ostream& operator<<(std::ostream& os, mem_crc32 const& p)
         {
+            using namespace NS_DEBUG;
             std::uint8_t const* byte = static_cast<std::uint8_t const*>(p.addr_);
             os << "Memory:";
-            os << " address " << ptr(p.addr_) << " length " << hex<6, std::size_t>(p.len_)
+            os << " address " << hptr(p.addr_) << " length " << hex<6, std::size_t>(p.len_)
                << " CRC32:" << hex<8, std::size_t>(crc32(p.addr_, p.len_)) << "\n";
             size_t i = 0;
             while (i < std::min(size_t(128), p.len_))
