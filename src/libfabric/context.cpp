@@ -44,7 +44,18 @@ namespace oomph {
         // in the following order: single threaded first, then multi-threaded after
         // int threads = thread_safe ? std::thread::hardware_concurrency() : 1;
         // int threads = std::thread::hardware_concurrency();
-        int threads = boost::thread::physical_concurrency();
+        // Determine the number of threads based on the CPU affinity mask
+        int threads = 1;
+#if defined(_GNU_SOURCE)
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        if (sched_getaffinity(0, sizeof(cpuset), &cpuset) == 0)
+            threads = CPU_COUNT(&cpuset);
+        else
+            threads = boost::thread::physical_concurrency();
+#else
+        threads = boost::thread::physical_concurrency();
+#endif
         m_controller = init_libfabric_controller(this, comm, rank, size, threads, debug);
         m_domain = m_controller->get_domain();
     }
