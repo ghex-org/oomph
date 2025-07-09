@@ -517,6 +517,7 @@ namespace NS_LIBFABRIC {
         endpoint_wrapper create_rx_endpoint(
             struct fid_domain* domain, struct fi_info* info, struct fid_av* av)
         {
+            [[maybe_unused]] auto scp = NS_DEBUG::cnb_deb.scope(NS_DEBUG::ptr(this), __func__);
             auto ep_rx = new_endpoint_active(domain, info, false);
 
             // bind address vector
@@ -774,14 +775,14 @@ namespace NS_LIBFABRIC {
         // --------------------------------------------------------------------
         constexpr std::int64_t memory_registration_mode_flags()
         {
-            std::int64_t base_flags = FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
+            std::int64_t base_flags = FI_MR_ALLOCATED;    // | FI_MR_VIRT_ADDR | FI_MR_PROV_KEY;
 #if OOMPH_ENABLE_DEVICE
             base_flags = base_flags | FI_MR_HMEM;
 #endif
             base_flags = base_flags | FI_MR_LOCAL;
 
 #if defined(HAVE_LIBFABRIC_CXI)
-            return base_flags | FI_MR_MMU_NOTIFY /*| FI_MR_ENDPOINT*/;
+            return base_flags | FI_MR_ENDPOINT;
 
 #elif defined(HAVE_LIBFABRIC_EFA)
             return base_flags | FI_MR_MMU_NOTIFY | FI_MR_ENDPOINT;
@@ -816,6 +817,20 @@ namespace NS_LIBFABRIC {
             LF_DEB(NS_DEBUG::cnb_deb,
                 debug(debug::str<>("fabric provider"), fabric_hints_->fabric_attr->prov_name));
 
+#if defined(HAVE_LIBFABRIC_CXI)
+            // libfabric domain for multi-nic CXI provider
+            char const* cxi_domain = std::getenv("FI_CXI_DEVICE_NAME");
+            if (cxi_domain == nullptr)
+            {
+                LF_DEB(NS_DEBUG::cnb_err, error(str<>("Domain"), "FI_CXI_DEVICE_NAME not set"));
+            }
+            else { fabric_hints_->domain_attr->name = strdup(cxi_domain); }
+            LF_DEB(NS_DEBUG::cnb_deb,
+                debug(debug::str<>("fabric domain"), fabric_hints_->domain_attr->name));
+#endif
+
+            fabric_hints_->domain_attr->mr_mode = memory_registration_mode_flags();
+
             // get an info object to see what might be available before we set any flags
             uint64_t flags = 0;
             int ret = fi_getinfo(FI_VERSION(LIBFABRIC_FI_VERSION_MAJOR, LIBFABRIC_FI_VERSION_MINOR),
@@ -842,7 +857,6 @@ namespace NS_LIBFABRIC {
             }
             fabric_hints_->mode = fabric_info_->mode;
             fabric_hints_->domain_attr->name = strdup(fabric_info_->domain_attr->name);
-            fabric_hints_->domain_attr->mr_mode = memory_registration_mode_flags();
             std::cout << fi_tostr(&fabric_hints_->domain_attr->mr_mode, FI_TYPE_MR_MODE)
                       << std::endl;
 
@@ -887,6 +901,9 @@ namespace NS_LIBFABRIC {
                 LF_DEB(NS_DEBUG::cnb_err,
                     trace(debug::str<>("Fabric info"), "\n", fi_tostr(fabric_info_, FI_TYPE_INFO)));
             }
+
+            int mrkey = (fabric_hints_->domain_attr->mr_mode & FI_MR_PROV_KEY) != 0;
+            LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_MR_PROV_KEY"), mrkey));
 
             bool context = (fabric_hints_->mode & FI_CONTEXT) != 0;
             LF_DEB(NS_DEBUG::cnb_deb, debug(debug::str<>("Requires FI_CONTEXT"), context));
@@ -1057,9 +1074,8 @@ namespace NS_LIBFABRIC {
             int ret = fi_endpoint(domain, hints, &ep, nullptr);
             if (ret)
             {
-                throw NS_LIBFABRIC::fabric_error(ret,
-                    "fi_endpoint (too many threadlocal "
-                    "endpoints?)");
+                throw NS_LIBFABRIC::fabric_error(
+                    ret, "fi_endpoint (too many threadlocal endpoints?)");
             }
             fi_freeinfo(hints);
             LF_DEB(
