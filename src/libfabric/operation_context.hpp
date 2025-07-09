@@ -33,7 +33,7 @@ namespace oomph::libfabric {
           , m_req{req}
         {
             [[maybe_unused]] auto scp =
-                opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__, "request", req);
+                opctx_deb<9>.scope(NS_DEBUG::hptr(this), __func__, "request", req);
         }
 
         // --------------------------------------------------------------------

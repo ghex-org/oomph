@@ -114,8 +114,7 @@ namespace oomph {
                         // our recv was cancelled correctly
                         found = true;
                         LF_DEB(oomph::ctx_deb,
-                            debug(NS_DEBUG::str<>("Cancel shared"), "succeeded", "op_ctx",
-                                NS_DEBUG::ptr(op_ctx)));
+                            debug(str<>("Cancel shared"), "succeeded", "op_ctx", hptr(op_ctx)));
                         auto ptr = s->release_self_ref();
                         s->set_canceled();
                     }
