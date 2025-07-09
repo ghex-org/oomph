@@ -40,7 +40,7 @@ namespace NS_DEBUG {
 
     using namespace oomph::debug;
     template <int Level>
-    inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> cnt_deb("CONTROL");
+    inline NS_DEBUG::print_threshold<Level, 0> cnt_deb("CONTROL");
     //
     static NS_DEBUG::enable_print<false> cnt_err("CONTROL");
 }    // namespace NS_DEBUG

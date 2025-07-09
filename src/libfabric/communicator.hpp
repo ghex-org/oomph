@@ -32,7 +32,7 @@ namespace oomph {
     using tag_disp = NS_DEBUG::detail::hex<12, uintptr_t>;
 
     template <int Level>
-    inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> com_deb("COMMUNI");
+    inline NS_DEBUG::print_threshold<Level, 0> com_deb("COMMUNI");
 
     static NS_DEBUG::enable_print<false> com_err("COMMUNI");
 

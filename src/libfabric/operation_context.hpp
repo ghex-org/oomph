@@ -18,7 +18,7 @@
 namespace oomph::libfabric {
 
     template <int Level>
-    inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> opctx_deb("OP__CXT");
+    inline NS_DEBUG::print_threshold<Level, 0> opctx_deb("OP__CXT");
 
     // This struct holds the ready state of a future
     // we must also store the context used in libfabric, in case
