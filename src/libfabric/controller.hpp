@@ -291,14 +291,16 @@ namespace oomph::libfabric {
             //
             if (ret > 0)
             {
+                std::array<char, 1024> buf;
                 int processed = 0;
                 for (int i = 0; i < ret; ++i)
                 {
                     ++sends_complete;
                     LF_DEB(cnt_deb<9>,
                         debug(str<>("Completion"), i, dec<2>(i), "txcq flags",
-                            fi_tostr(&entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS), "(",
-                            dec<>(entry[i].flags), ")", "context", hptr(entry[i].op_context),
+                            fi_tostr_r(
+                                buf.data(), buf.size(), &entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS),
+                            "(", dec<>(entry[i].flags), ")", "context", hptr(entry[i].op_context),
                             "length", hex<6>(entry[i].len)));
                     if ((entry[i].flags & (FI_TAGGED | FI_SEND | FI_MSG)) != 0)
                     {
@@ -395,14 +397,16 @@ namespace oomph::libfabric {
             //
             if (ret > 0)
             {
+                std::array<char, 1024> buf;
                 int processed = 0;
                 for (int i = 0; i < ret; ++i)
                 {
                     ++recvs_complete;
                     LF_DEB(cnt_deb<2>,
                         debug(str<>("Completion"), i, "rxcq flags",
-                            fi_tostr(&entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS), "(",
-                            dec<>(entry[i].flags), ")", "context", hptr(entry[i].op_context),
+                            fi_tostr_r(
+                                buf.data(), buf.size(), &entry[i].flags, FI_TYPE_CQ_EVENT_FLAGS),
+                            "(", dec<>(entry[i].flags), ")", "context", hptr(entry[i].op_context),
                             "length", hex<6>(entry[i].len)));
                     if ((entry[i].flags & (FI_TAGGED | FI_RECV)) != 0)
                     {
