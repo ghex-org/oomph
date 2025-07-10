@@ -744,6 +744,10 @@ namespace NS_LIBFABRIC {
         // --------------------------------------------------------------------
         uint64_t caps_flags(uint64_t available_flags) const
         {
+            char buf[1024];
+            LF_DEB(cnb_err,
+                debug(str<>("caps available"), hex(available_flags),
+                    fi_tostr_r(buf, 1024, &available_flags, FI_TYPE_CAPS)));
             uint64_t required_flags =
                 static_cast<Derived const*>(this)->caps_flags(available_flags);
             //
@@ -754,10 +758,14 @@ namespace NS_LIBFABRIC {
                 if ((required_flags & f) && ((available_flags & f) == 0))
                 {
                     LF_DEB(cnb_err,
-                        error(str<>("caps flags unavailable"), fi_tostr(&f, FI_TYPE_CAPS)));
+                        error(str<>("caps flags unavailable"),
+                            fi_tostr_r(buf, 1024, &f, FI_TYPE_CAPS)));
                     final_flags &= ~f;
                 }
             }
+            LF_DEB(cnb_err,
+                debug(str<>("caps flags requested"), hex(final_flags),
+                    fi_tostr_r(buf, 1024, &final_flags, FI_TYPE_CAPS)));
             return final_flags;
         }
 
@@ -832,27 +840,30 @@ namespace NS_LIBFABRIC {
             if (ret) throw NS_LIBFABRIC::fabric_error(ret, "Failed to get fabric info");
             if (display_fabric_info_ && fabric_info_)
             {
-                char const* info_str = fi_tostr(fabric_info_, FI_TYPE_INFO);
-                if (info_str)
-                {
-                    LF_DEB(cnb_err,
-                        trace(str<>("Fabric info"), "pre-check ->",
-                            fabric_hints_->fabric_attr->prov_name, "\n",
-                            fi_tostr(fabric_info_, FI_TYPE_INFO)));
-                }
+                std::array<char, 8192> buf;
+                LF_DEB(cnb_err,
+                    trace(str<>("Fabric info"), "pre-check ->",
+                        fabric_hints_->fabric_attr->prov_name, "\n",
+                        fi_tostr_r(buf.data(), buf.size(), fabric_info_, FI_TYPE_INFO)));
             }
 
-            fabric_hints_->caps = caps_flags(fabric_info_->caps);
+            // set capabilities we want to request
+            uint64_t all_caps =
+                caps_flags(fabric_info_->rx_attr->caps | fabric_info_->tx_attr->caps);
+
+            // fabric_hints_->caps = all_caps;
+            fabric_hints_->tx_attr->caps = fabric_info_->tx_attr->caps & all_caps;
+            fabric_hints_->rx_attr->caps = fabric_info_->rx_attr->caps & all_caps;
+
             if ((fabric_info_->mode & FI_CONTEXT) == 0)
             {
+                std::array<char, 1024> buf;
                 LF_DEB(cnb_err,
                     debug(str<>("mode FI_CONTEXT!=0"),
-                        fi_tostr(&fabric_hints_->domain_attr->mode, FI_TYPE_MODE)));
+                        fi_tostr_r(buf.data(), buf.size(), &fabric_hints_->domain_attr->mode,
+                            FI_TYPE_MODE)));
             }
-            fabric_hints_->mode = fabric_info_->mode;
             fabric_hints_->domain_attr->name = strdup(fabric_info_->domain_attr->name);
-            std::cout << fi_tostr(&fabric_hints_->domain_attr->mr_mode, FI_TYPE_MR_MODE)
-                      << std::endl;
 
             // Enable/Disable the use of progress threads
             auto progress = libfabric_progress_type();
@@ -862,8 +873,7 @@ namespace NS_LIBFABRIC {
 
             if (threads > 1)
             {
-                LF_DEB(cnb_deb, debug(str<>("FI_THREAD_FID")));
-                // Enable thread safe mode (Does not work with psm2 provider)
+                LF_DEB(cnb_deb, debug(str<>("Setting Threads>1 level")));
                 // fabric_hints_->domain_attr->threading = FI_THREAD_SAFE;
                 // fabric_hints_->domain_attr->threading = FI_THREAD_FID;
                 fabric_hints_->domain_attr->threading = threadlevel_flags();
@@ -891,28 +901,34 @@ namespace NS_LIBFABRIC {
 
             if (rootnode)
             {
+                std::array<char, 8192> buf;
                 LF_DEB(cnb_err,
-                    trace(str<>("Fabric info"), "\n", fi_tostr(fabric_info_, FI_TYPE_INFO)));
+                    trace(str<>("Fabric info"), "\n",
+                        fi_tostr_r(buf.data(), buf.size(), fabric_info_, FI_TYPE_INFO)));
             }
 
-            int mrkey = (fabric_hints_->domain_attr->mr_mode & FI_MR_PROV_KEY) != 0;
+            int mrkey = (fabric_info_->domain_attr->mr_mode & FI_MR_PROV_KEY) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_MR_PROV_KEY"), mrkey));
 
-            bool context = (fabric_hints_->mode & FI_CONTEXT) != 0;
+            bool context = (fabric_info_->mode & FI_CONTEXT) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_CONTEXT"), context));
 
-            mrlocal = (fabric_hints_->domain_attr->mr_mode & FI_MR_LOCAL) != 0;
+            mrlocal = (fabric_info_->domain_attr->mr_mode & FI_MR_LOCAL) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_MR_LOCAL"), mrlocal));
 
-            mrbind = (fabric_hints_->domain_attr->mr_mode & FI_MR_ENDPOINT) != 0;
+            mrbind = (fabric_info_->domain_attr->mr_mode & FI_MR_ENDPOINT) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_MR_ENDPOINT"), mrbind));
 
             /* Check if provider requires heterogeneous memory registration */
-            mrhmem = (fabric_hints_->domain_attr->mr_mode & FI_MR_HMEM) != 0;
+            mrhmem = (fabric_info_->domain_attr->mr_mode & FI_MR_HMEM) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_MR_HMEM"), mrhmem));
 
-            bool mrhalloc = (fabric_hints_->domain_attr->mr_mode & FI_MR_ALLOCATED) != 0;
+            bool mrhalloc = (fabric_info_->domain_attr->mr_mode & FI_MR_ALLOCATED) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_MR_ALLOCATED"), mrhalloc));
+
+            int auth_key = (fabric_info_->domain_attr->max_ep_auth_key);
+            LF_DEB(cnb_deb, debug(str<>("Supported max_ep_auth_key"), auth_key));
+            fabric_info_->domain_attr->max_ep_auth_key = 0;
 
             LF_DEB(cnb_deb, debug(str<>("Creating fi_fabric")));
             ret = fi_fabric(fabric_info_->fabric_attr, &fabric_, nullptr);
@@ -985,8 +1001,10 @@ namespace NS_LIBFABRIC {
             // Print fabric info to a human-readable string if available
             if (display_fabric_info_ && fabric_info_)
             {
-                char const* info_str = fi_tostr(fabric_info_, FI_TYPE_INFO);
-                if (info_str) { std::cout << "Libfabric fabric info:\n" << info_str << std::endl; }
+                std::array<char, 8192> buf;
+                std::cout << "Libfabric fabric info:\n"
+                          << fi_tostr_r(buf.data(), buf.size(), fabric_info_, FI_TYPE_INFO)
+                          << std::endl;
             }
             fi_freeinfo(fabric_hints_);
         }
