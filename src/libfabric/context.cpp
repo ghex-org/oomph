@@ -10,6 +10,9 @@
 #include <cstdint>
 //
 #include <boost/thread.hpp>
+
+#include <hwmalloc/heap_config.hpp>
+
 // paths relative to backend
 #include <oomph_libfabric_defines.hpp>
 #include <controller.hpp>
@@ -23,10 +26,10 @@ static NS_DEBUG::enable_print<false> src_deb("__SRC__");
 
 using controller_type = libfabric::controller;
 
-context_impl::context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-    std::size_t message_pool_reserve)
+context_impl::context_impl(MPI_Comm comm, bool thread_safe,
+    hwmalloc::heap_config const& heap_config)
 : context_base(comm, thread_safe)
-, m_heap{this, message_pool_never_free, message_pool_reserve}
+, m_heap{this, heap_config}
 , m_recv_cb_queue(128)
 , m_recv_cb_cancel(8)
 {

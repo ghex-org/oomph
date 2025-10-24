@@ -13,6 +13,7 @@
 #include <stack>
 
 #include <hwmalloc/heap.hpp>
+#include <hwmalloc/heap_config.hpp>
 #include <hwmalloc/register.hpp>
 
 #include <oomph/config.hpp>
@@ -59,8 +60,7 @@ class context_impl : public context_base
     callback_queue m_recv_cb_cancel;
 
   public:
-    context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-        std::size_t message_pool_reserve);
+    context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config);
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
