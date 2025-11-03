@@ -16,7 +16,6 @@
 // paths relative to backend
 #include <nccl_communicator.hpp>
 #include <../context_base.hpp>
-#include <rma_context.hpp>
 #include <request_queue.hpp>
 
 namespace oomph
@@ -36,11 +35,10 @@ class context_impl : public context_base
     shared_request_queue m_req_queue;
 
   public:
-    context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
+    context_impl(ncclComm_t comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
     : context_base(comm, thread_safe)
     , m_heap{this, heap_config}
-    //, m_rma_context{m_mpi_comm}
-    , m_comm{mpi_comm{comm}}
+    , m_comm{nccl_comm{comm}}
     {
     }
 

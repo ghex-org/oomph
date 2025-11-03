@@ -26,12 +26,12 @@ struct request_state
     using base = request_state_base<false>;
     using shared_ptr_t = util::unsafe_shared_ptr<request_state>;
 
-    mpi_request  m_req;
+    nccl_request m_req;
     shared_ptr_t m_self_ptr;
     std::size_t  m_index;
 
     request_state(oomph::context_impl* ctxt, oomph::communicator_impl* comm, std::size_t* scheduled,
-        rank_type rank, tag_type tag, cb_type&& cb, mpi_request m)
+        rank_type rank, tag_type tag, cb_type&& cb, nccl_request m)
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{m}
     {
@@ -63,12 +63,12 @@ struct shared_request_state
     using base = request_state_base<true>;
     using shared_ptr_t = std::shared_ptr<shared_request_state>;
 
-    mpi_request  m_req;
+    nccl_request m_req;
     shared_ptr_t m_self_ptr;
 
     shared_request_state(oomph::context_impl* ctxt, oomph::communicator_impl* comm,
         std::atomic<std::size_t>* scheduled, rank_type rank, tag_type tag, cb_type&& cb,
-        mpi_request m)
+        nccl_request m)
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{m}
     {

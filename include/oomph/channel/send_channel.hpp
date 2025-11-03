@@ -7,6 +7,7 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+// TODO: Needed for a completely backend implementation? Skip for NCCL?
 #pragma once
 
 #include <oomph/util/heap_pimpl.hpp>

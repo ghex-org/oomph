@@ -24,7 +24,7 @@ context_impl::get_communicator()
 
 const char *context_impl::get_transport_option(const std::string &opt) {
     if (opt == "name") {
-        return "mpi";
+        return "nccl";
     }
     else {
         return "unspecified";
