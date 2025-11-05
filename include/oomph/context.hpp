@@ -10,6 +10,7 @@
 #pragma once
 
 #include <hwmalloc/config.hpp>
+#include <hwmalloc/heap_config.hpp>
 #include <hwmalloc/device.hpp>
 #include <oomph/config.hpp>
 #include <oomph/message_buffer.hpp>
@@ -41,8 +42,8 @@ class context
     std::unique_ptr<schedule> m_schedule;
 
   public:
-    context(MPI_Comm comm, bool thread_safe = true, bool message_pool_never_free = false,
-        std::size_t message_pool_reserve = 1);
+    context(MPI_Comm comm, bool thread_safe = true,
+        hwmalloc::heap_config const& = hwmalloc::get_default_heap_config());
 
     context(context const&) = delete;
 
