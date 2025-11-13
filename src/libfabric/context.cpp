@@ -76,7 +76,7 @@ namespace oomph {
             static char buffer[32];
             std::string temp = std::to_string(m_controller->rendezvous_threshold());
             if (temp.size() > 31) throw std::runtime_error("Bad string option check, fix please");
-            strcpy(buffer, temp.c_str());
+            strncpy(buffer, temp.c_str(), 32);
             return buffer;
         }
         else { return "unspecified"; }
