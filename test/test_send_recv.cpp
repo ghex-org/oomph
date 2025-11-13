@@ -7,16 +7,16 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <oomph/context.hpp>
-#include <gtest/gtest.h>
-#include "./mpi_runner/mpi_test_fixture.hpp"
-#include <iostream>
-#include <iomanip>
-#include <thread>
 #include <atomic>
+#include <gtest/gtest.h>
+#include <iomanip>
+#include <iostream>
+#include <oomph/context.hpp>
+#include <thread>
+#include "./mpi_runner/mpi_test_fixture.hpp"
 
-#define NITERS   50
-#define SIZE     64
+#define NITERS 50
+#define SIZE 64
 #define NTHREADS 4
 
 std::vector<std::atomic<int>> shared_received(NTHREADS);
@@ -33,22 +33,22 @@ struct test_environment_base
     using tag_type = oomph::tag_type;
     using message = oomph::message_buffer<rank_type>;
 
-    oomph::context&     ctxt;
+    oomph::context& ctxt;
     oomph::communicator comm;
-    rank_type           speer_rank;
-    rank_type           rpeer_rank;
-    int                 thread_id;
-    int                 num_threads;
-    tag_type            tag;
+    rank_type speer_rank;
+    rank_type rpeer_rank;
+    int thread_id;
+    int num_threads;
+    tag_type tag;
 
     test_environment_base(oomph::context& c, int tid, int num_t)
-    : ctxt(c)
-    , comm(ctxt.get_communicator())
-    , speer_rank((comm.rank() + 1) % comm.size())
-    , rpeer_rank((comm.rank() + comm.size() - 1) % comm.size())
-    , thread_id(tid)
-    , num_threads(num_t)
-    , tag(tid)
+      : ctxt(c)
+      , comm(ctxt.get_communicator())
+      , speer_rank((comm.rank() + 1) % comm.size())
+      , rpeer_rank((comm.rank() + comm.size() - 1) % comm.size())
+      , thread_id(tid)
+      , num_threads(num_t)
+      , tag(tid)
     {
     }
 };
@@ -57,25 +57,26 @@ struct test_environment : public test_environment_base
 {
     using base = test_environment_base;
 
-    static auto make_buffer(oomph::communicator& comm, std::size_t size, bool user_alloc,
-        rank_type* ptr)
+    static auto make_buffer(
+        oomph::communicator& comm, std::size_t size, bool user_alloc, rank_type* ptr)
     {
-        if (user_alloc) return comm.make_buffer<rank_type>(ptr, size);
+        if (user_alloc)
+            return comm.make_buffer<rank_type>(ptr, size);
         else
             return comm.make_buffer<rank_type>(size);
     }
 
     std::vector<rank_type> raw_smsg;
     std::vector<rank_type> raw_rmsg;
-    message                smsg;
-    message                rmsg;
+    message smsg;
+    message rmsg;
 
     test_environment(oomph::context& c, std::size_t size, int tid, int num_t, bool user_alloc)
-    : base(c, tid, num_t)
-    , raw_smsg(user_alloc ? size : 0)
-    , raw_rmsg(user_alloc ? size : 0)
-    , smsg(make_buffer(comm, size, user_alloc, raw_smsg.data()))
-    , rmsg(make_buffer(comm, size, user_alloc, raw_rmsg.data()))
+      : base(c, tid, num_t)
+      , raw_smsg(user_alloc ? size : 0)
+      , raw_rmsg(user_alloc ? size : 0)
+      , smsg(make_buffer(comm, size, user_alloc, raw_smsg.data()))
+      , rmsg(make_buffer(comm, size, user_alloc, raw_rmsg.data()))
     {
         fill_send_buffer();
         fill_recv_buffer();
@@ -104,10 +105,11 @@ struct test_environment_device : public test_environment_base
 {
     using base = test_environment_base;
 
-    static auto make_buffer(oomph::communicator& comm, std::size_t size, bool user_alloc,
-        rank_type* device_ptr)
+    static auto make_buffer(
+        oomph::communicator& comm, std::size_t size, bool user_alloc, rank_type* device_ptr)
     {
-        if (user_alloc) return comm.make_device_buffer<rank_type>(device_ptr, size, 0);
+        if (user_alloc)
+            return comm.make_device_buffer<rank_type>(device_ptr, size, 0);
         else
             return comm.make_device_buffer<rank_type>(size, 0);
     }
@@ -120,37 +122,37 @@ struct test_environment_device : public test_environment_base
             if (size) m_ptr = hwmalloc::device_malloc(size * sizeof(rank_type));
         }
         device_allocation(device_allocation&& other)
-        : m_ptr{std::exchange(other.m_ptr, nullptr)}
+          : m_ptr{std::exchange(other.m_ptr, nullptr)}
         {
         }
         ~device_allocation()
         {
-#ifndef OOMPH_TEST_LEAK_GPU_MEMORY
+# ifndef OOMPH_TEST_LEAK_GPU_MEMORY
             if (m_ptr) hwmalloc::device_free(m_ptr);
-#endif
+# endif
         }
-        rank_type* get() const noexcept { return (rank_type*)m_ptr; }
+        rank_type* get() const noexcept { return (rank_type*) m_ptr; }
     };
 
     device_allocation raw_device_smsg;
     device_allocation raw_device_rmsg;
-    message           smsg;
-    message           rmsg;
+    message smsg;
+    message rmsg;
 
-    test_environment_device(oomph::context& c, std::size_t size, int tid, int num_t,
-        bool user_alloc)
-    : base(c, tid, num_t)
-#ifndef OOMPH_TEST_LEAK_GPU_MEMORY
-    , raw_device_smsg(user_alloc ? size : 0)
-    , raw_device_rmsg(user_alloc ? size : 0)
-    , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
-    , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
-#else
-    , raw_device_smsg(size)
-    , raw_device_rmsg(size)
-    , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
-    , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
-#endif
+    test_environment_device(
+        oomph::context& c, std::size_t size, int tid, int num_t, bool user_alloc)
+      : base(c, tid, num_t)
+# ifndef OOMPH_TEST_LEAK_GPU_MEMORY
+      , raw_device_smsg(user_alloc ? size : 0)
+      , raw_device_rmsg(user_alloc ? size : 0)
+      , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
+      , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
+# else
+      , raw_device_smsg(size)
+      , raw_device_rmsg(size)
+      , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
+      , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
+# endif
     {
         fill_send_buffer();
         fill_recv_buffer();
@@ -178,9 +180,8 @@ struct test_environment_device : public test_environment_base
 };
 #endif
 
-template<typename Func>
-void
-launch_test(Func f)
+template <typename Func>
+void launch_test(Func f)
 {
     // single threaded
     {
@@ -193,7 +194,7 @@ launch_test(Func f)
 
     // multi threaded
     {
-        oomph::context           ctxt(MPI_COMM_WORLD, true);
+        oomph::context ctxt(MPI_COMM_WORLD, true);
         std::vector<std::thread> threads;
         threads.reserve(NTHREADS);
         reset_counters();
@@ -210,9 +211,9 @@ launch_test(Func f)
 
 // no callback
 // ===========
-template<typename Env>
-void
-test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
+template <typename Env>
+void test_send_recv(
+    oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
@@ -221,10 +222,7 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     {
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
-        while (!(rreq.is_ready() && sreq.is_ready())) 
-        { 
-            env.comm.progress(); 
-        };
+        while (!(rreq.is_ready() && sreq.is_ready())) { env.comm.progress(); };
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
@@ -260,9 +258,9 @@ TEST_F(mpi_test_fixture, send_recv)
 
 // callback: pass by l-value reference
 // ===================================
-template<typename Env>
-void
-test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
+template <typename Env>
+void test_send_recv_cb(
+    oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
@@ -270,8 +268,8 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
 
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
-    volatile int received = 0;
-    volatile int sent = 0;
+    int volatile received = 0;
+    int volatile sent = 0;
 
     auto send_callback = [&](message const&, rank_type, tag_type) { ++sent; };
     auto recv_callback = [&](message&, rank_type, tag_type) { ++received; };
@@ -327,10 +325,9 @@ TEST_F(mpi_test_fixture, send_recv_cb)
 
 // callback: pass by r-value reference (give up ownership)
 // =======================================================
-template<typename Env>
-void
-test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
+template <typename Env>
+void test_send_recv_cb_disown(
+    oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
@@ -338,16 +335,14 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
 
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
-    volatile int received = 0;
-    volatile int sent = 0;
+    int volatile received = 0;
+    int volatile sent = 0;
 
-    auto send_callback = [&](message msg, rank_type, tag_type)
-    {
+    auto send_callback = [&](message msg, rank_type, tag_type) {
         ++sent;
         env.smsg = std::move(msg);
     };
-    auto recv_callback = [&](message msg, rank_type, tag_type)
-    {
+    auto recv_callback = [&](message msg, rank_type, tag_type) {
         ++received;
         env.rmsg = std::move(msg);
     };
@@ -403,10 +398,9 @@ TEST_F(mpi_test_fixture, send_recv_cb_disown)
 
 // callback: pass by r-value reference (give up ownership), shared recv
 // ====================================================================
-template<typename Env>
-void
-test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
+template <typename Env>
+void test_send_shared_recv_cb_disown(
+    oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
@@ -417,15 +411,13 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     thread_id = env.thread_id;
 
     //volatile int received = 0;
-    volatile int sent = 0;
+    int volatile sent = 0;
 
-    auto send_callback = [&](message msg, rank_type, tag_type)
-    {
+    auto send_callback = [&](message msg, rank_type, tag_type) {
         ++sent;
         env.smsg = std::move(msg);
     };
-    auto recv_callback = [&](message msg, rank_type, tag_type)
-    {
+    auto recv_callback = [&](message msg, rank_type, tag_type) {
         //std::cout << thread_id << " " << env.thread_id << std::endl;
         //if (thread_id != env.thread_id) std::cout << "other thread picked up callback" << std::endl;
         //else std::cout << "my thread picked up callback" << std::endl;
@@ -485,10 +477,9 @@ TEST_F(mpi_test_fixture, send_shared_recv_cb_disown)
 
 // callback: pass by l-value reference, and resubmit
 // =================================================
-template<typename Env>
-void
-test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
+template <typename Env>
+void test_send_recv_cb_resubmit(
+    oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
@@ -496,13 +487,13 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
 
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
-    volatile int received = 0;
-    volatile int sent = 0;
+    int volatile received = 0;
+    int volatile sent = 0;
 
     struct recursive_send_callback
     {
-        Env&          env;
-        volatile int& sent;
+        Env& env;
+        int volatile& sent;
 
         void operator()(message& msg, rank_type dst, tag_type tag)
         {
@@ -513,8 +504,8 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
 
     struct recursive_recv_callback
     {
-        Env&          env;
-        volatile int& received;
+        Env& env;
+        int volatile& received;
 
         void operator()(message& msg, rank_type src, tag_type tag)
         {
@@ -541,10 +532,9 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
 
 // callback: pass by r-value reference (give up ownership), and resubmit
 // =====================================================================
-template<typename Env>
-void
-test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
+template <typename Env>
+void test_send_recv_cb_resubmit_disown(
+    oomph::context& ctxt, std::size_t size, int tid, int num_threads, bool user_alloc)
 {
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
@@ -552,13 +542,13 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
 
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
-    volatile int received = 0;
-    volatile int sent = 0;
+    int volatile received = 0;
+    int volatile sent = 0;
 
     struct recursive_send_callback
     {
-        Env&          env;
-        volatile int& sent;
+        Env& env;
+        int volatile& sent;
 
         void operator()(message msg, rank_type dst, tag_type tag)
         {
@@ -570,8 +560,8 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
 
     struct recursive_recv_callback
     {
-        Env&          env;
-        volatile int& received;
+        Env& env;
+        int volatile& received;
 
         void operator()(message msg, rank_type src, tag_type tag)
         {
