@@ -778,6 +778,9 @@ namespace NS_LIBFABRIC {
         // --------------------------------------------------------------------
         constexpr std::int64_t memory_registration_mode_flags()
         {
+#if defined(HAVE_LIBFABRIC_LNX)
+            return FI_MR_HMEM;
+#endif
             std::int64_t base_flags = FI_MR_ALLOCATED;    // | FI_MR_VIRT_ADDR | FI_MR_PROV_KEY;
 #if OOMPH_ENABLE_DEVICE
             base_flags = base_flags | FI_MR_HMEM;
@@ -1390,8 +1393,8 @@ namespace NS_LIBFABRIC {
         {
 #if defined(HAVE_LIBFABRIC_GNI)
             return true;
-#elif defined(HAVE_LIBFABRIC_CXI)
-            // @todo : cxi provider is not yet thread safe using scalable endpoints
+#elif defined(HAVE_LIBFABRIC_LNX)
+            // @todo : provider is not yet thread safe using scalable endpoints
             return false;
 #else
             return (threadlevel_flags() == FI_THREAD_SAFE ||
