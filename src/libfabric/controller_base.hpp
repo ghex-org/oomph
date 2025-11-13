@@ -928,11 +928,11 @@ namespace NS_LIBFABRIC {
 
             bool mrhalloc = (fabric_info_->domain_attr->mr_mode & FI_MR_ALLOCATED) != 0;
             LF_DEB(cnb_deb, debug(str<>("Requires FI_MR_ALLOCATED"), mrhalloc));
-
+#if (FI_MAJOR_VERSION > 1) || ((FI_MAJOR_VERSION == 1) && FI_MINOR_VERSION >= 20)
             int auth_key = (fabric_info_->domain_attr->max_ep_auth_key);
             LF_DEB(cnb_deb, debug(str<>("Supported max_ep_auth_key"), auth_key));
             fabric_info_->domain_attr->max_ep_auth_key = 0;
-
+#endif
             LF_DEB(cnb_deb, debug(str<>("Creating fi_fabric")));
             ret = fi_fabric(fabric_info_->fabric_attr, &fabric_, nullptr);
             if (ret) throw NS_LIBFABRIC::fabric_error(ret, "Failed to get fi_fabric");
