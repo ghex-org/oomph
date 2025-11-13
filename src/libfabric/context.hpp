@@ -57,8 +57,10 @@ namespace oomph {
         callback_queue m_recv_cb_cancel;
 
     public:
-        context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-            std::size_t message_pool_reserve, bool debug = false);
+        context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config,
+            bool debug = false);
+        // context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+        //     std::size_t message_pool_reserve, bool debug = false);
         context_impl(context_impl const&) = delete;
         context_impl(context_impl&&) = delete;
 

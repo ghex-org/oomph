@@ -15,6 +15,8 @@
 #include "../communicator.hpp"
 #include "../context.hpp"
 
+#include <hwmalloc/heap_config.hpp>
+
 int main(int argc, char** argv)
 {
     using namespace oomph;
@@ -24,6 +26,6 @@ int main(int argc, char** argv)
     bool debug = true;
     //
     mpi_environment env(multi_threaded, argc, argv);
-    auto ctxt =
-        context_impl(MPI_COMM_WORLD, true, message_pool_never_free, message_pool_reserve, debug);
+    hwmalloc::heap_config const& default_heap = hwmalloc::get_default_heap_config();
+    auto ctxt = context_impl(MPI_COMM_WORLD, true, default_heap /*, debug*/);
 }
