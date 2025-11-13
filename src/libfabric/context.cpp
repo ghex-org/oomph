@@ -22,10 +22,10 @@ namespace oomph {
 
     using controller_type = libfabric::controller;
 
-    context_impl::context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-        std::size_t message_pool_reserve, bool debug)
+    context_impl::context_impl(
+        MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config, bool debug)
       : context_base(comm, thread_safe)
-      , m_heap{this, message_pool_never_free, message_pool_reserve}
+      , m_heap{this, heap_config}
       , m_recv_cb_queue(128)
       , m_recv_cb_cancel(8)
     {
@@ -35,8 +35,8 @@ namespace oomph {
 
         m_ctxt_tag = reinterpret_cast<std::uintptr_t>(this);
         OOMPH_CHECK_MPI_RESULT(MPI_Bcast(&m_ctxt_tag, 1, MPI_UINT64_T, 0, comm));
-        LF_DEB(src_deb,
-            debug(str<>("Broadcast"), "rank", dec<3>(rank), "context", hptr(m_ctxt_tag)));
+        LF_DEB(
+            src_deb, debug(str<>("Broadcast"), "rank", dec<3>(rank), "context", hptr(m_ctxt_tag)));
 
         // TODO fix the thread safety
         // problem: controller is a singleton and has problems when 2 contexts are created
