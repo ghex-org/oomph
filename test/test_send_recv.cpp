@@ -7,7 +7,12 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <driver_types.h>
+#ifdef TEST_DEVICE_MODE_ONLY
+# ifdef HWMALLOC_ENABLE_DEVICE
+#  include <driver_types.h>
+# endif
+#endif
+
 #include <gtest/gtest.h>
 #include <oomph/context.hpp>
 // use this path because device version in build dir needs to find include
