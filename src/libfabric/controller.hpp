@@ -67,7 +67,7 @@ namespace oomph::libfabric {
         // --------------------------------------------------------------------
         constexpr fi_threading threadlevel_flags()
         {
-#if defined(HAVE_LIBFABRIC_GNI) /*|| defined(HAVE_LIBFABRIC_CXI)*/
+#if defined(HAVE_LIBFABRIC_GNI) || defined(HAVE_LIBFABRIC_LNX)
             return FI_THREAD_ENDPOINT;
 #else
             return FI_THREAD_SAFE;
@@ -77,10 +77,13 @@ namespace oomph::libfabric {
         // --------------------------------------------------------------------
         uint64_t caps_flags(uint64_t /*available_flags*/) const
         {
-            uint64_t flags_required = FI_MSG | FI_TAGGED | FI_RMA | FI_READ | FI_WRITE | FI_RECV |
-                FI_SEND | FI_REMOTE_READ | FI_REMOTE_WRITE;
-#if OOMPH_ENABLE_DEVICE
+            uint64_t flags_required = FI_TAGGED;
+#ifndef HAVE_LIBFABRIC_LNX
+            flags_required |= FI_MSG | FI_TAGGED | FI_RECV | FI_SEND | FI_RMA | FI_READ | FI_WRITE |
+                FI_REMOTE_READ | FI_REMOTE_WRITE;
+# if OOMPH_ENABLE_DEVICE
             flags_required |= FI_HMEM;
+# endif
 #endif
             return flags_required;
         }
@@ -170,7 +173,9 @@ namespace oomph::libfabric {
             LF_DEB(cnt_deb<9>, debug(str<>("initialize_localities"), size, "localities"));
 
             MPI_exchange_localities(av, mpi_comm, rank, size);
+#ifndef HAVE_LIBFABRIC_LNX    // address stuff not yet supported
             debug_print_av_vector(size);
+#endif
             LF_DEB(cnt_deb<9>, debug(str<>("Done localities")));
         }
 
@@ -179,7 +184,7 @@ namespace oomph::libfabric {
         {
 #if defined(HAVE_LIBFABRIC_GNI)
             return true;
-#elif defined(HAVE_LIBFABRIC_CXI)
+#elif defined(HAVE_LIBFABRIC_LNX)
             // @todo : cxi provider is not yet thread safe using scalable endpoints
             return false;
 #else

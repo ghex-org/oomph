@@ -50,7 +50,7 @@
 #endif
 
 #if defined(HAVE_LIBFABRIC_LNX)
-# define HAVE_LIBFABRIC_LOCALITY_SIZE 32
+# define HAVE_LIBFABRIC_LOCALITY_SIZE 512
 #endif
 
 namespace oomph {
@@ -172,12 +172,16 @@ namespace oomph { namespace libfabric {
 
         std::string to_str() const
         {
-            char sbuf[256];
-            size_t buflen = 256;
+            size_t buflen = 1024;
+            std::array<char, 1024> buf;
             if (!av_) { return "No address vector"; }
-            char const* straddr_ret = fi_av_straddr(av_, data_.data(), sbuf, &buflen);
+            char const* straddr_ret = fi_av_straddr(av_, data_.data(), buf.data(), &buflen);
+#ifdef HAVE_LIBFABRIC_LNX
+            return "LNX does not yet support straddr";
+#else
             std::string result = straddr_ret ? straddr_ret : "Address formatting Error";
             return result;
+#endif
         }
 
     private:
