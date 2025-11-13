@@ -39,6 +39,10 @@
 #include "memory_region.hpp"
 #include "operation_context_base.hpp"
 
+#if ((FI_MAJOR_VERSION == 1) && FI_MINOR_VERSION <= 12)
+#define fi_tostr_r(a,b,c,d) " "
+#endif
+
 // #define DISABLE_FI_INJECT
 // #define EXCESSIVE_POLLING_BACKOFF_MICRO_S 50
 
