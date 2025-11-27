@@ -75,6 +75,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb), req);
         // s->create_self_ref();
         // TODO: Callback ignored.
+        // TODO: Have to respect `scheduled`. Needs to be incremented before
+        // send and decremeted when done.
         // m_send_reqs.enqueue(s.get());
         return {std::move(s)};
         // }
