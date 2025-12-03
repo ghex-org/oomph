@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <hwmalloc/heap.hpp>
 #include <hwmalloc/heap_config.hpp>
 
 #include <oomph/config.hpp>
@@ -16,7 +17,7 @@
 // paths relative to backend
 #include <nccl_communicator.hpp>
 #include <../context_base.hpp>
-#include <request_queue.hpp>
+#include <region.hpp>
 
 namespace oomph
 {
@@ -32,18 +33,17 @@ class context_impl : public context_base
     detail::nccl_comm m_comm;
 
   public:
-    shared_request_queue m_req_queue;
-
-  public:
-    context_impl(ncclComm_t comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
+    context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
     : context_base(comm, thread_safe)
     , m_heap{this, heap_config}
-    , m_comm{nccl_comm{comm}}
+    , m_comm{oomph::detail::nccl_comm{comm}}
     {
     }
 
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
+
+    ncclComm_t get_comm() const noexcept { return m_comm.get(); }
 
     region make_region(void* ptr) const { return {ptr}; }
 
@@ -51,10 +51,13 @@ class context_impl : public context_base
 
     communicator_impl* get_communicator();
 
-    void progress() { m_req_queue.progress(); }
+    void progress() {
+        // NCCL will make progress on its own. Or deadlock.
+    }
 
-    bool cancel_recv(detail::shared_request_state* r) {
+    bool cancel_recv(detail::shared_request_state*) {
       // TODO: Ignore? Can't undo kernel launches.
+      return false;
     }
 
     unsigned int num_tag_bits() const noexcept {

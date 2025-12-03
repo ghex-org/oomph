@@ -25,7 +25,7 @@ class nccl_comm
     oomph::util::moved_bit m_moved;
 
   public:
-    nccl_communicator(mpi_comm mpi_comm)
+    nccl_comm(mpi_comm mpi_comm)
     {
         ncclUniqueId id;
         if (mpi_comm.rank() == 0) { OOMPH_CHECK_NCCL_RESULT(ncclGetUniqueId(&id)); }
@@ -36,7 +36,7 @@ class nccl_comm
         ncclResult_t result;
         do {
             OOMPH_CHECK_NCCL_RESULT(ncclCommGetAsyncError(m_comm, &result));
-        }
+        } while (result == ncclInProgress);
     }
     nccl_comm(nccl_comm&&) noexcept = default;
     nccl_comm& operator=(nccl_comm&&) noexcept = default;
@@ -52,5 +52,7 @@ class nccl_comm
             OOMPH_CHECK_NCCL_RESULT_NOEXCEPT(ncclCommDestroy(m_comm));
         }
     }
+
+    ncclComm_t get() const noexcept { return m_comm; }
 };
 } // namespace oomph::detail

@@ -19,6 +19,7 @@
 #include <context.hpp>
 // #include <request_queue.hpp>
 #include <request.hpp>
+#include <request_state.hpp>
 
 namespace oomph
 {
@@ -37,32 +38,36 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
+    bool is_stream_aware() const noexcept { return true; }
+
+    void start_group() { OOMPH_CHECK_NCCL_RESULT(ncclGroupStart()); }
+
+    void end_group() { OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd()); }
+
     nccl_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        [[maybe_unused]] tag_type tag)
+        [[maybe_unused]] tag_type tag, void* stream)
     {
-        // TODO: Stream? Currently assume 0.
         const_device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(
-            ncclSend(dg.data(), size, ncclChar, dst, m_context->m_comm.get(), 0));
+            ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
         // TODO: Return event to stream? Return void?
         return {};
     }
 
     nccl_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        [[maybe_unused]] tag_type tag)
+        [[maybe_unused]] tag_type tag, void* stream)
     {
-        // TODO: Stream? Currently assume 0.
         device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(
-            ncclRecv(dg.data(), size, ncclChar, src, m_context->m_comm.get(), 0));
+            ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
         // TODO: Return event to stream? Return void?
         return {};
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled, void* stream)
     {
-        auto req = send(ptr, size, dst, tag);
+        auto req = send(ptr, size, dst, tag, stream);
         // if (!has_reached_recursion_depth() && req.is_ready())
         // {
         //     auto inc = recursion();
@@ -83,9 +88,9 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled)
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled, void* stream)
     {
-        auto req = recv(ptr, size, src, tag);
+        auto req = recv(ptr, size, src, tag, stream);
         // if (!has_reached_recursion_depth() && req.is_ready())
         // {
         //     auto inc = recursion();
@@ -103,9 +108,9 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::atomic<std::size_t>* scheduled)
+        std::atomic<std::size_t>* scheduled, void* stream)
     {
-        auto req = recv(ptr, size, src, tag);
+        auto req = recv(ptr, size, src, tag, stream);
         // if (!m_context->has_reached_recursion_depth() && req.is_ready())
         // {
         //     auto inc = m_context->recursion();
@@ -127,7 +132,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         // Nothing to do to progress NCCL. Just wait for GPU to finish.
     }
 
-    bool cancel_recv(detail::request_state* s)
+    bool cancel_recv(detail::request_state*)
     {
         // TODO: NCCL does not allow cancellation?
         return false;
