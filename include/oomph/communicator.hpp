@@ -102,6 +102,7 @@ class communicator
 
     bool is_ready() const noexcept
     {
+        std::cerr << "communicator::is_ready()\n";
         // TODO: Would prefer not to count sends/recvs for NCCL. Prefer to check
         // if stream or event is done (sends/recvs should be submitted in
         // groups).
@@ -210,7 +211,7 @@ class communicator
     send_multi_request send_multi(message_buffer<T> const& msg,
         std::vector<rank_type> const& neighs, tag_type tag, void* stream = nullptr)
     {
-        return send_multi(msg, neighs.data(), neighs.size(), tag);
+        return send_multi(msg, neighs.data(), neighs.size(), tag, stream);
     }
 
     template<typename T>

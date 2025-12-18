@@ -12,8 +12,8 @@
 #include <oomph/request.hpp>
 
 // paths relative to backend
-#include <../request_state_base.hpp>
-#include <request.hpp>
+#include "../request_state_base.hpp"
+#include "./request.hpp"
 
 namespace oomph
 {
@@ -35,6 +35,7 @@ struct request_state
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{m}
     {
+        std::cerr << "creating nccl request_state\n";
     }
 
     void progress();
@@ -72,6 +73,7 @@ struct shared_request_state
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{m}
     {
+        std::cerr << "creating nccl shared_request_state\n";
     }
 
     void progress();

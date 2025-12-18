@@ -86,4 +86,10 @@ if (OOMPH_WITH_LIBFABRIC)
     endforeach()
 endif()
 
+if (OOMPH_WITH_NCCL)
+    foreach(t ${parallel_tests})
+        reg_parallel_test(${t} nccl 4)
+    endforeach()
+endif()
+
 add_subdirectory(bindings)

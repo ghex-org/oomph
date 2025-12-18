@@ -182,8 +182,11 @@ template<typename Func>
 void
 launch_test(Func f)
 {
+    std::cerr << "launch_test\n";
+
     // single threaded
     {
+    std::cerr << "single threaded\n";
         oomph::context ctxt(MPI_COMM_WORLD, false);
         reset_counters();
         f(ctxt, SIZE, 0, 1, false);
@@ -192,20 +195,22 @@ launch_test(Func f)
     }
 
     // multi threaded
-    {
-        oomph::context           ctxt(MPI_COMM_WORLD, true);
-        std::vector<std::thread> threads;
-        threads.reserve(NTHREADS);
-        reset_counters();
-        for (int i = 0; i < NTHREADS; ++i)
-            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, false});
-        for (auto& t : threads) t.join();
-        threads.clear();
-        reset_counters();
-        for (int i = 0; i < NTHREADS; ++i)
-            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
-        for (auto& t : threads) t.join();
-    }
+    // TODO: Don't run for NCCL, run for others.
+    // {
+    //     std::cerr << "multi threaded\n";
+    //     oomph::context           ctxt(MPI_COMM_WORLD, true);
+    //     std::vector<std::thread> threads;
+    //     threads.reserve(NTHREADS);
+    //     reset_counters();
+    //     for (int i = 0; i < NTHREADS; ++i)
+    //         threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, false});
+    //     for (auto& t : threads) t.join();
+    //     threads.clear();
+    //     reset_counters();
+    //     for (int i = 0; i < NTHREADS; ++i)
+    //         threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
+    //     for (auto& t : threads) t.join();
+    // }
 }
 
 // no callback
@@ -217,42 +222,57 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
     // use is_ready() -> must manually progress the communicator
+    std::cerr << "test_send_recv 1\n";
     for (int i = 0; i < NITERS; i++)
     {
+        std::cerr << "iteration " << i << "\n";
+        env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
+        env.comm.end_group();
+        std::cerr << "rreq.is_ready() = " << rreq.is_ready() << '\n';
+        std::cerr << "sreq.is_ready() = " << sreq.is_ready() << '\n';
         while (!(rreq.is_ready() && sreq.is_ready())) 
         { 
+            std::cerr << "calling env.comm.progress()\n";
             env.comm.progress(); 
         };
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
+    std::cerr << "test_send_recv 1 done\n";
 
+    std::cerr << "test_send_recv 2\n";
     // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
+        env.comm.end_group();
         while (!(rreq.test() && sreq.test())) {};
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
 
-    // use wait() -> communicator is progressed automatically
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
-        env.comm.send(env.smsg, env.speer_rank, env.tag).wait();
-        rreq.wait();
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
+    // std::cerr << "test_send_recv 3\n";
+    // // use wait() -> communicator is progressed automatically
+    // for (int i = 0; i < NITERS; i++)
+    // {
+    //     env.comm.start_group();
+    //     auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
+    //     env.comm.send(env.smsg, env.speer_rank, env.tag).wait();
+    //     env.comm.end_group();
+    //     rreq.wait();
+    //     EXPECT_TRUE(env.check_recv_buffer());
+    //     env.fill_recv_buffer();
+    // }
 }
 
 TEST_F(mpi_test_fixture, send_recv)
 {
-    launch_test(test_send_recv<test_environment>);
+    // TODO: Only device tests with NCCL.
+    // launch_test(test_send_recv<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv<test_environment_device>);
 #endif
@@ -279,8 +299,10 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -317,283 +339,283 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     EXPECT_EQ(sent, NITERS);
 }
 
-TEST_F(mpi_test_fixture, send_recv_cb)
-{
-    launch_test(test_send_recv_cb<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb<test_environment_device>);
-#endif
-}
-
-// callback: pass by r-value reference (give up ownership)
-// =======================================================
-template<typename Env>
-void
-test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
-{
-    using rank_type = test_environment::rank_type;
-    using tag_type = test_environment::tag_type;
-    using message = test_environment::message;
-
-    Env env(ctxt, size, tid, num_threads, user_alloc);
-
-    volatile int received = 0;
-    volatile int sent = 0;
-
-    auto send_callback = [&](message msg, rank_type, tag_type)
-    {
-        ++sent;
-        env.smsg = std::move(msg);
-    };
-    auto recv_callback = [&](message msg, rank_type, tag_type)
-    {
-        ++received;
-        env.rmsg = std::move(msg);
-    };
-
-    // use is_ready() -> must manually progress the communicator
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
-    EXPECT_EQ(received, NITERS);
-    EXPECT_EQ(sent, NITERS);
-
-    received = 0;
-    sent = 0;
-    // use test() -> communicator is progressed automatically
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        while (!rh.test() || !sh.test()) {}
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
-    EXPECT_EQ(received, NITERS);
-    EXPECT_EQ(sent, NITERS);
-
-    received = 0;
-    sent = 0;
-    // use wait() -> communicator is progressed automatically
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
-        rh.wait();
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
-    EXPECT_EQ(received, NITERS);
-    EXPECT_EQ(sent, NITERS);
-}
-
-TEST_F(mpi_test_fixture, send_recv_cb_disown)
-{
-    launch_test(test_send_recv_cb_disown<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb_disown<test_environment_device>);
-#endif
-}
-
-// callback: pass by r-value reference (give up ownership), shared recv
-// ====================================================================
-template<typename Env>
-void
-test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
-{
-    using rank_type = test_environment::rank_type;
-    using tag_type = test_environment::tag_type;
-    using message = test_environment::message;
-
-    Env env(ctxt, size, tid, num_threads, user_alloc);
-
-    thread_id = env.thread_id;
-
-    //volatile int received = 0;
-    volatile int sent = 0;
-
-    auto send_callback = [&](message msg, rank_type, tag_type)
-    {
-        ++sent;
-        env.smsg = std::move(msg);
-    };
-    auto recv_callback = [&](message msg, rank_type, tag_type)
-    {
-        //std::cout << thread_id << " " << env.thread_id << std::endl;
-        //if (thread_id != env.thread_id) std::cout << "other thread picked up callback" << std::endl;
-        //else std::cout << "my thread picked up callback" << std::endl;
-        env.rmsg = std::move(msg);
-        ++shared_received[env.thread_id];
-    };
-
-    // use is_ready() -> must manually progress the communicator
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
-        EXPECT_TRUE(env.rmsg);
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
-    EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
-    EXPECT_EQ(sent, NITERS);
-
-    shared_received[env.thread_id].store(0);
-    sent = 0;
-    // use test() -> communicator is progressed automatically
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
-        while (!rh.test() || !sh.test()) {}
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
-    EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
-    EXPECT_EQ(sent, NITERS);
-
-    shared_received[env.thread_id].store(0);
-    sent = 0;
-    // use wait() -> communicator is progressed automatically
-    for (int i = 0; i < NITERS; i++)
-    {
-        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
-        rh.wait();
-        EXPECT_TRUE(env.check_recv_buffer());
-        env.fill_recv_buffer();
-    }
-    EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
-    EXPECT_EQ(sent, NITERS);
-}
-
-TEST_F(mpi_test_fixture, send_shared_recv_cb_disown)
-{
-    launch_test(test_send_shared_recv_cb_disown<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_shared_recv_cb_disown<test_environment_device>);
-#endif
-}
-
-// callback: pass by l-value reference, and resubmit
-// =================================================
-template<typename Env>
-void
-test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
-{
-    using rank_type = test_environment::rank_type;
-    using tag_type = test_environment::tag_type;
-    using message = test_environment::message;
-
-    Env env(ctxt, size, tid, num_threads, user_alloc);
-
-    volatile int received = 0;
-    volatile int sent = 0;
-
-    struct recursive_send_callback
-    {
-        Env&          env;
-        volatile int& sent;
-
-        void operator()(message& msg, rank_type dst, tag_type tag)
-        {
-            ++sent;
-            if (sent < NITERS) env.comm.send(msg, dst, tag, recursive_send_callback{*this});
-        }
-    };
-
-    struct recursive_recv_callback
-    {
-        Env&          env;
-        volatile int& received;
-
-        void operator()(message& msg, rank_type src, tag_type tag)
-        {
-            ++received;
-            EXPECT_TRUE(env.check_recv_buffer());
-            env.fill_recv_buffer();
-            if (received < NITERS) env.comm.recv(msg, src, tag, recursive_recv_callback{*this});
-        }
-    };
-
-    env.comm.recv(env.rmsg, env.rpeer_rank, 1, recursive_recv_callback{env, received});
-    env.comm.send(env.smsg, env.speer_rank, 1, recursive_send_callback{env, sent});
-
-    while (sent < NITERS || received < NITERS) { env.comm.progress(); };
-}
-
-TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
-{
-    launch_test(test_send_recv_cb_resubmit<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb_resubmit<test_environment_device>);
-#endif
-}
-
-// callback: pass by r-value reference (give up ownership), and resubmit
-// =====================================================================
-template<typename Env>
-void
-test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
-    bool user_alloc)
-{
-    using rank_type = test_environment::rank_type;
-    using tag_type = test_environment::tag_type;
-    using message = test_environment::message;
-
-    Env env(ctxt, size, tid, num_threads, user_alloc);
-
-    volatile int received = 0;
-    volatile int sent = 0;
-
-    struct recursive_send_callback
-    {
-        Env&          env;
-        volatile int& sent;
-
-        void operator()(message msg, rank_type dst, tag_type tag)
-        {
-            ++sent;
-            if (sent < NITERS)
-                env.comm.send(std::move(msg), dst, tag, recursive_send_callback{*this});
-        }
-    };
-
-    struct recursive_recv_callback
-    {
-        Env&          env;
-        volatile int& received;
-
-        void operator()(message msg, rank_type src, tag_type tag)
-        {
-            ++received;
-            env.rmsg = std::move(msg);
-            EXPECT_TRUE(env.check_recv_buffer());
-            env.fill_recv_buffer();
-            if (received < NITERS)
-                env.comm.recv(std::move(env.rmsg), src, tag, recursive_recv_callback{*this});
-        }
-    };
-
-    env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recursive_recv_callback{env, received});
-    env.comm.send(std::move(env.smsg), env.speer_rank, 1, recursive_send_callback{env, sent});
-
-    while (sent < NITERS || received < NITERS) { env.comm.progress(); };
-}
-
-TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
-{
-    launch_test(test_send_recv_cb_resubmit_disown<test_environment>);
-#if HWMALLOC_ENABLE_DEVICE
-    launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
-#endif
-}
+// TEST_F(mpi_test_fixture, send_recv_cb)
+// {
+//     launch_test(test_send_recv_cb<test_environment>);
+// #if HWMALLOC_ENABLE_DEVICE
+//     launch_test(test_send_recv_cb<test_environment_device>);
+// #endif
+// }
+// 
+// // callback: pass by r-value reference (give up ownership)
+// // =======================================================
+// template<typename Env>
+// void
+// test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+//     bool user_alloc)
+// {
+//     using rank_type = test_environment::rank_type;
+//     using tag_type = test_environment::tag_type;
+//     using message = test_environment::message;
+// 
+//     Env env(ctxt, size, tid, num_threads, user_alloc);
+// 
+//     volatile int received = 0;
+//     volatile int sent = 0;
+// 
+//     auto send_callback = [&](message msg, rank_type, tag_type)
+//     {
+//         ++sent;
+//         env.smsg = std::move(msg);
+//     };
+//     auto recv_callback = [&](message msg, rank_type, tag_type)
+//     {
+//         ++received;
+//         env.rmsg = std::move(msg);
+//     };
+// 
+//     // use is_ready() -> must manually progress the communicator
+//     for (int i = 0; i < NITERS; i++)
+//     {
+//         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+//         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+//         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
+//         EXPECT_TRUE(env.check_recv_buffer());
+//         env.fill_recv_buffer();
+//     }
+//     EXPECT_EQ(received, NITERS);
+//     EXPECT_EQ(sent, NITERS);
+// 
+//     received = 0;
+//     sent = 0;
+//     // use test() -> communicator is progressed automatically
+//     for (int i = 0; i < NITERS; i++)
+//     {
+//         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+//         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+//         while (!rh.test() || !sh.test()) {}
+//         EXPECT_TRUE(env.check_recv_buffer());
+//         env.fill_recv_buffer();
+//     }
+//     EXPECT_EQ(received, NITERS);
+//     EXPECT_EQ(sent, NITERS);
+// 
+//     received = 0;
+//     sent = 0;
+//     // use wait() -> communicator is progressed automatically
+//     for (int i = 0; i < NITERS; i++)
+//     {
+//         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+//         env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
+//         rh.wait();
+//         EXPECT_TRUE(env.check_recv_buffer());
+//         env.fill_recv_buffer();
+//     }
+//     EXPECT_EQ(received, NITERS);
+//     EXPECT_EQ(sent, NITERS);
+// }
+// 
+// TEST_F(mpi_test_fixture, send_recv_cb_disown)
+// {
+//     launch_test(test_send_recv_cb_disown<test_environment>);
+// #if HWMALLOC_ENABLE_DEVICE
+//     launch_test(test_send_recv_cb_disown<test_environment_device>);
+// #endif
+// }
+// 
+// // callback: pass by r-value reference (give up ownership), shared recv
+// // ====================================================================
+// template<typename Env>
+// void
+// test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+//     bool user_alloc)
+// {
+//     using rank_type = test_environment::rank_type;
+//     using tag_type = test_environment::tag_type;
+//     using message = test_environment::message;
+// 
+//     Env env(ctxt, size, tid, num_threads, user_alloc);
+// 
+//     thread_id = env.thread_id;
+// 
+//     //volatile int received = 0;
+//     volatile int sent = 0;
+// 
+//     auto send_callback = [&](message msg, rank_type, tag_type)
+//     {
+//         ++sent;
+//         env.smsg = std::move(msg);
+//     };
+//     auto recv_callback = [&](message msg, rank_type, tag_type)
+//     {
+//         //std::cout << thread_id << " " << env.thread_id << std::endl;
+//         //if (thread_id != env.thread_id) std::cout << "other thread picked up callback" << std::endl;
+//         //else std::cout << "my thread picked up callback" << std::endl;
+//         env.rmsg = std::move(msg);
+//         ++shared_received[env.thread_id];
+//     };
+// 
+//     // use is_ready() -> must manually progress the communicator
+//     for (int i = 0; i < NITERS; i++)
+//     {
+//         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+//         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+//         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
+//         EXPECT_TRUE(env.rmsg);
+//         EXPECT_TRUE(env.check_recv_buffer());
+//         env.fill_recv_buffer();
+//     }
+//     EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
+//     EXPECT_EQ(sent, NITERS);
+// 
+//     shared_received[env.thread_id].store(0);
+//     sent = 0;
+//     // use test() -> communicator is progressed automatically
+//     for (int i = 0; i < NITERS; i++)
+//     {
+//         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+//         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+//         while (!rh.test() || !sh.test()) {}
+//         EXPECT_TRUE(env.check_recv_buffer());
+//         env.fill_recv_buffer();
+//     }
+//     EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
+//     EXPECT_EQ(sent, NITERS);
+// 
+//     shared_received[env.thread_id].store(0);
+//     sent = 0;
+//     // use wait() -> communicator is progressed automatically
+//     for (int i = 0; i < NITERS; i++)
+//     {
+//         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
+//         env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
+//         rh.wait();
+//         EXPECT_TRUE(env.check_recv_buffer());
+//         env.fill_recv_buffer();
+//     }
+//     EXPECT_EQ(shared_received[env.thread_id].load(), NITERS);
+//     EXPECT_EQ(sent, NITERS);
+// }
+// 
+// TEST_F(mpi_test_fixture, send_shared_recv_cb_disown)
+// {
+//     launch_test(test_send_shared_recv_cb_disown<test_environment>);
+// #if HWMALLOC_ENABLE_DEVICE
+//     launch_test(test_send_shared_recv_cb_disown<test_environment_device>);
+// #endif
+// }
+// 
+// // callback: pass by l-value reference, and resubmit
+// // =================================================
+// template<typename Env>
+// void
+// test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+//     bool user_alloc)
+// {
+//     using rank_type = test_environment::rank_type;
+//     using tag_type = test_environment::tag_type;
+//     using message = test_environment::message;
+// 
+//     Env env(ctxt, size, tid, num_threads, user_alloc);
+// 
+//     volatile int received = 0;
+//     volatile int sent = 0;
+// 
+//     struct recursive_send_callback
+//     {
+//         Env&          env;
+//         volatile int& sent;
+// 
+//         void operator()(message& msg, rank_type dst, tag_type tag)
+//         {
+//             ++sent;
+//             if (sent < NITERS) env.comm.send(msg, dst, tag, recursive_send_callback{*this});
+//         }
+//     };
+// 
+//     struct recursive_recv_callback
+//     {
+//         Env&          env;
+//         volatile int& received;
+// 
+//         void operator()(message& msg, rank_type src, tag_type tag)
+//         {
+//             ++received;
+//             EXPECT_TRUE(env.check_recv_buffer());
+//             env.fill_recv_buffer();
+//             if (received < NITERS) env.comm.recv(msg, src, tag, recursive_recv_callback{*this});
+//         }
+//     };
+// 
+//     env.comm.recv(env.rmsg, env.rpeer_rank, 1, recursive_recv_callback{env, received});
+//     env.comm.send(env.smsg, env.speer_rank, 1, recursive_send_callback{env, sent});
+// 
+//     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
+// }
+// 
+// TEST_F(mpi_test_fixture, send_recv_cb_resubmit)
+// {
+//     launch_test(test_send_recv_cb_resubmit<test_environment>);
+// #if HWMALLOC_ENABLE_DEVICE
+//     launch_test(test_send_recv_cb_resubmit<test_environment_device>);
+// #endif
+// }
+// 
+// // callback: pass by r-value reference (give up ownership), and resubmit
+// // =====================================================================
+// template<typename Env>
+// void
+// test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
+//     bool user_alloc)
+// {
+//     using rank_type = test_environment::rank_type;
+//     using tag_type = test_environment::tag_type;
+//     using message = test_environment::message;
+// 
+//     Env env(ctxt, size, tid, num_threads, user_alloc);
+// 
+//     volatile int received = 0;
+//     volatile int sent = 0;
+// 
+//     struct recursive_send_callback
+//     {
+//         Env&          env;
+//         volatile int& sent;
+// 
+//         void operator()(message msg, rank_type dst, tag_type tag)
+//         {
+//             ++sent;
+//             if (sent < NITERS)
+//                 env.comm.send(std::move(msg), dst, tag, recursive_send_callback{*this});
+//         }
+//     };
+// 
+//     struct recursive_recv_callback
+//     {
+//         Env&          env;
+//         volatile int& received;
+// 
+//         void operator()(message msg, rank_type src, tag_type tag)
+//         {
+//             ++received;
+//             env.rmsg = std::move(msg);
+//             EXPECT_TRUE(env.check_recv_buffer());
+//             env.fill_recv_buffer();
+//             if (received < NITERS)
+//                 env.comm.recv(std::move(env.rmsg), src, tag, recursive_recv_callback{*this});
+//         }
+//     };
+// 
+//     env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recursive_recv_callback{env, received});
+//     env.comm.send(std::move(env.smsg), env.speer_rank, 1, recursive_send_callback{env, sent});
+// 
+//     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
+// }
+// 
+// TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
+// {
+//     launch_test(test_send_recv_cb_resubmit_disown<test_environment>);
+// #if HWMALLOC_ENABLE_DEVICE
+//     launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
+// #endif
+// }

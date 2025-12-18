@@ -18,6 +18,7 @@
 #include <nccl_communicator.hpp>
 #include <../context_base.hpp>
 #include <region.hpp>
+#include "./request_queue.hpp"
 
 namespace oomph
 {
@@ -33,11 +34,18 @@ class context_impl : public context_base
     detail::nccl_comm m_comm;
 
   public:
+    shared_request_queue m_req_queue;
+
+  public:
     context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
     : context_base(comm, thread_safe)
     , m_heap{this, heap_config}
     , m_comm{oomph::detail::nccl_comm{comm}}
     {
+        if (thread_safe) {
+            // TODO: Appropriate?
+            throw std::runtime_error("NCCL not supported with thread_safe = true");
+        }
     }
 
     context_impl(context_impl const&) = delete;
@@ -52,7 +60,7 @@ class context_impl : public context_base
     communicator_impl* get_communicator();
 
     void progress() {
-        // NCCL will make progress on its own. Or deadlock.
+        m_req_queue.progress();
     }
 
     bool cancel_recv(detail::shared_request_state*) {

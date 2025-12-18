@@ -20,14 +20,20 @@
 #include <stdexcept>
 #include <iostream>
 #define OOMPH_CHECK_NCCL_RESULT(x)                                                                 \
-    if (x != ncclSuccess && x != ncclInProgress)                                                   \
-        throw std::runtime_error("OOMPH Error: NCCL Call failed " + std::string(#x) + " in " +     \
-                                 std::string(__FILE__) + ":" + std::to_string(__LINE__));
-#define OOMPH_CHECK_NCCL_RESULT_NOEXCEPT(x)                                                        \
-    if (x != ncclSuccess && x != ncclInProgress)                                                   \
     {                                                                                              \
-        std::cerr << "OOMPH Error: NCCL Call failed " << std::string(#x) << " in "                 \
-                  << std::string(__FILE__) << ":" << std::to_string(__LINE__) << std::endl;        \
-        std::terminate();                                                                          \
+        ncclResult_t r = x;                                                                        \
+        if (r != ncclSuccess && r != ncclInProgress)                                               \
+            throw std::runtime_error("OOMPH Error: NCCL Call failed " + std::string(#x) + " = " + std::to_string(r) + " (\"" + ncclGetErrorString(r) + "\") in " + \
+                                     std::string(__FILE__) + ":" + std::to_string(__LINE__));      \
+    }
+#define OOMPH_CHECK_NCCL_RESULT_NOEXCEPT(x)                                                        \
+    {                                                                                              \
+        ncclResult_t r = x;                                                                        \
+        if (r != ncclSuccess && r != ncclInProgress)                                               \
+        {                                                                                          \
+            std::cerr << "OOMPH Error: NCCL Call failed " << std::string(#x) << " in "             \
+                      << std::string(__FILE__) << ":" << std::to_string(__LINE__) << std::endl;    \
+            std::terminate();                                                                      \
+        }                                                                                          \
     }
 #endif
