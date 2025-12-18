@@ -255,18 +255,21 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
         env.fill_recv_buffer();
     }
 
-    // std::cerr << "test_send_recv 3\n";
-    // // use wait() -> communicator is progressed automatically
-    // for (int i = 0; i < NITERS; i++)
-    // {
-    //     env.comm.start_group();
-    //     auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
-    //     env.comm.send(env.smsg, env.speer_rank, env.tag).wait();
-    //     env.comm.end_group();
-    //     rreq.wait();
-    //     EXPECT_TRUE(env.check_recv_buffer());
-    //     env.fill_recv_buffer();
-    // }
+    std::cerr << "test_send_recv 3\n";
+    // use wait() -> communicator is progressed automatically
+    for (int i = 0; i < NITERS; i++)
+    {
+        env.comm.start_group();
+        auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
+        // TODO: The sreq.wait was previously called immediately. With NCCL
+        // groups can't call wait so early (communication hasn't started yet).
+        auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
+        env.comm.end_group();
+        sreq.wait();
+        rreq.wait();
+        EXPECT_TRUE(env.check_recv_buffer());
+        env.fill_recv_buffer();
+    }
 }
 
 TEST_F(mpi_test_fixture, send_recv)
