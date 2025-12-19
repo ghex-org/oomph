@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2025, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -13,11 +13,9 @@
 
 // paths relative to backend
 #include "../request_state_base.hpp"
-#include "./request.hpp"
+#include "request.hpp"
 
-namespace oomph
-{
-namespace detail
+namespace oomph::detail
 {
 struct request_state
 : public util::enable_shared_from_this<request_state>
@@ -35,7 +33,7 @@ struct request_state
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{std::move(m)}
     {
-        std::cerr << "creating nccl request_state\n";
+        // std::cerr << "creating nccl request_state\n";
     }
 
     void progress();
@@ -94,6 +92,4 @@ struct shared_request_state
         return std::move(m_self_ptr);
     }
 };
-
-} // namespace detail
 } // namespace oomph

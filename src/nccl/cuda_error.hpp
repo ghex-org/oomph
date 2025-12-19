@@ -10,9 +10,10 @@
 #pragma once
 
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 #include <string>
-#include <iostream>
+
 #include <cuda_runtime.h>
 
 #define OOMPH_CHECK_CUDA_RESULT(x)                                                                 \

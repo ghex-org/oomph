@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2025, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,14 +11,14 @@
 
 #include <algorithm>
 #include <vector>
+
 #include <boost/lockfree/queue.hpp>
 
 // paths relative to backend
-#include <request_state.hpp>
+#include "request_state.hpp"
 
 namespace oomph
 {
-
 class request_queue
 {
   private:
@@ -46,7 +46,8 @@ class request_queue
 
     int progress()
     {
-        std::cerr << "nccl request_queue::progress\n";
+        // std::cerr << "nccl request_queue::progress\n";
+
         if (in_progress) return 0;
         in_progress = true;
 
@@ -63,7 +64,7 @@ class request_queue
                 // std::cerr << "checking if request ready with event " << req->m_req.m_event << "\n";
                 if (req->m_req.is_ready()) {
                     auto ptr = req->release_self_ref();
-                    std::cerr << "invoking callback on req: " << req << "\n";
+                    // std::cerr << "invoking callback on req: " << req << "\n";
                     req->invoke_cb();
                     return true;
                 } else {
@@ -72,20 +73,16 @@ class request_queue
             }
         );
         auto completed = std::distance(erase_begin, m_queue.end());
-        if (completed != 0) {
-            std::cerr << "completed " << completed << " requests\n";
-        }
+        // if (completed != 0) {
+        //     std::cerr << "completed " << completed << " requests\n";
+        // }
         m_queue.erase(erase_begin, m_queue.end());
 
         in_progress = false;
         return completed;
     }
 
-    bool cancel(element_type*)
-    {
-        // No cancellation with NCCL.
-        return false;
-    }
+    bool cancel(element_type*) { return false; }
 };
 
 class shared_request_queue
@@ -117,7 +114,7 @@ class shared_request_queue
 
     int progress()
     {
-        std::cerr << "nccl shared_request_queue::progress\n";
+        // std::cerr << "nccl shared_request_queue::progress\n";
 
         static thread_local bool                       in_progress = false;
         static thread_local std::vector<element_type*> m_local_queue;
@@ -131,7 +128,7 @@ class shared_request_queue
         {
             if (e->m_req.is_ready())
             {
-                std::cerr << "found ready request in shared queue\n";
+                // std::cerr << "found ready request in shared queue\n";
                 found = 1;
                 break;
             }
@@ -155,11 +152,6 @@ class shared_request_queue
         return found;
     }
 
-    bool cancel(element_type*)
-    {
-        // No cancellation with NCCL.
-        return false;
-    }
+    bool cancel(element_type*) { return false; }
 };
-
 } // namespace oomph

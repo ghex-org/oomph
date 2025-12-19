@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2025, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,13 +9,14 @@
  */
 #pragma once
 
+#include <nccl.h>
+
 #include <oomph/util/mpi_error.hpp>
 #include <oomph/util/moved_bit.hpp>
 
-#include <nccl_error.hpp>
-#include <../mpi_comm.hpp>
-
-#include <nccl.h>
+#include "../mpi_comm.hpp"
+#include "cuda_error.hpp"
+#include "nccl_error.hpp"
 
 namespace oomph::detail
 {
@@ -46,10 +47,8 @@ class nccl_comm
     {
         if (!m_moved)
         {
-            // TODO
-            // OOMPH_CHECK_CUDA_RESULT_NOEXCEPT(cudaDeviceSynchronize());
-            cudaDeviceSynchronize();
-            OOMPH_CHECK_NCCL_RESULT_NOEXCEPT(ncclCommDestroy(m_comm));
+            OOMPH_CHECK_CUDA_RESULT_NO_THROW(cudaDeviceSynchronize());
+            OOMPH_CHECK_NCCL_RESULT_NO_THROW(ncclCommDestroy(m_comm));
         }
     }
 

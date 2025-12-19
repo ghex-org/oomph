@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2025, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -10,7 +10,7 @@
 #pragma once
 
 // paths relative to backend
-#include <handle.hpp>
+#include "handle.hpp"
 
 namespace oomph
 {

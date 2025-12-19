@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2025, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -43,7 +43,6 @@ class context_impl : public context_base
     , m_comm{oomph::detail::nccl_comm{comm}}
     {
         if (thread_safe) {
-            // TODO: Appropriate?
             throw std::runtime_error("NCCL not supported with thread_safe = true");
         }
     }
@@ -59,19 +58,9 @@ class context_impl : public context_base
 
     communicator_impl* get_communicator();
 
-    void progress() {
-        m_req_queue.progress();
-    }
+    void progress() { m_req_queue.progress(); }
 
-    bool cancel_recv(detail::shared_request_state*) {
-      // TODO: Ignore? Can't undo kernel launches.
-      return false;
-    }
-
-    unsigned int num_tag_bits() const noexcept {
-      // TODO: Important? Can't use tags with NCCL.
-      return 32;
-    }
+    bool cancel_recv(detail::shared_request_state*) { return false; }
 
     const char* get_transport_option(const std::string& opt);
 };

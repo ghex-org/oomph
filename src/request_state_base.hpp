@@ -97,7 +97,7 @@ struct request_state_base
 
     void invoke_cb()
     {
-        std::cerr << "invoke_cb, setting m_ready to true\n";
+        // std::cerr << "invoke_cb, setting m_ready to true\n";
         m_cb(m_rank, m_tag);
         --(*m_scheduled);
         traits::store(m_ready, true);

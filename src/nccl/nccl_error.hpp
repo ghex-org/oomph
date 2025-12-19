@@ -9,31 +9,24 @@
  */
 #pragma once
 
-#include <nccl.h>
-
-// TODO: Print error string and code.
-#ifdef NDEBUG
-#define OOMPH_CHECK_NCCL_RESULT(x)          x;
-#define OOMPH_CHECK_NCCL_RESULT_NOEXCEPT(x) x;
-#else
 #include <string>
 #include <stdexcept>
 #include <iostream>
+
+#include <nccl.h>
+
 #define OOMPH_CHECK_NCCL_RESULT(x)                                                                 \
     {                                                                                              \
         ncclResult_t r = x;                                                                        \
         if (r != ncclSuccess && r != ncclInProgress)                                               \
-            throw std::runtime_error("OOMPH Error: NCCL Call failed " + std::string(#x) + " = " + std::to_string(r) + " (\"" + ncclGetErrorString(r) + "\") in " + \
-                                     std::string(__FILE__) + ":" + std::to_string(__LINE__));      \
+            throw std::runtime_error("OOMPH Error: NCCL Call failed " + std::string(#x) + " = " +  \
+                                     std::to_string(r) + " (\"" + ncclGetErrorString(r) +          \
+                                     "\") in " + std::string(__FILE__) + ":" +                     \
+                                     std::to_string(__LINE__));      \
     }
-#define OOMPH_CHECK_NCCL_RESULT_NOEXCEPT(x)                                                        \
-    {                                                                                              \
-        ncclResult_t r = x;                                                                        \
-        if (r != ncclSuccess && r != ncclInProgress)                                               \
-        {                                                                                          \
-            std::cerr << "OOMPH Error: NCCL Call failed " << std::string(#x) << " in "             \
-                      << std::string(__FILE__) << ":" << std::to_string(__LINE__) << std::endl;    \
-            std::terminate();                                                                      \
-        }                                                                                          \
+#define OOMPH_CHECK_NCCL_RESULT_NO_THROW(x)                                                        \
+    try { OOMPH_CHECK_NCCL_RESULT(x) }                                                             \
+    catch (const std::exception& e) {                                                              \
+        std::cerr << e.what() << std::endl;                                                        \
+        std::terminate();                                                                          \
     }
-#endif

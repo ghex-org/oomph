@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2025, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -13,8 +13,8 @@
 
 #include <cuda_runtime.h>
 
-#include "./cuda_error.hpp"
-#include "./cuda_event.hpp"
+#include "cuda_error.hpp"
+#include "cuda_event.hpp"
 
 namespace oomph
 {
@@ -26,7 +26,7 @@ struct nccl_request
         }, m_event);
     }
 
-    // We can store either a single event for a particular request, or a shared
+    // We store either a single event for a particular request, or a shared
     // event that signals the end of a NCCL group.
     std::variant<detail::cuda_event, detail::group_cuda_event> m_event;
 };
