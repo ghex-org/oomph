@@ -9,32 +9,25 @@
  */
 #pragma once
 
+#include <variant>
+
 #include <cuda_runtime.h>
 
 #include "./cuda_error.hpp"
+#include "./cuda_event.hpp"
 
 namespace oomph
 {
 struct nccl_request
 {
-    // TODO: Ready when group has completed? Check stream or event?
     bool is_ready() {
-        std::cerr << "checking if request is ready\n";
-        cudaError_t res = cudaEventQuery(m_event);
-        std::cerr << "request " << m_event << " is in state " << res << "\n";
-        if (res == cudaSuccess) {
-        	return true;
-        } else if (res == cudaErrorNotReady) {
-        	return false;
-        } else {
-        	OOMPH_CHECK_CUDA_RESULT(res);
-                return false;
-        }
+        return std::visit([](auto& event) {
+          return event.is_ready();
+        }, m_event);
     }
-    // TODO: No cancellation with NCCL?
-    bool cancel() { return false; }
 
-    // TODO: Use wrapper class
-    cudaEvent_t m_event;
+    // We can store either a single event for a particular request, or a shared
+    // event that signals the end of a NCCL group.
+    std::variant<detail::cuda_event, detail::group_cuda_event> m_event;
 };
 } // namespace oomph

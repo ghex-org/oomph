@@ -60,7 +60,7 @@ class request_queue
         auto erase_begin = std::remove_if(
             m_queue.begin(), m_queue.end(),
             [](auto& req) {
-                std::cerr << "checking if request ready with event " << req->m_req.m_event << "\n";
+                // std::cerr << "checking if request ready with event " << req->m_req.m_event << "\n";
                 if (req->m_req.is_ready()) {
                     auto ptr = req->release_self_ref();
                     std::cerr << "invoking callback on req: " << req << "\n";

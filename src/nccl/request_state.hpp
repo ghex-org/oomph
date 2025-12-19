@@ -33,7 +33,7 @@ struct request_state
     request_state(oomph::context_impl* ctxt, oomph::communicator_impl* comm, std::size_t* scheduled,
         rank_type rank, tag_type tag, cb_type&& cb, nccl_request m)
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
-    , m_req{m}
+    , m_req{std::move(m)}
     {
         std::cerr << "creating nccl request_state\n";
     }
@@ -71,7 +71,7 @@ struct shared_request_state
         std::atomic<std::size_t>* scheduled, rank_type rank, tag_type tag, cb_type&& cb,
         nccl_request m)
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
-    , m_req{m}
+    , m_req{std::move(m)}
     {
         std::cerr << "creating nccl shared_request_state\n";
     }

@@ -21,8 +21,8 @@
 #include "../device_guard.hpp"
 #include "./context.hpp"
 #include "./request.hpp"
-#include "./request_state.hpp"
 #include "./request_queue.hpp"
+#include "./request_state.hpp"
 
 namespace oomph
 {
@@ -32,10 +32,16 @@ class communicator_impl : public communicator_base<communicator_impl>
     context_impl* m_context;
     request_queue m_send_reqs;
     request_queue m_recv_reqs;
-    bool m_in_group = false;
-    std::optional<cudaEvent_t> m_group_event;
-    cudaStream_t m_last_stream;
 
+  private:
+    struct group_info {
+      detail::group_cuda_event m_event{};
+      cudaStream_t m_last_stream{};
+    };
+
+    std::optional<group_info> m_group_info;
+
+  public:
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
     , m_context(ctxt)
@@ -47,24 +53,23 @@ class communicator_impl : public communicator_base<communicator_impl>
     bool is_stream_aware() const noexcept { return true; }
 
     void start_group() {
-      OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
-      m_in_group = true;
+      assert(!m_group_info.has_value());
 
-      // TODO: Correct flags etc.
-      cudaEvent_t event;
-      cudaEventCreate(&event);
-      std::cerr << "created group event " << event << "\n";
-      m_group_event = event;
+      OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
+      m_group_info.emplace();
+      std::cerr << "started group\n";
+      std::cerr << "group_info: " << static_cast<void*>(m_group_info->m_event.get()) << "\n";
     }
 
     void end_group() {
-      m_in_group = false;
+      assert(m_group_info.has_value());
+
       OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd());
 
       // All streams used in a NCCL group synchronize with the end of the group.
       // We arbitrarily pick the last stream to synchronize against.
-      OOMPH_CHECK_CUDA_RESULT(cudaEventRecord(m_group_event.value(), m_last_stream));
-      // TODO: Release event.
+      m_group_info->m_event.record(m_group_info->m_last_stream);
+      m_group_info.reset();
     }
 
     nccl_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
@@ -76,19 +81,15 @@ class communicator_impl : public communicator_base<communicator_impl>
         OOMPH_CHECK_NCCL_RESULT(
             ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
 
-        if (m_in_group) {
-            m_last_stream = static_cast<cudaStream_t>(stream);
+        if (m_group_info.has_value()) {
+            m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
             // Store event now, but record it when group ends
-            // TODO: Have to make sure it's safe to query event early.
-            std::cerr << "using group event " << m_group_event.value() << "\n";
-            return {m_group_event.value()};
+            std::cerr << "using group event " << m_group_info->m_event.get() << "\n";
+            return {m_group_info->m_event};
         } else {
-            // TODO: Correct flags etc.
-            // TODO: Free event.
-            cudaEvent_t event;
-            cudaEventCreate(&event);
-            OOMPH_CHECK_CUDA_RESULT(cudaEventRecord(event, static_cast<cudaStream_t>(stream)));
-            return {event};
+            detail::cuda_event event;
+            event.record(static_cast<cudaStream_t>(stream));
+            return {std::move(event)};
         }
     }
 
@@ -101,18 +102,15 @@ class communicator_impl : public communicator_base<communicator_impl>
         OOMPH_CHECK_NCCL_RESULT(
             ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
 
-        if (m_in_group) {
-            m_last_stream = static_cast<cudaStream_t>(stream);
+        if (m_group_info.has_value()) {
+            m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
             // Store event now, but record it when group ends
-            std::cerr << "using group event " << m_group_event.value() << "\n";
-            return {m_group_event.value()};
+            std::cerr << "using group event " << m_group_info->m_event.get() << "\n";
+            return {m_group_info->m_event};
         } else {
-            // TODO: Correct flags etc.
-            // TODO: Free event.
-            cudaEvent_t event;
-            cudaEventCreate(&event);
-            OOMPH_CHECK_CUDA_RESULT(cudaEventRecord(event, static_cast<cudaStream_t>(stream)));
-            return {event};
+            detail::cuda_event event;
+            event.record(static_cast<cudaStream_t>(stream));
+            return {std::move(event)};
         }
     }
 
@@ -121,7 +119,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     {
         auto req = send(ptr, size, dst, tag, stream);
         // TODO: Do early checking?
-        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb), req);
+        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb), std::move(req));
         s->create_self_ref();
         m_send_reqs.enqueue(s.get());
         return {std::move(s)};
@@ -132,7 +130,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     {
         auto req = recv(ptr, size, src, tag, stream);
         // TODO: Do early checking?
-        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb), req);
+        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb), std::move(req));
         s->create_self_ref();
         m_recv_reqs.enqueue(s.get());
         return {std::move(s)};
@@ -145,7 +143,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto req = recv(ptr, size, src, tag, stream);
         // TODO: Do early checking?
         auto s = std::make_shared<detail::shared_request_state>(m_context, this, scheduled, src,
-            tag, std::move(cb), req);
+            tag, std::move(cb), std::move(req));
         s->create_self_ref();
         m_context->m_req_queue.enqueue(s.get());
         return {std::move(s)};
