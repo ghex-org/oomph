@@ -40,7 +40,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     void end_group() {}
 
     mpi_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, void*) // TODO: Stream ignored, not stream-aware. Separate interface?
+        tag_type tag, void*)
     {
         MPI_Request        r;
         const_device_guard dg(ptr);

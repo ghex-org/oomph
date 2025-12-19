@@ -75,6 +75,11 @@ class communicator_impl : public communicator_base<communicator_impl>
     // --------------------------------------------------------------------
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
+    bool is_stream_aware() const noexcept { return false; }
+
+    void start_group() {}
+    void end_group() {}
+
     // --------------------------------------------------------------------
     /// generate a tag with 0xRRRRRRRRtttttttt rank, tag.
     /// original tag can be 32bits, then we add 32bits of rank info.

@@ -70,6 +70,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
+    bool is_stream_aware() const noexcept { return false; }
+
+    void start_group() {}
+    void end_group() {}
+
     void progress()
     {
         while (ucp_worker_progress(m_send_worker->get())) {}
