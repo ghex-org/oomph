@@ -19,7 +19,6 @@ struct mpi_request
 
     bool is_ready()
     {
-        std::cerr << "mpi_request::is_ready\n";
         int flag;
         OOMPH_CHECK_MPI_RESULT(MPI_Test(&m_req, &flag, MPI_STATUS_IGNORE));
         return flag;
