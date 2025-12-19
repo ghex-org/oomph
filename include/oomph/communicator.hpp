@@ -102,10 +102,6 @@ class communicator
 
     bool is_ready() const noexcept
     {
-        std::cerr << "communicator::is_ready()\n";
-        // TODO: Would prefer not to count sends/recvs for NCCL. Prefer to check
-        // if stream or event is done (sends/recvs should be submitted in
-        // groups).
         return (scheduled_sends() == 0) && (scheduled_recvs() == 0) &&
                (scheduled_shared_recvs() == 0);
     }
@@ -149,7 +145,6 @@ class communicator
     }
 #endif
 
-    // TODO: const noexcept?
     void start_group();
     void end_group();
 
