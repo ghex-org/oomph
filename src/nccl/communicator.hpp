@@ -10,6 +10,7 @@
 #pragma once
 
 #include <chrono>
+#include <optional>
 #include <thread>
 
 #include <nccl.h>
