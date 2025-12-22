@@ -24,7 +24,6 @@ namespace oomph
 bool
 send_request::is_ready() const noexcept
 {
-    // std::cerr << "send_request::is_ready()\n";
     if (!m) return true;
     return m->is_ready();
 }
@@ -47,9 +46,7 @@ send_request::wait()
 bool
 recv_request::is_ready() const noexcept
 {
-    // std::cerr << "recv_request::is_ready()\n";
     if (!m) return true;
-    // std::cerr << "recv_request::is_ready, checking impl m->is_ready()\n";
     return m->is_ready();
 }
 
@@ -86,7 +83,6 @@ recv_request::cancel()
 bool
 shared_recv_request::is_ready() const noexcept
 {
-    // std::cerr << "shared_recv_request::is_ready()\n";
     if (!m) return true;
     return m->is_ready();
 }
@@ -124,7 +120,6 @@ shared_recv_request::cancel()
 bool
 send_multi_request::is_ready() const noexcept
 {
-    // std::cerr << "send_multi_request::is_ready()\n";
     if (!m) return true;
     return (m->m_counter == 0);
 }

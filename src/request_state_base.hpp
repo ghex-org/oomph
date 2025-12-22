@@ -88,16 +88,12 @@ struct request_state_base
         ++(*m_scheduled);
     }
 
-    bool is_ready() const noexcept {
-        // std::cerr << "request_state_base::is_ready()\n";
-        return traits::load(m_ready);
-    }
+    bool is_ready() const noexcept { return traits::load(m_ready); }
 
     bool is_canceled() const noexcept { return traits::load(m_canceled); }
 
     void invoke_cb()
     {
-        // std::cerr << "invoke_cb, setting m_ready to true\n";
         m_cb(m_rank, m_tag);
         --(*m_scheduled);
         traits::store(m_ready, true);

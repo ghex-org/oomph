@@ -15,10 +15,10 @@
 #include <oomph/config.hpp>
 
 // paths relative to backend
-#include <nccl_communicator.hpp>
-#include <../context_base.hpp>
-#include <region.hpp>
-#include "./request_queue.hpp"
+#include "../context_base.hpp"
+#include "nccl_communicator.hpp"
+#include "region.hpp"
+#include "request_queue.hpp"
 
 namespace oomph
 {

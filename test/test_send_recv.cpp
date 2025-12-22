@@ -182,11 +182,8 @@ template<typename Func>
 void
 launch_test(Func f)
 {
-    // std::cerr << "launch_test\n";
-
     // single threaded
     {
-    // std::cerr << "single threaded\n";
         oomph::context ctxt(MPI_COMM_WORLD, false);
         reset_counters();
         f(ctxt, SIZE, 0, 1, false);
@@ -194,28 +191,27 @@ launch_test(Func f)
         f(ctxt, SIZE, 0, 1, true);
     }
 
-//     // multi threaded
-//     try {
-//         // std::cerr << "multi threaded\n";
-//         oomph::context           ctxt(MPI_COMM_WORLD, true);
-//         std::vector<std::thread> threads;
-//         threads.reserve(NTHREADS);
-//         reset_counters();
-//         for (int i = 0; i < NTHREADS; ++i)
-//             threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, false});
-//         for (auto& t : threads) t.join();
-//         threads.clear();
-//         reset_counters();
-//         for (int i = 0; i < NTHREADS; ++i)
-//             threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
-//         for (auto& t : threads) t.join();
-//     } catch (std::runtime_error const& e) {
-//         if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
-//             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-//         } else {
-//             throw e;
-//         }
-//     }
+    // multi threaded
+    try {
+        oomph::context           ctxt(MPI_COMM_WORLD, true);
+        std::vector<std::thread> threads;
+        threads.reserve(NTHREADS);
+        reset_counters();
+        for (int i = 0; i < NTHREADS; ++i)
+            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, false});
+        for (auto& t : threads) t.join();
+        threads.clear();
+        reset_counters();
+        for (int i = 0; i < NTHREADS; ++i)
+            threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
+        for (auto& t : threads) t.join();
+    } catch (std::runtime_error const& e) {
+        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
+    }
 }
 
 // no callback
@@ -227,27 +223,20 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     Env env(ctxt, size, tid, num_threads, user_alloc);
 
     // use is_ready() -> must manually progress the communicator
-    // std::cerr << "test_send_recv 1\n";
     for (int i = 0; i < NITERS; i++)
     {
-        // std::cerr << "iteration " << i << "\n";
         env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
         env.comm.end_group();
-        // std::cerr << "rreq.is_ready() = " << rreq.is_ready() << '\n';
-        // std::cerr << "sreq.is_ready() = " << sreq.is_ready() << '\n';
         while (!(rreq.is_ready() && sreq.is_ready())) 
         { 
-            // std::cerr << "calling env.comm.progress()\n";
             env.comm.progress(); 
         };
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
-    // std::cerr << "test_send_recv 1 done\n";
 
-    // std::cerr << "test_send_recv 2\n";
     // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
@@ -260,7 +249,6 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
         env.fill_recv_buffer();
     }
 
-    // std::cerr << "test_send_recv 3\n";
     // use wait() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
