@@ -71,7 +71,7 @@ struct shared_request_state
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_req{std::move(m)}
     {
-        std::cerr << "creating nccl shared_request_state\n";
+        // std::cerr << "creating nccl shared_request_state\n";
     }
 
     void progress();

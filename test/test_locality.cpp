@@ -42,6 +42,7 @@ TEST_F(mpi_test_fixture, locality_enumerate)
     gethostname(my_host_name.data(), HOST_NAME_MAX + 1);
     for (int r = 0; r < comm.size(); ++r)
     {
+        // TODO: Can this be made to work with NCCL?
         if (r == comm.rank())
         {
             for (int rr = 0; rr < comm.size(); ++rr)

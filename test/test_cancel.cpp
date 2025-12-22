@@ -65,6 +65,10 @@ TEST_F(mpi_test_fixture, test_cancel_request)
 {
     using namespace oomph;
     auto ctxt = context(MPI_COMM_WORLD, false);
+    if (ctxt.get_transport_option("name") == std::string("nccl")) {
+        // NCCL does not support cancellation
+        return;
+    }
     auto comm = ctxt.get_communicator();
     test_1(comm, 1);
     test_1(comm, 32);
@@ -74,19 +78,27 @@ TEST_F(mpi_test_fixture, test_cancel_request)
 TEST_F(mpi_test_fixture, test_cancel_request_mt)
 {
     using namespace oomph;
-    auto        ctxt = context(MPI_COMM_WORLD, true);
-    std::size_t n_threads = 4;
+    try {
+        auto        ctxt = context(MPI_COMM_WORLD, true);
+        std::size_t n_threads = 4;
 
-    std::vector<std::thread> threads;
-    threads.reserve(n_threads);
-    for (size_t i = 0; i < n_threads; ++i)
-        threads.push_back(std::thread{[&ctxt, i]() {
-            auto comm = ctxt.get_communicator();
-            test_1(comm, 1, i);
-            test_1(comm, 32, i);
-            test_1(comm, 4096, i);
-        }});
-    for (auto& t : threads) t.join();
+        std::vector<std::thread> threads;
+        threads.reserve(n_threads);
+        for (size_t i = 0; i < n_threads; ++i)
+            threads.push_back(std::thread{[&ctxt, i]() {
+                auto comm = ctxt.get_communicator();
+                test_1(comm, 1, i);
+                test_1(comm, 32, i);
+                test_1(comm, 4096, i);
+            }});
+        for (auto& t : threads) t.join();
+    } catch (std::runtime_error const& e) {
+        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
+    }
 }
 
 void
@@ -145,6 +157,10 @@ TEST_F(mpi_test_fixture, test_cancel_cb)
 {
     using namespace oomph;
     auto ctxt = context(MPI_COMM_WORLD, false);
+    if (ctxt.get_transport_option("name") == std::string("nccl")) {
+        // NCCL does not support cancellation
+        return;
+    }
     auto comm = ctxt.get_communicator();
     test_2(comm, 1);
     test_2(comm, 32);
@@ -154,17 +170,25 @@ TEST_F(mpi_test_fixture, test_cancel_cb)
 TEST_F(mpi_test_fixture, test_cancel_cb_mt)
 {
     using namespace oomph;
-    auto        ctxt = context(MPI_COMM_WORLD, true);
-    std::size_t n_threads = 4;
+    try {
+        auto        ctxt = context(MPI_COMM_WORLD, true);
+        std::size_t n_threads = 4;
 
-    std::vector<std::thread> threads;
-    threads.reserve(n_threads);
-    for (size_t i = 0; i < n_threads; ++i)
-        threads.push_back(std::thread{[&ctxt, i]() {
-            auto comm = ctxt.get_communicator();
-            test_2(comm, 1, i);
-            test_2(comm, 32, i);
-            test_2(comm, 4096, i);
-        }});
-    for (auto& t : threads) t.join();
+        std::vector<std::thread> threads;
+        threads.reserve(n_threads);
+        for (size_t i = 0; i < n_threads; ++i)
+            threads.push_back(std::thread{[&ctxt, i]() {
+                auto comm = ctxt.get_communicator();
+                test_2(comm, 1, i);
+                test_2(comm, 32, i);
+                test_2(comm, 4096, i);
+            }});
+        for (auto& t : threads) t.join();
+    } catch (std::runtime_error const& e) {
+        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
+    }
 }
