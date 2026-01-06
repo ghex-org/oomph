@@ -229,7 +229,7 @@ class communicator
         std::vector<rank_type> const& neighs, std::vector<tag_type> const& tags, void* stream = nullptr)
     {
         assert(neighs.size() == tags.size());
-        return send_multi(msg, neighs.data(), tags.data(), neighs.size());
+        return send_multi(msg, neighs.data(), tags.data(), neighs.size(), stream);
     }
 
     // callback versions
