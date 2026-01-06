@@ -1,5 +1,4 @@
-# This is from https://github.com/pytorch/gloo/blob/main/cmake/Modules/Findnccl.cmake.
-# TODO: Check that license is compatible.
+# From https://github.com/pytorch/gloo/blob/main/cmake/Modules/Findnccl.cmake.
 
 # Try to find NCCL
 #
