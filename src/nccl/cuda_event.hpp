@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <cassert>
+
 #include <cuda_runtime.h>
 
 #include <oomph/util/moved_bit.hpp>
@@ -16,6 +18,10 @@
 #include "cuda_error.hpp"
 
 namespace oomph::detail {
+// RAII wrapper for a cudaEvent_t.
+//
+// Move-only wrapper around cudaEvent_t that automatically destroys the
+// underlying event on destruction. Can be used to record events on streams.
 struct cuda_event {
   cudaEvent_t m_event;
   oomph::util::moved_bit m_moved;
@@ -23,7 +29,6 @@ struct cuda_event {
 
   cuda_event() {
     OOMPH_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming));
-    // std::cerr << "created a cuda_event with value " << m_event << "\n";
   }
   cuda_event(cuda_event&& other) noexcept = default;
   cuda_event& operator=(cuda_event&& other) noexcept = default;
@@ -35,55 +40,35 @@ struct cuda_event {
       }
   }
 
+  operator bool() noexcept {
+    return !m_moved;
+  }
+
   void record(cudaStream_t stream) {
     assert(!m_moved);
     OOMPH_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
     m_recorded = true;
   }
 
-  bool is_ready() {
-    // std::cerr << "checking if request is ready\n";
+  bool is_ready() const {
     if (m_moved || !m_recorded) {
       return false;
     }
 
     cudaError_t res = cudaEventQuery(m_event);
-    // std::cerr << "request " << m_event << " is in state " << res << "\n";
     if (res == cudaSuccess) {
     	return true;
     } else if (res == cudaErrorNotReady) {
     	return false;
     } else {
-    	OOMPH_CHECK_CUDA_RESULT(res);
-            return false;
+        OOMPH_CHECK_CUDA_RESULT(res);
+        return false;
     }
   }
 
   cudaEvent_t get() {
     assert(!m_moved);
     return m_event;
-  }
-};
-
-struct group_cuda_event {
-  std::shared_ptr<cuda_event> m_event;
-
-  group_cuda_event() : m_event(std::make_shared<cuda_event>()) {}
-  group_cuda_event(const group_cuda_event&) = default;
-  group_cuda_event& operator=(const group_cuda_event&) = default;
-  group_cuda_event(group_cuda_event&&) = default;
-  group_cuda_event& operator=(group_cuda_event&&) = default;
-
-  void record(cudaStream_t stream) {
-    m_event->record(stream);
-  }
-
-  bool is_ready() {
-    return m_event->is_ready();
-  }
-
-  cudaEvent_t get() {
-    return m_event->get();
   }
 };
 }

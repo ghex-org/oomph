@@ -15,6 +15,7 @@
 
 #include "cuda_error.hpp"
 #include "cuda_event.hpp"
+#include "group_cuda_event.hpp"
 
 namespace oomph
 {
@@ -28,6 +29,6 @@ struct nccl_request
 
     // We store either a single event for a particular request, or a shared
     // event that signals the end of a NCCL group.
-    std::variant<detail::cuda_event, detail::group_cuda_event> m_event;
+    std::variant<detail::cached_cuda_event, detail::group_cuda_event> m_event;
 };
 } // namespace oomph

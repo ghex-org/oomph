@@ -21,6 +21,8 @@
 #include "../communicator_base.hpp"
 #include "../device_guard.hpp"
 #include "./context.hpp"
+#include "cached_cuda_event.hpp"
+#include "group_cuda_event.hpp"
 #include "request.hpp"
 #include "request_queue.hpp"
 #include "request_state.hpp"
@@ -77,9 +79,6 @@ class communicator_impl : public communicator_base<communicator_impl>
 
       OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
       m_group_info.emplace();
-
-      // std::cerr << "started group\n";
-      // std::cerr << "group_info: " << static_cast<void*>(m_group_info->m_event.get()) << "\n";
     }
 
     void end_group() {
@@ -96,20 +95,17 @@ class communicator_impl : public communicator_base<communicator_impl>
     nccl_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         [[maybe_unused]] tag_type tag, void* stream)
     {
-        // std::cerr << "nccl::send\n";
-
         const_device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(
             ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
 
         if (m_group_info.has_value()) {
             m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
-            // std::cerr << "using group event " << m_group_info->m_event.get() << "\n";
 	    // The event is stored now, but recorded only in end_group. Until
 	    // an event has been recorded the event is never ready.
             return {m_group_info->m_event};
         } else {
-            detail::cuda_event event;
+            detail::cached_cuda_event event;
             event.record(static_cast<cudaStream_t>(stream));
             return {std::move(event)};
         }
@@ -118,20 +114,17 @@ class communicator_impl : public communicator_base<communicator_impl>
     nccl_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         [[maybe_unused]] tag_type tag, void* stream)
     {
-        // std::cerr << "nccl::recv\n";
-
         device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(
             ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
 
         if (m_group_info.has_value()) {
             m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
-            // std::cerr << "using group event " << m_group_info->m_event.get() << "\n";
 	    // The event is stored now, but recorded only in end_group. Until
 	    // an event has been recorded the event is never ready.
             return {m_group_info->m_event};
         } else {
-            detail::cuda_event event;
+            detail::cached_cuda_event event;
             event.record(static_cast<cudaStream_t>(stream));
             return {std::move(event)};
         }
@@ -171,7 +164,6 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void progress()
     {
-        // std::cerr << "nccl communicator::progress\n";
 	// Communication progresses independently, but requests must be marked
 	// ready and callbacks must be invoked.
         m_send_reqs.progress();
