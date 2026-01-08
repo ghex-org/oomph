@@ -20,7 +20,8 @@
 #include "cuda_error.hpp"
 #include "cuda_event.hpp"
 
-namespace oomph::detail {
+namespace oomph::detail
+{
 // Pool of cuda_events.
 //
 // Simple wrapper over a vector of cuda_events. Events can be popped from the
@@ -44,13 +45,14 @@ class cuda_event_pool
     cuda_event_pool& operator=(cuda_event_pool&&) noexcept = delete;
 
   public:
-    cuda_event pop() {
-        if (m_events.empty()) {
-          return {};
-        } else {
-          auto event{std::move(m_events.back())};
-          m_events.pop_back();
-          return event;
+    cuda_event pop()
+    {
+        if (m_events.empty()) { return {}; }
+        else
+        {
+            auto event{std::move(m_events.back())};
+            m_events.pop_back();
+            return event;
         }
     }
 
@@ -60,4 +62,4 @@ class cuda_event_pool
 
 // Get a static instance of a cuda_event_pool.
 cuda_event_pool& get_cuda_event_pool();
-}
+} // namespace oomph::detail

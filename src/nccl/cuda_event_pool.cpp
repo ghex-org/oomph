@@ -10,9 +10,12 @@
 
 #include "cuda_event_pool.hpp"
 
-namespace oomph::detail {
-cuda_event_pool& get_cuda_event_pool() {
-  static cuda_event_pool pool{128};
-  return pool;
+namespace oomph::detail
+{
+cuda_event_pool&
+get_cuda_event_pool()
+{
+    static cuda_event_pool pool{128};
+    return pool;
 }
-}
+} // namespace oomph::detail

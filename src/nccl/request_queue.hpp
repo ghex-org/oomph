@@ -26,14 +26,11 @@ class request_queue
     using queue_type = std::vector<element_type*>;
 
   private: // members
-    queue_type               m_queue;
-    bool                     in_progress = false;
+    queue_type m_queue;
+    bool       in_progress = false;
 
   public: // ctors
-    request_queue()
-    {
-        m_queue.reserve(256);
-    }
+    request_queue() { m_queue.reserve(256); }
 
   public: // member functions
     std::size_t size() const noexcept { return m_queue.size(); }
@@ -58,20 +55,19 @@ class request_queue
             return 0;
         }
 
-        auto erase_begin = std::remove_if(
-            m_queue.begin(), m_queue.end(),
-            [](auto& req) {
+        auto erase_begin = std::remove_if(m_queue.begin(), m_queue.end(),
+            [](auto& req)
+            {
                 // std::cerr << "checking if request ready with event " << req->m_req.m_event << "\n";
-                if (req->m_req.is_ready()) {
+                if (req->m_req.is_ready())
+                {
                     auto ptr = req->release_self_ref();
                     // std::cerr << "invoking callback on req: " << req << "\n";
                     req->invoke_cb();
                     return true;
-                } else {
-                    return false;
                 }
-            }
-        );
+                else { return false; }
+            });
         auto completed = std::distance(erase_begin, m_queue.end());
         // if (completed != 0) {
         //     std::cerr << "completed " << completed << " requests\n";
@@ -132,10 +128,7 @@ class shared_request_queue
                 found = 1;
                 break;
             }
-            else
-            {
-                m_local_queue.push_back(e);
-            }
+            else { m_local_queue.push_back(e); }
         }
 
         for (auto x : m_local_queue) m_queue.push(x);

@@ -30,7 +30,7 @@ class context_impl : public context_base
     using heap_type = hwmalloc::heap<context_impl>;
 
   private:
-    heap_type m_heap;
+    heap_type         m_heap;
     detail::nccl_comm m_comm;
 
   public:
@@ -42,9 +42,7 @@ class context_impl : public context_base
     , m_heap{this, heap_config}
     , m_comm{oomph::detail::nccl_comm{comm}}
     {
-        if (thread_safe) {
-            throw std::runtime_error("NCCL not supported with thread_safe = true");
-        }
+        if (thread_safe) { throw std::runtime_error("NCCL not supported with thread_safe = true"); }
     }
 
     context_impl(context_impl const&) = delete;

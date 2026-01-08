@@ -22,13 +22,11 @@ context_impl::get_communicator()
     return comm;
 }
 
-const char *context_impl::get_transport_option(const std::string &opt) {
-    if (opt == "name") {
-        return "nccl";
-    }
-    else {
-        return "unspecified";
-    }
+const char*
+context_impl::get_transport_option(const std::string& opt)
+{
+    if (opt == "name") { return "nccl"; }
+    else { return "unspecified"; }
 }
 
 } // namespace oomph

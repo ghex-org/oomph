@@ -21,10 +21,9 @@ namespace oomph
 {
 struct nccl_request
 {
-    bool is_ready() {
-        return std::visit([](auto& event) {
-          return event.is_ready();
-        }, m_event);
+    bool is_ready()
+    {
+        return std::visit([](auto& event) { return event.is_ready(); }, m_event);
     }
 
     // We store either a single event for a particular request, or a shared

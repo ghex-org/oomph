@@ -37,25 +37,26 @@ class communicator_impl : public communicator_base<communicator_impl>
     request_queue m_recv_reqs;
 
   private:
-    struct group_info {
-      // A shared CUDA event used for synchronization at the end of the NCCL
-      // group. All streams used within the group are waited for before the
-      // group kernel starts and all streams can be used to wait for the
-      // completion of the group kernel. From
-      // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/streams.html:
-      //
-      // NCCL allows for using multiple streams within a group call. This will
-      // enforce a stream dependency of all streams before the NCCL kernel
-      // starts and block all streams until the NCCL kernel completes.
-      //
-      // It will behave as if the NCCL group operation was posted on every
-      // stream, but given it is a single operation, it will cause a global
-      // synchronization point between the streams.
-      detail::group_cuda_event m_event{};
+    struct group_info
+    {
+        // A shared CUDA event used for synchronization at the end of the NCCL
+        // group. All streams used within the group are waited for before the
+        // group kernel starts and all streams can be used to wait for the
+        // completion of the group kernel. From
+        // https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/streams.html:
+        //
+        // NCCL allows for using multiple streams within a group call. This will
+        // enforce a stream dependency of all streams before the NCCL kernel
+        // starts and block all streams until the NCCL kernel completes.
+        //
+        // It will behave as if the NCCL group operation was posted on every
+        // stream, but given it is a single operation, it will cause a global
+        // synchronization point between the streams.
+        detail::group_cuda_event m_event{};
 
-      // We arbitrarily use the last stream used within a group to synchronize
-      // the whole group.
-      cudaStream_t m_last_stream{};
+        // We arbitrarily use the last stream used within a group to synchronize
+        // the whole group.
+        cudaStream_t m_last_stream{};
     };
 
     // NCCL group information. When no group is active this is std::nullopt.
@@ -74,37 +75,42 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     bool is_stream_aware() const noexcept { return true; }
 
-    void start_group() {
-      assert(!m_group_info.has_value());
+    void start_group()
+    {
+        assert(!m_group_info.has_value());
 
-      OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
-      m_group_info.emplace();
+        OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
+        m_group_info.emplace();
     }
 
-    void end_group() {
-      assert(m_group_info.has_value());
+    void end_group()
+    {
+        assert(m_group_info.has_value());
 
-      OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd());
+        OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd());
 
-      // All streams used in a NCCL group synchronize with the end of the group.
-      // We arbitrarily pick the last stream to synchronize against.
-      m_group_info->m_event.record(m_group_info->m_last_stream);
-      m_group_info.reset();
+        // All streams used in a NCCL group synchronize with the end of the group.
+        // We arbitrarily pick the last stream to synchronize against.
+        m_group_info->m_event.record(m_group_info->m_last_stream);
+        m_group_info.reset();
     }
 
     nccl_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         [[maybe_unused]] tag_type tag, void* stream)
     {
         const_device_guard dg(ptr);
-        OOMPH_CHECK_NCCL_RESULT(
-            ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
+        OOMPH_CHECK_NCCL_RESULT(ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(),
+            static_cast<cudaStream_t>(stream)));
 
-        if (m_group_info.has_value()) {
+        if (m_group_info.has_value())
+        {
             m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
-	    // The event is stored now, but recorded only in end_group. Until
-	    // an event has been recorded the event is never ready.
+            // The event is stored now, but recorded only in end_group. Until
+            // an event has been recorded the event is never ready.
             return {m_group_info->m_event};
-        } else {
+        }
+        else
+        {
             detail::cached_cuda_event event;
             event.record(static_cast<cudaStream_t>(stream));
             return {std::move(event)};
@@ -115,15 +121,18 @@ class communicator_impl : public communicator_base<communicator_impl>
         [[maybe_unused]] tag_type tag, void* stream)
     {
         device_guard dg(ptr);
-        OOMPH_CHECK_NCCL_RESULT(
-            ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(), static_cast<cudaStream_t>(stream)));
+        OOMPH_CHECK_NCCL_RESULT(ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(),
+            static_cast<cudaStream_t>(stream)));
 
-        if (m_group_info.has_value()) {
+        if (m_group_info.has_value())
+        {
             m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
-	    // The event is stored now, but recorded only in end_group. Until
-	    // an event has been recorded the event is never ready.
+            // The event is stored now, but recorded only in end_group. Until
+            // an event has been recorded the event is never ready.
             return {m_group_info->m_event};
-        } else {
+        }
+        else
+        {
             detail::cached_cuda_event event;
             event.record(static_cast<cudaStream_t>(stream));
             return {std::move(event)};
@@ -131,20 +140,24 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled, void* stream)
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled,
+        void* stream)
     {
         auto req = send(ptr, size, dst, tag, stream);
-        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb), std::move(req));
+        auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb),
+            std::move(req));
         s->create_self_ref();
         m_send_reqs.enqueue(s.get());
         return {std::move(s)};
     }
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled, void* stream)
+        tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, std::size_t* scheduled,
+        void* stream)
     {
         auto req = recv(ptr, size, src, tag, stream);
-        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb), std::move(req));
+        auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb),
+            std::move(req));
         s->create_self_ref();
         m_recv_reqs.enqueue(s.get());
         return {std::move(s)};
@@ -164,8 +177,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void progress()
     {
-	// Communication progresses independently, but requests must be marked
-	// ready and callbacks must be invoked.
+        // Communication progresses independently, but requests must be marked
+        // ready and callbacks must be invoked.
         m_send_reqs.progress();
         m_recv_reqs.progress();
         m_context->progress();

@@ -22,11 +22,15 @@
             throw std::runtime_error("OOMPH Error: NCCL Call failed " + std::string(#x) + " = " +  \
                                      std::to_string(r) + " (\"" + ncclGetErrorString(r) +          \
                                      "\") in " + std::string(__FILE__) + ":" +                     \
-                                     std::to_string(__LINE__));      \
+                                     std::to_string(__LINE__));                                    \
     }
 #define OOMPH_CHECK_NCCL_RESULT_NO_THROW(x)                                                        \
-    try { OOMPH_CHECK_NCCL_RESULT(x) }                                                             \
-    catch (const std::exception& e) {                                                              \
+    try                                                                                            \
+    {                                                                                              \
+        OOMPH_CHECK_NCCL_RESULT(x)                                                                 \
+    }                                                                                              \
+    catch (const std::exception& e)                                                                \
+    {                                                                                              \
         std::cerr << e.what() << std::endl;                                                        \
         std::terminate();                                                                          \
     }

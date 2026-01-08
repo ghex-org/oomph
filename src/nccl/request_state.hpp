@@ -92,4 +92,4 @@ struct shared_request_state
         return std::move(m_self_ptr);
     }
 };
-} // namespace oomph
+} // namespace oomph::detail
