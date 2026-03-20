@@ -74,6 +74,8 @@ class communicator_impl : public communicator_base<communicator_impl>
             }
     }
 
+    bool is_group_active() const noexcept { return m_group_info.has_value(); }
+
   public:
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
@@ -87,7 +89,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void start_group()
     {
-        assert(!m_group_info.has_value());
+        assert(!is_group_active());
 
         // TODO: Make NCCL groups exception-safe with an RAII guard so group
         // state cannot be left active if submission throws.
@@ -97,7 +99,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void end_group()
     {
-        assert(m_group_info.has_value());
+        assert(is_group_active());
 
         OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd());
 
@@ -116,7 +118,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         OOMPH_CHECK_NCCL_RESULT(ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(),
             static_cast<cudaStream_t>(stream)));
 
-        if (m_group_info.has_value())
+        if (is_group_active())
         {
             m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
             // The event is stored now, but recorded only in end_group. Until
@@ -140,7 +142,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         OOMPH_CHECK_NCCL_RESULT(ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(),
             static_cast<cudaStream_t>(stream)));
 
-        if (m_group_info.has_value())
+        if (is_group_active())
         {
             m_group_info->m_last_stream = static_cast<cudaStream_t>(stream);
             // The event is stored now, but recorded only in end_group. Until
