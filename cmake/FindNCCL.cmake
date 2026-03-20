@@ -26,10 +26,12 @@ find_path(NCCL_INCLUDE_DIR
   ${NCCL_ROOT_DIR}/include
   ${CUDA_TOOLKIT_ROOT_DIR}/include)
 
-if ($ENV{USE_STATIC_NCCL})
+if(DEFINED ENV{USE_STATIC_NCCL} AND NOT "$ENV{USE_STATIC_NCCL}" STREQUAL "")
   message(STATUS "USE_STATIC_NCCL detected. Linking against static NCCL library")
+  set(_use_static_nccl ON)
   set(NCCL_LIBNAME "libnccl_static.a")
 else()
+  set(_use_static_nccl OFF)
   set(NCCL_LIBNAME "nccl")
 endif()
 
@@ -62,7 +64,11 @@ if (NCCL_FOUND)
   mark_as_advanced(NCCL_ROOT_DIR NCCL_INCLUDE_DIRS NCCL_LIBRARIES)
 
   if(NOT TARGET NCCL::nccl AND NCCL_FOUND)
-    add_library(NCCL::nccl SHARED IMPORTED)
+    if(_use_static_nccl)
+      add_library(NCCL::nccl STATIC IMPORTED)
+    else()
+      add_library(NCCL::nccl SHARED IMPORTED)
+    endif()
     set_target_properties(NCCL::nccl PROPERTIES
       IMPORTED_LOCATION ${NCCL_LIBRARIES}
       INTERFACE_INCLUDE_DIRECTORIES ${NCCL_INCLUDE_DIRS}
