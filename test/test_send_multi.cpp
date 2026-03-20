@@ -46,6 +46,8 @@ TEST_F(mpi_test_fixture, send_multi)
     auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     auto msg = comm.make_buffer<int>(SIZE);
+    using tag_type = oomph::tag_type;
+    const tag_type tag = ctxt.get_transport_option("name") == std::string("nccl") ? 0 : 42;
 
     if (comm.size() < 2) return;
 
@@ -54,11 +56,11 @@ TEST_F(mpi_test_fixture, send_multi)
         init_msg(msg);
         std::vector<int> dsts(comm.size() - 1);
         for (int i = 1; i < comm.size(); ++i) dsts[i - 1] = i;
-        comm.send_multi(msg, dsts, 42).wait();
+        comm.send_multi(msg, dsts, tag).wait();
     }
     else
     {
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         bool ok = check_msg(msg);
         EXPECT_TRUE(ok);
     }
@@ -70,6 +72,8 @@ TEST_F(mpi_test_fixture, send_multi_cb)
     auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     auto msg = comm.make_buffer<int>(SIZE);
+    using tag_type = oomph::tag_type;
+    const tag_type tag = ctxt.get_transport_option("name") == std::string("nccl") ? 0 : 42;
 
     if (comm.size() < 2) return;
 
@@ -81,21 +85,21 @@ TEST_F(mpi_test_fixture, send_multi_cb)
         for (int i = 1; i < comm.size(); ++i) dsts[i - 1] = i;
 
         arrived = false;
-        comm.send_multi(msg, dsts, 42,
+        comm.send_multi(msg, dsts, tag,
             [&arrived](message_buffer<int>&, std::vector<int>, int) { arrived = true; });
         do {
             comm.progress();
         } while (!arrived);
 
         arrived = false;
-        comm.send_multi(msg, dsts, 42,
+        comm.send_multi(msg, dsts, tag,
             [&arrived](message_buffer<int> const&, std::vector<int>, int) { arrived = true; });
         do {
             comm.progress();
         } while (!arrived);
 
         arrived = false;
-        comm.send_multi(std::move(msg), dsts, 42,
+        comm.send_multi(std::move(msg), dsts, tag,
             [&arrived](message_buffer<int>, std::vector<int>, int) { arrived = true; });
         do {
             comm.progress();
@@ -104,15 +108,15 @@ TEST_F(mpi_test_fixture, send_multi_cb)
     else
     {
         reset_msg(msg);
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         EXPECT_TRUE(check_msg(msg));
 
         reset_msg(msg);
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         EXPECT_TRUE(check_msg(msg));
 
         reset_msg(msg);
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         EXPECT_TRUE(check_msg(msg));
     }
 }
@@ -123,6 +127,8 @@ TEST_F(mpi_test_fixture, send_multi_cb_wait)
     auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     auto msg = comm.make_buffer<int>(SIZE);
+    using tag_type = oomph::tag_type;
+    const tag_type tag = ctxt.get_transport_option("name") == std::string("nccl") ? 0 : 42;
 
     if (comm.size() < 2) return;
 
@@ -134,19 +140,19 @@ TEST_F(mpi_test_fixture, send_multi_cb_wait)
         for (int i = 1; i < comm.size(); ++i) dsts[i - 1] = i;
 
         arrived = false;
-        comm.send_multi(msg, dsts, 42,
+        comm.send_multi(msg, dsts, tag,
                 [&arrived](message_buffer<int>&, std::vector<int>, int) { arrived = true; })
             .wait();
         EXPECT_TRUE(arrived);
 
         arrived = false;
-        comm.send_multi(msg, dsts, 42,
+        comm.send_multi(msg, dsts, tag,
                 [&arrived](message_buffer<int> const&, std::vector<int>, int) { arrived = true; })
             .wait();
         EXPECT_TRUE(arrived);
 
         arrived = false;
-        comm.send_multi(std::move(msg), dsts, 42,
+        comm.send_multi(std::move(msg), dsts, tag,
                 [&arrived](message_buffer<int>, std::vector<int>, int) { arrived = true; })
             .wait();
         EXPECT_TRUE(arrived);
@@ -154,15 +160,15 @@ TEST_F(mpi_test_fixture, send_multi_cb_wait)
     else
     {
         reset_msg(msg);
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         EXPECT_TRUE(check_msg(msg));
 
         reset_msg(msg);
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         EXPECT_TRUE(check_msg(msg));
 
         reset_msg(msg);
-        comm.recv(msg, 0, 42).wait();
+        comm.recv(msg, 0, tag).wait();
         EXPECT_TRUE(check_msg(msg));
     }
 }

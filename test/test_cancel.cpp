@@ -96,7 +96,7 @@ TEST_F(mpi_test_fixture, test_cancel_request_mt)
         if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         } else {
-            throw e;
+            throw;
         }
     }
 }
@@ -188,7 +188,7 @@ TEST_F(mpi_test_fixture, test_cancel_cb_mt)
         if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         } else {
-            throw e;
+            throw;
         }
     }
 }

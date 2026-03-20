@@ -20,9 +20,22 @@
 #define NTHREADS 4
 
 std::vector<std::atomic<int>> shared_received(NTHREADS);
-thread_local int thread_id;
+thread_local int              thread_id;
 
-void reset_counters()
+bool
+is_nccl_backend(oomph::context& ctxt)
+{
+    return ctxt.get_transport_option("name") == std::string("nccl");
+}
+
+oomph::tag_type
+compatible_tag(oomph::context& ctxt, oomph::tag_type tag)
+{
+    return is_nccl_backend(ctxt) ? 0 : tag;
+}
+
+void
+reset_counters()
 {
     for (auto& x : shared_received) x.store(0);
 }
@@ -48,7 +61,7 @@ struct test_environment_base
     , rpeer_rank((comm.rank() + comm.size() - 1) % comm.size())
     , thread_id(tid)
     , num_threads(num_t)
-    , tag(tid)
+    , tag(compatible_tag(ctxt, tid))
     {
     }
 };
@@ -209,7 +222,7 @@ launch_test(Func f)
         if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         } else {
-            throw e;
+            throw;
         }
     }
 }
@@ -283,7 +296,8 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads, user_alloc);
+    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    const tag_type cb_tag = compatible_tag(ctxt, 1);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -295,8 +309,8 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(env.smsg, env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.check_recv_buffer());
@@ -311,8 +325,8 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(env.smsg, env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         while (!rh.test() || !sh.test()) {}
         EXPECT_TRUE(env.check_recv_buffer());
@@ -327,8 +341,8 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(env.smsg, env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         sh.wait();
         rh.wait();
@@ -359,7 +373,8 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads, user_alloc);
+    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    const tag_type cb_tag = compatible_tag(ctxt, 1);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -379,8 +394,8 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.check_recv_buffer());
@@ -395,8 +410,8 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         while (!rh.test() || !sh.test()) {}
         EXPECT_TRUE(env.check_recv_buffer());
@@ -411,8 +426,8 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         sh.wait();
         rh.wait();
@@ -442,7 +457,8 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads, user_alloc);
+    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    const tag_type cb_tag = compatible_tag(ctxt, 1);
 
     thread_id = env.thread_id;
 
@@ -467,8 +483,8 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.rmsg);
@@ -484,8 +500,8 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         while (!rh.test() || !sh.test()) {}
         EXPECT_TRUE(env.check_recv_buffer());
@@ -500,8 +516,8 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     for (int i = 0; i < NITERS; i++)
     {
         env.comm.start_group();
-        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, cb_tag, recv_callback);
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, send_callback);
         env.comm.end_group();
         sh.wait();
         rh.wait();
@@ -527,16 +543,12 @@ void
 test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     bool user_alloc)
 {
-    if (ctxt.get_transport_option("name") == std::string("nccl")) {
-        // Skip for NCCL. Recursive comms hangs. TODO: Does it have to hang?
-        return;
-    }
-
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads, user_alloc);
+    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    const tag_type cb_tag = compatible_tag(ctxt, 1);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -567,8 +579,8 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
         }
     };
 
-    env.comm.recv(env.rmsg, env.rpeer_rank, 1, recursive_recv_callback{env, received});
-    env.comm.send(env.smsg, env.speer_rank, 1, recursive_send_callback{env, sent});
+    env.comm.recv(env.rmsg, env.rpeer_rank, cb_tag, recursive_recv_callback{env, received});
+    env.comm.send(env.smsg, env.speer_rank, cb_tag, recursive_send_callback{env, sent});
 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
@@ -588,16 +600,12 @@ void
 test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     bool user_alloc)
 {
-    if (ctxt.get_transport_option("name") == std::string("nccl")) {
-        // Skip for NCCL. Recursive comms hangs. TODO: Does it have to hang?
-        return;
-    }
-
     using rank_type = test_environment::rank_type;
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env env(ctxt, size, tid, num_threads, user_alloc);
+    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    const tag_type cb_tag = compatible_tag(ctxt, 1);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -631,8 +639,9 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
         }
     };
 
-    env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recursive_recv_callback{env, received});
-    env.comm.send(std::move(env.smsg), env.speer_rank, 1, recursive_send_callback{env, sent});
+    env.comm.recv(std::move(env.rmsg), env.rpeer_rank, cb_tag,
+        recursive_recv_callback{env, received});
+    env.comm.send(std::move(env.smsg), env.speer_rank, cb_tag, recursive_send_callback{env, sent});
 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
@@ -643,4 +652,21 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
 #endif
+}
+
+TEST_F(mpi_test_fixture, nccl_rejects_unsupported_matching)
+{
+    using namespace oomph;
+
+    auto ctxt = context(MPI_COMM_WORLD, false);
+    if (!is_nccl_backend(ctxt)) GTEST_SKIP();
+
+    if (ctxt.size() < 2) GTEST_SKIP();
+
+    auto comm = ctxt.get_communicator();
+    auto msg = comm.make_buffer<int>(1);
+
+    EXPECT_THROW((void)comm.send(msg, (comm.rank() + 1) % comm.size(), 1), std::invalid_argument);
+    EXPECT_THROW((void)comm.recv(msg, communicator::any_source, 0), std::invalid_argument);
+    EXPECT_THROW((void)comm.recv(msg, comm.rank(), 1), std::invalid_argument);
 }
