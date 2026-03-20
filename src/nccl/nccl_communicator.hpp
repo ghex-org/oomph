@@ -38,6 +38,7 @@ class nccl_comm
         do {
             OOMPH_CHECK_NCCL_RESULT(ncclCommGetAsyncError(m_comm, &result));
         } while (result == ncclInProgress);
+        OOMPH_CHECK_NCCL_RESULT(result);
     }
     nccl_comm(nccl_comm&&) noexcept = default;
     nccl_comm& operator=(nccl_comm&&) noexcept = default;
