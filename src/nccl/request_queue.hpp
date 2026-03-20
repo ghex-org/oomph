@@ -9,7 +9,6 @@
  */
 #pragma once
 
-#include <algorithm>
 #include <vector>
 
 #include <boost/lockfree/queue.hpp>
@@ -27,10 +26,15 @@ class request_queue
 
   private: // members
     queue_type m_queue;
+    queue_type m_ready_queue;
     bool       in_progress = false;
 
   public: // ctors
-    request_queue() { m_queue.reserve(256); }
+    request_queue()
+    {
+        m_queue.reserve(256);
+        m_ready_queue.reserve(256);
+    }
 
   public: // member functions
     std::size_t size() const noexcept { return m_queue.size(); }
@@ -43,8 +47,6 @@ class request_queue
 
     int progress()
     {
-        // std::cerr << "nccl request_queue::progress\n";
-
         if (in_progress) return 0;
         in_progress = true;
 
@@ -55,26 +57,35 @@ class request_queue
             return 0;
         }
 
-        auto erase_begin = std::remove_if(m_queue.begin(), m_queue.end(),
-            [](auto& req)
+        m_ready_queue.clear();
+        m_ready_queue.reserve(qs);
+        std::size_t write_idx = 0;
+        for (std::size_t i = 0; i < qs; ++i)
+        {
+            auto* req = m_queue[i];
+            if (req->m_req.is_ready()) { m_ready_queue.push_back(req); }
+            else
             {
-                // std::cerr << "checking if request ready with event " << req->m_req.m_event << "\n";
-                if (req->m_req.is_ready())
+                if (write_idx != i)
                 {
-                    auto ptr = req->release_self_ref();
-                    // std::cerr << "invoking callback on req: " << req << "\n";
-                    req->invoke_cb();
-                    return true;
+                    req->m_index = write_idx;
+                    m_queue[write_idx] = req;
                 }
-                else { return false; }
-            });
-        auto completed = std::distance(erase_begin, m_queue.end());
-        // if (completed != 0) {
-        //     std::cerr << "completed " << completed << " requests\n";
-        // }
-        m_queue.erase(erase_begin, m_queue.end());
+                ++write_idx;
+            }
+        }
+        m_queue.erase(m_queue.begin() + write_idx, m_queue.end());
+
+        int completed = m_ready_queue.size();
 
         in_progress = false;
+
+        for (auto* req : m_ready_queue)
+        {
+            auto ptr = req->release_self_ref();
+            req->invoke_cb();
+        }
+
         return completed;
     }
 
@@ -110,8 +121,6 @@ class shared_request_queue
 
     int progress()
     {
-        // std::cerr << "nccl shared_request_queue::progress\n";
-
         static thread_local bool                       in_progress = false;
         static thread_local std::vector<element_type*> m_local_queue;
         int                                            found = 0;
@@ -134,14 +143,16 @@ class shared_request_queue
         for (auto x : m_local_queue) m_queue.push(x);
         m_local_queue.clear();
 
+        if (found) { --m_size; }
+
+        in_progress = false;
+
         if (found)
         {
             auto ptr = e->release_self_ref();
             e->invoke_cb();
-            --m_size;
         }
 
-        in_progress = false;
         return found;
     }
 
