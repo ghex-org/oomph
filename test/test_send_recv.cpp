@@ -267,8 +267,6 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     {
         env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
-        // TODO: The sreq.wait was previously called immediately. With NCCL
-        // groups can't call wait so early (communication hasn't started yet).
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
         env.comm.end_group();
         sreq.wait();
