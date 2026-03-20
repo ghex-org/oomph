@@ -195,6 +195,16 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void progress()
     {
+        if (is_group_active())
+        {
+            // If we're inside an active group no work has been submitted yet.
+            // We cannot make progress so we disallow calling progress. wait
+            // also calls progress and would deadlock if called within an active
+            // group.
+            throw std::logic_error(
+                "OOMPH Error: Calling progress while a NCCL group is active is not allowed");
+        }
+
         // Communication progresses independently, but requests must be marked
         // ready and callbacks must be invoked.
         m_send_reqs.progress();
