@@ -4,9 +4,9 @@
 # OOMPH
 
 **Oomph** is a library for enabling high performance point-to-point, asynchronous communication over
-different fabrics.  It leverages the ubiquitos MPI library as well as UCX and Libfabric.  Both
-device and host memory are supported. Under the hood it uses
-[hwmalloc](https://github.com/ghex-org/hwmalloc) for memory registration.
+different fabrics. It leverages the ubiquitous MPI library as well as UCX and Libfabric. Both
+device and host memory are supported. A subset of functionality is also supported with NCCL. Under
+the hood it uses [hwmalloc](https://github.com/ghex-org/hwmalloc) for memory registration.
 
 **selling points**
 - lightweight, fast
