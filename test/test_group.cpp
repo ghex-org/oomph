@@ -32,9 +32,9 @@ TEST_F(mpi_test_fixture, group_progress_wait)
 
     if (ctxt.get_transport_option("name") == std::string("nccl"))
     {
-        EXPECT_THROW(comm.progress(), std::runtime_error);
-        EXPECT_THROW(req_send.wait(), std::runtime_error);
-        EXPECT_THROW(req_recv.wait(), std::runtime_error);
+        EXPECT_THROW(comm.progress(), std::logic_error);
+        EXPECT_THROW(req_send.wait(), std::logic_error);
+        EXPECT_THROW(req_recv.wait(), std::logic_error);
     }
     else
     {
