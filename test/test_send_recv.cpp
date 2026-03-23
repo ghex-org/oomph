@@ -23,7 +23,7 @@ std::vector<std::atomic<int>> shared_received(NTHREADS);
 thread_local int              thread_id;
 
 bool
-is_nccl_backend(oomph::context& ctxt)
+is_nccl_backend(oomph::context const& ctxt)
 {
     return ctxt.get_transport_option("name") == std::string("nccl");
 }
@@ -213,7 +213,7 @@ launch_test(Func f)
             threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
         for (auto& t : threads) t.join();
     } catch (std::runtime_error const& e) {
-        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
+        if (is_nccl_backend(oomph::context(MPI_COMM_WORLD, false))) {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         } else {
             throw;

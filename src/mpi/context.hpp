@@ -83,7 +83,7 @@ class context_impl : public context_base
 
     unsigned int num_tag_bits() const noexcept { return m_n_tag_bits; }
 
-    const char* get_transport_option(const std::string& opt);
+    const char* get_transport_option(const std::string& opt) const;
 };
 
 template<>

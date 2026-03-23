@@ -60,7 +60,7 @@ class context_impl : public context_base
 
     bool cancel_recv(detail::shared_request_state*) { return false; }
 
-    const char* get_transport_option(const std::string& opt);
+    const char* get_transport_option(const std::string& opt) const;
 };
 
 template<>

@@ -104,7 +104,7 @@ class context
 
     //unsigned int num_tag_ranges() const noexcept { return m_tag_range_factory.num_ranges(); }
 
-    const char* get_transport_option(const std::string& opt);
+    const char* get_transport_option(const std::string& opt) const;
 
   private:
     detail::message_buffer make_buffer_core(std::size_t size);

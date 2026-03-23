@@ -61,7 +61,7 @@ context_impl::get_communicator()
 }
 
 const char*
-context_impl::get_transport_option(const std::string& opt)
+context_impl::get_transport_option(const std::string& opt) const
 {
     if (opt == "name") { return "libfabric"; }
     else if (opt == "progress") { return libfabric_progress_string(); }

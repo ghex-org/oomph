@@ -96,7 +96,7 @@ context_impl::~context_impl()
 }
 
 const char*
-context_impl::get_transport_option(const std::string& opt)
+context_impl::get_transport_option(const std::string& opt) const
 {
     if (opt == "name") { return "ucx"; }
     else { return "unspecified"; }
