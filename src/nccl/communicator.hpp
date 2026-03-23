@@ -65,14 +65,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     // with the end of the group kernel.
     std::optional<group_info> m_group_info;
 
-    void check_buffer_device(context_impl::heap_type::pointer const& ptr) const
-    {
-        if (!ptr.on_device()) {
-            throw std::invalid_argument(
-                "OOMPH Error: NCCL backend requires device buffers, host buffer provided");
-        }
-    }
-
     bool is_group_active() const noexcept { return m_group_info.has_value(); }
 
   public:
@@ -111,8 +103,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     nccl_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         [[maybe_unused]] tag_type tag, void* stream)
     {
-        check_buffer_device(ptr);
-
         const_device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(),
             static_cast<cudaStream_t>(stream)));
@@ -135,8 +125,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     nccl_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         [[maybe_unused]] tag_type tag, void* stream)
     {
-        check_buffer_device(ptr);
-
         device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(),
             static_cast<cudaStream_t>(stream)));
