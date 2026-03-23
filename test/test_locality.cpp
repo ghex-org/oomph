@@ -17,6 +17,7 @@
 #include <limits.h>
 #include <cstring>
 
+
 #ifdef __APPLE__
 #define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
 #endif
@@ -27,8 +28,6 @@ TEST_F(mpi_test_fixture, locality_enumerate)
     using namespace oomph;
     auto ctxt = context(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
-    using tag_type = oomph::tag_type;
-    const tag_type host_name_tag = ctxt.get_transport_option("name") == std::string("nccl") ? 0 : 1;
 
     // test self
     EXPECT_TRUE(comm.is_local(comm.rank()));
@@ -46,15 +45,13 @@ TEST_F(mpi_test_fixture, locality_enumerate)
         if (r == comm.rank())
         {
             for (int rr = 0; rr < comm.size(); ++rr)
-            {
-                local_ranks[rr] = comm.is_local(rr) ? 1 : 0;
-            }
+            { local_ranks[rr] = comm.is_local(rr) ? 1 : 0; }
             for (int rr = 0; rr < comm.size(); ++rr)
             {
                 if (rr != comm.rank())
                 {
                     comm.send(local_ranks, rr, 0).wait();
-                    comm.send(my_host_name, rr, host_name_tag).wait();
+                    comm.send(my_host_name, rr, 1).wait();
                 }
             }
         }
@@ -62,13 +59,11 @@ TEST_F(mpi_test_fixture, locality_enumerate)
         {
             const int is_neighbor = comm.is_local(r) ? 1 : 0;
             comm.recv(local_ranks, r, 0).wait();
-            comm.recv(other_host_name, r, host_name_tag).wait();
+            comm.recv(other_host_name, r, 1).wait();
             EXPECT_EQ(is_neighbor, local_ranks[comm.rank()]);
             if (is_neighbor)
                 for (int rr = 0; rr < comm.size(); ++rr)
-                {
-                    EXPECT_EQ((comm.is_local(rr) ? 1 : 0), local_ranks[rr]);
-                }
+                { EXPECT_EQ((comm.is_local(rr) ? 1 : 0), local_ranks[rr]); }
             const int equal_hosts =
                 (std::strcmp(my_host_name.data(), other_host_name.data()) == 0) ? 1 : 0;
             if (is_neighbor == 1) { EXPECT_EQ(equal_hosts, 1); }
