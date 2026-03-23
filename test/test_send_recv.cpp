@@ -346,7 +346,6 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
 
 TEST_F(mpi_test_fixture, send_recv_cb)
 {
-    // TODO: With aws-ofi-nccl, the second init segfaults. Why?
     launch_test(test_send_recv_cb<test_environment>);
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb<test_environment_device>);
