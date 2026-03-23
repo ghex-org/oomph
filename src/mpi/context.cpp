@@ -22,7 +22,7 @@ context_impl::get_communicator()
     return comm;
 }
 
-const char *context_impl::get_transport_option(const std::string &opt) {
+const char *context_impl::get_transport_option(const std::string &opt) const {
     if (opt == "name") {
         return "mpi";
     }
