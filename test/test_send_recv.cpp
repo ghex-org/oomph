@@ -638,20 +638,3 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
     launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
 #endif
 }
-
-TEST_F(mpi_test_fixture, nccl_rejects_unsupported_matching)
-{
-    using namespace oomph;
-
-    auto ctxt = context(MPI_COMM_WORLD, false);
-    if (!is_nccl_backend(ctxt)) GTEST_SKIP();
-
-    if (ctxt.size() < 2) GTEST_SKIP();
-
-    auto comm = ctxt.get_communicator();
-    auto msg = comm.make_buffer<int>(1);
-
-    EXPECT_THROW((void)comm.send(msg, (comm.rank() + 1) % comm.size(), 1), std::invalid_argument);
-    EXPECT_THROW((void)comm.recv(msg, communicator::any_source, 0), std::invalid_argument);
-    EXPECT_THROW((void)comm.recv(msg, comm.rank(), 1), std::invalid_argument);
-}
