@@ -136,6 +136,47 @@ comm.progress();
 // or progress until some event is triggered
 while(!completed) { comm.progress(); }
 ```
+
+### Groups
+
+Communicators expose group functionality as provided by NCCL (with
+ncclGroupStart and ncclGroupEnd). For non-NCCL backends the group functionality
+is a no-op. For NCCL using the group functionality can be a both a requirement
+to avoid deadlocks (communication within a group can make progress
+independently, while outside of a group communication is ordered) and for
+performance (a single device kernel is submitted for a NCCL group). 
+
+Groups are created by explicitly starting and ending the group:
+
+```cpp
+comm.start_group();
+oomph::send_request sreq = comm.send(smsg, 1, 0);
+oomph::recv_request rreq = comm.recv(rmsg, 1, 0);
+comm.end_group();
+
+// With NCCL, no progress will be made until after the group ends
+sreq.wait();
+rreq.wait();
+```
+
+### NCCL restrictions
+
+NCCL has significantly different semantics from MPI, libfabric, and UCX which
+is reflected in a number of restrictions on how the NCCL communicator can be
+used:
+
+- Tags are not supported. Communication order on different ranks must match
+  (except within NCCL groups where there is some flexibility). This also means
+  that e.g. recv should not be called before send unless within a NCCL group.
+- The `thread_safe` option for the NCCL communicator is not supported because
+  of the above ordering restrictions.
+- Cancellation is not supported.
+- `wait` and `progress` are disallowed when a NCCL group is active as no
+  progress can be made until a NCCL group is ended and submitted.
+
+The NCCL backend is primarily designed for use in GHEX where these differences
+can be hidden from the user.
+
 ## Acknowledgments
 This work was financially supported by the PRACE project funded in part by the EU's Horizon 2020
 Research and Innovation programme (2014-2020) under grant agreement 823767.
