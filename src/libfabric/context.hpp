@@ -82,7 +82,7 @@ class context_impl : public context_base
     inline std::uintptr_t get_context_tag() { return m_ctxt_tag; }
 
     inline controller_type* get_controller() /*const */ { return m_controller.get(); }
-    const char*             get_transport_option(const std::string& opt);
+    const char*             get_transport_option(const std::string& opt) const;
 
     void progress() { get_controller()->poll_for_work_completions(nullptr); }
 
