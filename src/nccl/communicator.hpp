@@ -67,11 +67,10 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void check_buffer_device(context_impl::heap_type::pointer const& ptr) const
     {
-        if (!ptr.on_device()))
-            {
-                throw std::invalid_argument(
-                    "OOMPH Error: NCCL backend requires device buffers, host buffer provided");
-            }
+        if (!ptr.on_device()) {
+            throw std::invalid_argument(
+                "OOMPH Error: NCCL backend requires device buffers, host buffer provided");
+        }
     }
 
     bool is_group_active() const noexcept { return m_group_info.has_value(); }
