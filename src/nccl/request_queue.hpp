@@ -41,7 +41,6 @@ class request_queue
 
     void enqueue(element_type* e)
     {
-        e->m_index = m_queue.size();
         m_queue.push_back(e);
     }
 
@@ -59,32 +58,30 @@ class request_queue
 
         m_ready_queue.clear();
         m_ready_queue.reserve(qs);
-        std::size_t write_idx = 0;
+        std::size_t num_not_ready = 0;
         for (std::size_t i = 0; i < qs; ++i)
         {
             auto* req = m_queue[i];
             if (req->m_req.is_ready()) { m_ready_queue.push_back(req); }
             else
             {
-                if (write_idx != i)
+                if (num_not_ready != i)
                 {
-                    req->m_index = write_idx;
-                    m_queue[write_idx] = req;
+                    m_queue[num_not_ready] = req;
                 }
-                ++write_idx;
+                ++num_not_ready;
             }
         }
-        m_queue.erase(m_queue.begin() + write_idx, m_queue.end());
+        m_queue.erase(m_queue.begin() + num_not_ready, m_queue.end());
 
         int completed = m_ready_queue.size();
-
-        in_progress = false;
-
         for (auto* req : m_ready_queue)
         {
             auto ptr = req->release_self_ref();
             req->invoke_cb();
         }
+
+        in_progress = false;
 
         return completed;
     }
@@ -133,7 +130,6 @@ class shared_request_queue
         {
             if (e->m_req.is_ready())
             {
-                // std::cerr << "found ready request in shared queue\n";
                 found = 1;
                 break;
             }
