@@ -159,15 +159,33 @@ sreq.wait();
 rreq.wait();
 ```
 
+### Stream awareness
+
+Some backend implementations can schedule communication on a GPU stream.
+Currently only the NCCL backend makes use of this. All other backends ignore
+the stream argument. To query if a backend is stream-aware use the
+`is_stream_aware` member query on a communicator. The stream can be passed as
+an optional last parameter to `send` or `recv`:
+
+```cpp
+if (comm.is_stream_aware()) {
+    # Schedule communication on the default CUDA stream if the backend is
+    # stream aware
+    cudaStream_t stream = 0;
+    oomph::send_request comm.send(msg, 1, 0, stream);
+}
+```
+
 ### NCCL restrictions
 
 NCCL has significantly different semantics from MPI, libfabric, and UCX which
 is reflected in a number of restrictions on how the NCCL communicator can be
 used:
 
-- Tags are not supported. Communication order on different ranks must match
-  (except within NCCL groups where there is some flexibility). This also means
-  that e.g. recv should not be called before send unless within a NCCL group.
+- Tags are not supported by NCCL and ignored by the backend. Communication
+  order on different ranks must match (except within NCCL groups where there is
+  some flexibility). This also means that e.g. recv should not be called before
+  send unless within a NCCL group.
 - The `thread_safe` option for the NCCL communicator is not supported because
   of the above ordering restrictions.
 - Cancellation is not supported.
