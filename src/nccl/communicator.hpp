@@ -82,8 +82,6 @@ class communicator_impl : public communicator_base<communicator_impl>
     {
         assert(!is_group_active());
 
-        // TODO: Make NCCL groups exception-safe with an RAII guard so group
-        // state cannot be left active if submission throws.
         OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
         m_group_info.emplace();
     }
