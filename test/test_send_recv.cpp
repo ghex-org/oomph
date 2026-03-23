@@ -566,8 +566,10 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
         }
     };
 
+    env.comm.start_group();
     env.comm.recv(env.rmsg, env.rpeer_rank, 1, recursive_recv_callback{env, received});
     env.comm.send(env.smsg, env.speer_rank, 1, recursive_send_callback{env, sent});
+    env.comm.end_group();
 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
@@ -591,7 +593,7 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -625,8 +627,10 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
         }
     };
 
+    env.comm.start_group();
     env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recursive_recv_callback{env, received});
     env.comm.send(std::move(env.smsg), env.speer_rank, 1, recursive_send_callback{env, sent});
+    env.comm.end_group();
 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
