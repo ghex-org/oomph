@@ -1,6 +1,6 @@
 spack:
   specs:
-  - oomph backend=mpi +cuda +python
+  - oomph@main backend=mpi +cuda +python
   view: false
   concretizer:
     unify: true
