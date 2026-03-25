@@ -48,6 +48,7 @@ function(reg_serial_test t)
     add_test(
         NAME ${t}
         COMMAND $<TARGET_FILE:${t}>)
+    set_tests_properties(${t} PROPERTIES LABELS "serial")
 endfunction()
 
 foreach(t ${serial_tests})
@@ -65,7 +66,7 @@ function(reg_parallel_test t_ lib n)
         NAME ${t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
             $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
-    set_tests_properties(${t} PROPERTIES RUN_SERIAL TRUE)
+    set_tests_properties(${t} PROPERTIES RUN_SERIAL TRUE LABELS "parallel-ranks-${n}")
 endfunction()
 
 if (OOMPH_WITH_MPI)

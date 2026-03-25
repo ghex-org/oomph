@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - oomph backend=nccl +cuda +python
+  view: false
+  concretizer:
+    unify: true

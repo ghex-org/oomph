@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - oomph backend=libfabric +cuda +python
+  view: false
+  concretizer:
+    unify: true

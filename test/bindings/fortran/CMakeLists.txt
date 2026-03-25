@@ -30,7 +30,8 @@ function(reg_parallel_test_f t_ lib n nthr)
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
             $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
     set_tests_properties(${t} PROPERTIES
-        ENVIRONMENT OMP_NUM_THREADS=${nthr})
+        ENVIRONMENT OMP_NUM_THREADS=${nthr}
+        LABELS "parallel-ranks-${n}")
 endfunction()
 
 if (OOMPH_WITH_MPI)
