@@ -1,11 +1,6 @@
 include:
   - remote: 'https://gitlab.com/cscs-ci/recipes/-/raw/master/templates/v2/.ci-ext.yml'
 
-stages:
-  - build_deps
-  - build
-  - test
-
 variables:
   BASE_IMAGE: jfrog.svc.ccs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.01-py3-alps3
   SPACK_SHA: v1.1.1
@@ -13,7 +8,6 @@ variables:
   FF_TIMESTAMPS: true
 
 .build_deps_template:
-  stage: build_deps
   timeout: 1 hours
   before_script:
     - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
@@ -63,7 +57,6 @@ build_deps_libfabric:
     SPACK_ENV_FILE: .cscs-ci/spack/libfabric.yaml
 
 .build_template:
-  stage: build
   extends: .container-builder-cscs-gh200
   timeout: 1 hours
   before_script:
@@ -110,7 +103,6 @@ build_libfabric:
     BACKEND: libfabric
 
 .test_serial_template:
-  stage: test
   extends: .container-runner-clariden-gh200
   variables:
     SLURM_JOB_NUM_NODES: 1
@@ -121,7 +113,6 @@ build_libfabric:
     - ctest --test-dir build -L "serial" --output-on-failure
 
 .test_parallel_template:
-  stage: test
   extends: .container-runner-clariden-gh200
   variables:
     SLURM_JOB_NUM_NODES: 1
