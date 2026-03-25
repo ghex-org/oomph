@@ -19,6 +19,7 @@ RUN spack repo remove --scope defaults:base builtin && \
 
 COPY $SPACK_ENV_FILE /spack_environment/spack.yaml
 
-RUN spack env create ci /spack_environment/spack.yaml && \
+RUN spack external find --all && \
+    spack env create ci /spack_environment/spack.yaml && \
     spack -e ci concretize -f && \
     spack -e ci install --jobs $(nproc) --fail-fast --only=dependencies
