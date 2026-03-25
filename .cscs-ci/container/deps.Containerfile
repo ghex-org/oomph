@@ -1,7 +1,7 @@
 FROM ghcr.io/eth-cscs/alps-images:py26.01-alps3-base
 
-ARG SPACK_SHA=develop
-ARG SPACK_PACKAGES_SHA=main
+ARG SPACK_SHA=v1.1.1
+ARG SPACK_PACKAGES_SHA=bc93746ce936d6653271b6e98f6df6ee28f64e84 # develop on 2026-03-25
 ARG SPACK_ENV_FILE
 
 ENV DEBIAN_FRONTEND=noninteractive
