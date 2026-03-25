@@ -7,10 +7,9 @@ stages:
   - test
 
 variables:
-  # The base image is the py26.01 alps3 image from docs.cscs.ch
-  BASE_IMAGE: ghcr.io/eth-cscs/alps-images:py26.01-alps3-base
-  SPACK_SHA: develop
-  SPACK_PACKAGES_SHA: main
+  BASE_IMAGE: jfrog.svc.ccs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.01-py3-alps3
+  SPACK_SHA: v1.1.1
+  SPACK_PACKAGES_SHA: bc93746ce936d6653271b6e98f6df6ee28f64e84 # develop on 2026-03-25
   FF_TIMESTAMPS: true
 
 .build_deps_template:
