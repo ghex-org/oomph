@@ -19,42 +19,39 @@ variables:
     - echo -e "DEPS_IMAGE=$PERSIST_IMAGE_NAME" >> base-${BACKEND}.env
   variables:
     DOCKERFILE: .cscs-ci/container/deps.Containerfile
-    DOCKER_BUILD_ARGS: '["SPACK_SHA", "SPACK_PACKAGES_SHA", "SPACK_ENV_FILE"]'
+    DOCKER_BUILD_ARGS: '["BASE_IMAGE", "SPACK_SHA", "SPACK_PACKAGES_SHA", "SPACK_ENV_FILE"]'
+    SPACK_ENV_FILE: .cscs./spack/$BACKEND.yaml
   artifacts:
     reports:
       dotenv: base-${BACKEND}.env
 
 build_deps_nccl:
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
   variables:
     BACKEND: nccl
-    SPACK_ENV_FILE: .cscs-ci/spack/nccl.yaml
+  extends:
+    - .container-builder-cscs-gh200
+    - .build_deps_template
 
 build_deps_mpi:
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
   variables:
     BACKEND: mpi
-    SPACK_ENV_FILE: .cscs-ci/spack/mpi.yaml
+  extends:
+    - .container-builder-cscs-gh200
+    - .build_deps_template
 
 build_deps_ucx:
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
   variables:
     BACKEND: ucx
-    SPACK_ENV_FILE: .cscs-ci/spack/ucx.yaml
-
-build_deps_libfabric:
   extends:
     - .container-builder-cscs-gh200
     - .build_deps_template
+
+build_deps_libfabric:
   variables:
     BACKEND: libfabric
-    SPACK_ENV_FILE: .cscs-ci/spack/libfabric.yaml
+  extends:
+    - .container-builder-cscs-gh200
+    - .build_deps_template
 
 .build_template:
   extends: .container-builder-cscs-gh200
@@ -71,36 +68,36 @@ build_deps_libfabric:
       dotenv: build-${BACKEND}.env
 
 build_nccl:
+  variables:
+    BACKEND: nccl
   extends: .build_template
   needs:
     - job: build_deps_nccl
       artifacts: true
-  variables:
-    BACKEND: nccl
 
 build_mpi:
+  variables:
+    BACKEND: mpi
   extends: .build_template
   needs:
     - job: build_deps_mpi
       artifacts: true
-  variables:
-    BACKEND: mpi
 
 build_ucx:
+  variables:
+    BACKEND: ucx
   extends: .build_template
   needs:
     - job: build_deps_ucx
       artifacts: true
-  variables:
-    BACKEND: ucx
 
 build_libfabric:
+  variables:
+    BACKEND: libfabric
   extends: .build_template
   needs:
     - job: build_deps_libfabric
       artifacts: true
-  variables:
-    BACKEND: libfabric
 
 .test_serial_template:
   extends: .container-runner-clariden-gh200
