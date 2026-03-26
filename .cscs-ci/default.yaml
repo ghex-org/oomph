@@ -119,9 +119,10 @@ build_libfabric:
     SLURM_PARTITION: normal
     SLURM_MPI: pmix
     SLURM_NETWORK: disable_rdzv_get
+    SLURM_LABELIO: 1
     MPICH_GPU_SUPPORT_ENABLED: 1
   script:
-    - srun -n 4 ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure
+    - ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure
 
 test_serial_nccl:
   extends: .test_serial_template
