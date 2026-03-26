@@ -108,6 +108,7 @@ build_libfabric:
     SLURM_PARTITION: normal
     SLURM_NETWORK: disable_rdzv_get
     SLURM_UNBUFFEREDIO: 1
+    USE_MPI: NO
   script:
     - ctest --test-dir /oomph/build -L "serial" --output-on-failure
 
@@ -124,6 +125,7 @@ build_libfabric:
     SLURM_LABELIO: 1
     SLURM_UNBUFFEREDIO: 1
     MPICH_GPU_SUPPORT_ENABLED: 1
+    USE_MPI: NO
   script:
     # TODO: test_cancel hanging?
     - ctest --test-dir /oomph/build -L "parallel-ranks-4" --verbose -E test_cancel
