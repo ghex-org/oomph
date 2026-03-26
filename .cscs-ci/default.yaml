@@ -123,7 +123,7 @@ build_libfabric:
     SLURM_LABELIO: 1
     MPICH_GPU_SUPPORT_ENABLED: 1
   script:
-    - ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure
+    - ctest --test-dir /oomph/build -L "parallel-ranks-4" --verbose
 
 test_serial_nccl:
   extends: .test_serial_template
