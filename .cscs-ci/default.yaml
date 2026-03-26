@@ -108,9 +108,11 @@ build_libfabric:
     SLURM_PARTITION: normal
     SLURM_NETWORK: disable_rdzv_get
     SLURM_UNBUFFEREDIO: 1
+    PMIX_MCA_psec: native
+    PMIX_MCA_gds: "^shmem2"
     USE_MPI: NO
   script:
-    - ctest --test-dir /oomph/build -L "serial" --output-on-failure
+    - ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60
 
 .test_parallel_template:
   extends: .container-runner-clariden-gh200
@@ -125,10 +127,12 @@ build_libfabric:
     SLURM_LABELIO: 1
     SLURM_UNBUFFEREDIO: 1
     MPICH_GPU_SUPPORT_ENABLED: 1
+    PMIX_MCA_psec: native
+    PMIX_MCA_gds: "^shmem2"
     USE_MPI: NO
   script:
     # TODO: test_cancel hanging?
-    - ctest --test-dir /oomph/build -L "parallel-ranks-4" --verbose -E test_cancel
+    - ctest --test-dir /oomph/build -L "parallel-ranks-4" --verbose --timeout 60
 
 test_serial_nccl:
   extends: .test_serial_template
