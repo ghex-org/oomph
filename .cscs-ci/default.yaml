@@ -106,8 +106,9 @@ build_libfabric:
     SLURM_NTASKS: 1
     SLURM_TIMELIMIT: '00:15:00'
     SLURM_PARTITION: normal
+    SLURM_NETWORK=disable_rdzv_get
   script:
-    - ctest --test-dir build -L "serial" --output-on-failure
+    - ctest --test-dir /oomph/build -L "serial" --output-on-failure
 
 .test_parallel_template:
   extends: .container-runner-clariden-gh200
@@ -117,9 +118,10 @@ build_libfabric:
     SLURM_TIMELIMIT: '00:15:00'
     SLURM_PARTITION: normal
     SLURM_MPI: pmix
+    SLURM_NETWORK=disable_rdzv_get
     MPICH_GPU_SUPPORT_ENABLED: 1
   script:
-    - srun -n 4 ctest --test-dir build -L "parallel-ranks-4" --output-on-failure
+    - srun -n 4 ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure
 
 test_serial_nccl:
   extends: .test_serial_template
