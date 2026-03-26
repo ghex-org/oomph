@@ -107,6 +107,7 @@ build_libfabric:
     SLURM_TIMELIMIT: '00:15:00'
     SLURM_PARTITION: normal
     SLURM_NETWORK: disable_rdzv_get
+    SLURM_UNBUFFERED: 1
   script:
     - ctest --test-dir /oomph/build -L "serial" --output-on-failure
 
@@ -121,6 +122,7 @@ build_libfabric:
     SLURM_MPI: pmix
     SLURM_NETWORK: disable_rdzv_get
     SLURM_LABELIO: 1
+    SLURM_UNBUFFERED: 1
     MPICH_GPU_SUPPORT_ENABLED: 1
   script:
     - ctest --test-dir /oomph/build -L "parallel-ranks-4" --verbose
