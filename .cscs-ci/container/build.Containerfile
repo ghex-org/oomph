@@ -8,8 +8,8 @@ ARG BACKEND
 ARG NUM_PROCS
 RUN spack -e ci build-env oomph -- \
         cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
             -DOOMPH_WITH_TESTING=ON \
-            # Converte BACKEND to uppercase
             -DOOMPH_WITH_$(echo $BACKEND | tr '[:lower:]' '[:upper:]')=ON \
             -DOOMPH_USE_BUNDLED_LIBS=ON \
             -DOOMPH_USE_BUNDLED_HWMALLOC=OFF \
