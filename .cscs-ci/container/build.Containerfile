@@ -17,4 +17,4 @@ RUN spack -e ci build-env oomph -- \
             -DMPIEXEC_NUMPROC_FLAG="" \
             -DMPIEXEC_PREFLAGS="" \
             -DMPIEXEC_POSTFLAGS="" && \
-    spack -e ci build-env oomph -- cmake --build build $NUM_PROCS
+    spack -e ci build-env oomph -- cmake --build build -j$NUM_PROCS
