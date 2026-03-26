@@ -62,10 +62,15 @@ function(reg_parallel_test t_ lib n)
     oomph_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE gtest_main_mpi)
     target_link_libraries(${t} PRIVATE oomph_${lib})
-    add_test(
-        NAME ${t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-            $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    # If not empty
+    if("${MPIEXEC_EXECUTABLE}" STREQUAL "")
+      add_test(NAME ${t} COMMAND $<TARGET_FILE:${t}>)
+    else()
+      add_test(
+          NAME ${t}
+          COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    endif()
     set_tests_properties(${t} PROPERTIES RUN_SERIAL TRUE LABELS "parallel-ranks-${n}")
 endfunction()
 
