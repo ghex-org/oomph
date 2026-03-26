@@ -1,5 +1,5 @@
 ARG BASE_IMAGE
-FROM BASE_IMAGE
+FROM $BASE_IMAGE
 
 ARG SPACK_SHA
 RUN mkdir -p /opt/spack && \
