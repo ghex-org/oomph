@@ -20,7 +20,7 @@ variables:
   variables:
     DOCKERFILE: .cscs-ci/container/deps.Containerfile
     DOCKER_BUILD_ARGS: '["BASE_IMAGE", "SPACK_SHA", "SPACK_PACKAGES_SHA", "SPACK_ENV_FILE"]'
-    SPACK_ENV_FILE: .cscs./spack/$BACKEND.yaml
+    SPACK_ENV_FILE: .cscs-ci/spack/$BACKEND.yaml
   artifacts:
     reports:
       dotenv: base-${BACKEND}.env
