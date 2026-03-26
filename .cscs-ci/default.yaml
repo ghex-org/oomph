@@ -55,7 +55,7 @@ build_deps_libfabric:
 
 .build_template:
   extends: .container-builder-cscs-gh200
-  timeout: 1 hours
+  timeout: 15 minutes
   before_script:
     - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
     - export PERSIST_IMAGE_NAME=$CSCS_REGISTRY_PATH/oomph-build-$BACKEND:$CI_COMMIT_SHA
@@ -117,7 +117,7 @@ build_libfabric:
     SLURM_JOB_NUM_NODES: 1
     SLURM_GPUS_PER_TASK: 1
     SLURM_NTASKS: 4
-    SLURM_TIMELIMIT: '00:15:00'
+    SLURM_TIMELIMIT: '5:00'
     SLURM_PARTITION: normal
     SLURM_MPI_TYPE: pmix
     SLURM_NETWORK: disable_rdzv_get
