@@ -5,6 +5,7 @@ COPY . /oomph
 WORKDIR /oomph
 
 ARG BACKEND
+ARG NUM_PROCS
 RUN spack -e ci build-env oomph -- \
         cmake -G Ninja -B build \
             -DOOMPH_WITH_TESTING=ON \
@@ -16,4 +17,4 @@ RUN spack -e ci build-env oomph -- \
             -DMPIEXEC_NUMPROC_FLAG="" \
             -DMPIEXEC_PREFLAGS="" \
             -DMPIEXEC_POSTFLAGS="" && \
-    spack -e ci build-env oomph -- cmake --build build -j$(nproc)
+    spack -e ci build-env oomph -- cmake --build build $NUM_PROCS
