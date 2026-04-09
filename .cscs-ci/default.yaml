@@ -99,41 +99,37 @@ build_libfabric:
     - job: build_deps_libfabric
       artifacts: true
 
-.test_serial_template:
-  extends: .container-runner-clariden-gh200
-  variables:
-    SLURM_JOB_NUM_NODES: 1
-    SLURM_NTASKS: 1
-    SLURM_TIMELIMIT: '00:15:00'
-    SLURM_PARTITION: normal
-    SLURM_NETWORK: disable_rdzv_get
-    SLURM_UNBUFFEREDIO: 1
-    PMIX_MCA_psec: native
-    PMIX_MCA_gds: "^shmem2"
-    USE_MPI: NO
-  script:
-    - ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60
-
-.test_parallel_template:
+.test_template_base:
   extends: .container-runner-clariden-gh200
   variables:
     SLURM_JOB_NUM_NODES: 1
     SLURM_GPUS_PER_TASK: 1
-    SLURM_NTASKS: 4
     SLURM_TIMELIMIT: '5:00'
     SLURM_PARTITION: normal
     SLURM_MPI_TYPE: pmix
     SLURM_NETWORK: disable_rdzv_get
     SLURM_LABELIO: 1
     SLURM_UNBUFFEREDIO: 1
-    MPICH_GPU_SUPPORT_ENABLED: 1
     PMIX_MCA_psec: native
     PMIX_MCA_gds: "^shmem2"
     USE_MPI: NO
+
+.test_serial_template:
+  extends:
+    - .container-runner-clariden-gh200
+    - .test_template_base
+  variables:
+    SLURM_NTASKS: 1
   script:
-    # TODO: test_cancel hanging?
-    - fi_info
-    - ucx_info -d
+    - ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60
+
+.test_parallel_template:
+  extends:
+    - .container-runner-clariden-gh200
+    - .test_template_base
+  variables:
+    SLURM_NTASKS: 4
+  script:
     - ctest --test-dir /oomph/build -L "parallel-ranks-4" --verbose --timeout 60
 
 test_serial_nccl:
