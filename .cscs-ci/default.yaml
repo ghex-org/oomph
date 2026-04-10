@@ -63,7 +63,7 @@ build_deps_libfabric:
     - echo -e "BUILD_IMAGE=$PERSIST_IMAGE_NAME" >> build-${BACKEND}.env
   variables:
     DOCKERFILE: .cscs-ci/container/build.Containerfile
-    DOCKER_BUILD_ARGS: '["DEPS_IMAGE"]'
+    DOCKER_BUILD_ARGS: '["DEPS_IMAGE", "BACKEND"]'
   artifacts:
     reports:
       dotenv: build-${BACKEND}.env
