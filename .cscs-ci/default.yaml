@@ -25,7 +25,7 @@ variables:
     reports:
       dotenv: base-${BACKEND}.env
 
-# TODO: NCCL will be be enabled in https://github.com/ghex-org/oomph/pull/55
+# TODO: NCCL will be enabled in https://github.com/ghex-org/oomph/pull/55
 # build_deps_nccl:
 #   variables:
 #     BACKEND: nccl
@@ -68,7 +68,7 @@ build_deps_libfabric:
     reports:
       dotenv: build-${BACKEND}.env
 
-# TODO: NCCL will be be enabled in https://github.com/ghex-org/oomph/pull/55
+# TODO: NCCL will be enabled in https://github.com/ghex-org/oomph/pull/55
 # build_nccl:
 #   variables:
 #     BACKEND: nccl
@@ -134,7 +134,7 @@ build_libfabric:
   script:
     - ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure --timeout 60
 
-# TODO: NCCL will be be enabled in https://github.com/ghex-org/oomph/pull/55
+# TODO: NCCL will be enabled in https://github.com/ghex-org/oomph/pull/55
 # test_serial_nccl:
 #   extends: .test_serial_template
 #   needs:
