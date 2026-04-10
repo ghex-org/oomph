@@ -117,18 +117,14 @@ build_libfabric:
     USE_MPI: NO
 
 .test_serial_template:
-  extends:
-    - .container-runner-clariden-gh200
-    - .test_template_base
+  extends: .test_template_base
   variables:
     SLURM_NTASKS: 1
   script:
     - ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60 --parallel 8
 
 .test_parallel_template:
-  extends:
-    - .container-runner-clariden-gh200
-    - .test_template_base
+  extends: .test_template_base
   variables:
     SLURM_NTASKS: 4
   script:
