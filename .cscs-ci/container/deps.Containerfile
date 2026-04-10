@@ -3,13 +3,13 @@ FROM $BASE_IMAGE
 
 ARG SPACK_SHA
 RUN mkdir -p /opt/spack && \
-    curl -Ls "https://api.github.com/repos/spack/spack/tarball/$SPACK_SHA" | tar --strip-components=1 -xz -C /opt/spack
+    curl -fLsS "https://api.github.com/repos/spack/spack/tarball/$SPACK_SHA" | tar --strip-components=1 -xz -C /opt/spack
 
 ENV PATH="/opt/spack/bin:$PATH"
 
 ARG SPACK_PACKAGES_SHA
 RUN mkdir -p /opt/spack-packages && \
-    curl -Ls "https://api.github.com/repos/spack/spack-packages/tarball/$SPACK_PACKAGES_SHA" | tar --strip-components=1 -xz -C /opt/spack-packages
+    curl -fLsS "https://api.github.com/repos/spack/spack-packages/tarball/$SPACK_PACKAGES_SHA" | tar --strip-components=1 -xz -C /opt/spack-packages
 
 RUN spack repo remove --scope defaults:base builtin && \
     spack repo add --scope site /opt/spack-packages/repos/spack_repo/builtin
