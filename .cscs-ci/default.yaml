@@ -8,7 +8,7 @@ variables:
   FF_TIMESTAMPS: true
 
 .build_deps_template:
-  timeout: 1 hours
+  timeout: 1 hour
   before_script:
     - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
     - export DOCKERFILE_SHA=`sha256sum .cscs-ci/container/deps.Containerfile | head -c 16`
