@@ -132,7 +132,7 @@ build_libfabric:
   variables:
     SLURM_NTASKS: 4
   script:
-    - strace ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure --timeout 60
+    - strace ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure --timeout 60 --verbose
 
 # TODO: NCCL will be be enabled in https://github.com/ghex-org/oomph/pull/55
 # test_serial_nccl:
