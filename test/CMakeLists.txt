@@ -62,7 +62,6 @@ function(reg_parallel_test t_ lib n)
     oomph_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE gtest_main_mpi)
     target_link_libraries(${t} PRIVATE oomph_${lib})
-    # If not empty
     if("${MPIEXEC_EXECUTABLE}" STREQUAL "")
       add_test(NAME ${t} COMMAND $<TARGET_FILE:${t}>)
     else()
