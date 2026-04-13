@@ -6,4 +6,4 @@
 set -x
 unshare --mount --map-root-user \
     bash -c \
-    "mount --bind /tmp/Testing/Temporary-${SLURM_PROCID} $PWD/Testing/Temporary && exec \"$@\""
+    "mount --bind /tmp/Testing/Temporary-${SLURM_PROCID} $PWD/Testing/Temporary && $@"
