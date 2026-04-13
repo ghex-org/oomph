@@ -5,6 +5,6 @@
 
 set -x
 mkdir -p "/tmp/Testing/Temporary-${SLURM_PROCID}"
-unshare --mount --map-root-user \
+unshare --mount \
     bash -c \
     "mount --bind /tmp/Testing/Temporary-${SLURM_PROCID} $PWD/Testing/Temporary && $@"
