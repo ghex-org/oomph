@@ -119,7 +119,7 @@ build_libfabric:
   variables:
     SLURM_NTASKS: 1
   script:
-    - ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60 --parallel 8
+    - /oomph/.cscs-ci/scripts/ctest-bind-testing-dir.sh ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60 --parallel 8
 
 .test_parallel_template:
   extends: .test_template_base
