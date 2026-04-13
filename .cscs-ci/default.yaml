@@ -121,14 +121,14 @@ build_libfabric:
   variables:
     SLURM_NTASKS: 1
   script:
-    - /oomph/.cscs-ci/scripts/ctest-bind-testing-dir.sh ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60 --parallel 8
+    - ctest --test-dir /oomph/build -L "serial" --output-on-failure --timeout 60 --parallel 8
 
 .test_parallel_template:
   extends: .test_template_base
   variables:
     SLURM_NTASKS: 4
   script:
-    - ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure --timeout 60
+    - /oomph/.cscs-ci/scripts/ctest-bind-testing-dir.sh ctest --test-dir /oomph/build -L "parallel-ranks-4" --output-on-failure --timeout 60
 
 # TODO: NCCL will be enabled in https://github.com/ghex-org/oomph/pull/55
 # test_serial_nccl:
