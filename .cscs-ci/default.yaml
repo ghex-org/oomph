@@ -127,7 +127,7 @@ build_libfabric:
     SLURM_NTASKS: 4
   script:
     - cd /oomph/build
-    - /oomph/.cscs-ci/scripts/ctest-bind-testing-dir.sh ctest build -L "parallel-ranks-4" --output-on-failure --timeout 60
+    - /oomph/.cscs-ci/scripts/ctest-bind-testing-dir.sh ctest -L "parallel-ranks-4" --output-on-failure --timeout 60
 
 test_serial_nccl:
   extends: .test_serial_template
