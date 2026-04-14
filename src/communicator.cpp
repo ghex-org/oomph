@@ -15,6 +15,7 @@
 #include <communicator.hpp>
 #include <../message_buffer.hpp>
 #include <../util/heap_pimpl_src.hpp>
+#include <../comm_logger.hpp>
 
 OOMPH_INSTANTIATE_HEAP_PIMPL(oomph::detail::message_buffer::heap_ptr_impl)
 
@@ -60,6 +61,7 @@ communicator::progress()
 void
 communicator::start_group()
 {
+    ++m_state->group_id;
     return m_state->m_impl->start_group();
 }
 
@@ -71,8 +73,11 @@ communicator::end_group()
 
 send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, void* stream)
+    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+    void* stream)
 {
+    comm_logger::get().log_send(rank(), static_cast<const void*>(this), m_state->group_id, dst,
+        size);
     return m_state->m_impl->send(m_ptr->m, size, dst, tag, std::move(cb),
         &(m_state->scheduled_sends), stream);
 }
@@ -81,13 +86,16 @@ recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
     tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, void* stream)
 {
+    comm_logger::get().log_recv(rank(), static_cast<const void*>(this), m_state->group_id, src,
+        size);
     return m_state->m_impl->recv(m_ptr->m, size, src, tag, std::move(cb),
         &(m_state->scheduled_recvs), stream);
 }
 
 shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
-    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, void* stream)
+    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
+    void* stream)
 {
     return m_state->m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb),
         m_state->m_shared_scheduled_recvs, stream);

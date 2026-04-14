@@ -41,58 +41,36 @@
         "first callback argument type is not a const l-value reference to a message_buffer");
 
 #define OOMPH_CHECK_CALLBACK(CALLBACK)                                                             \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type) OOMPH_CHECK_CALLBACK_MSG}
 
 #define OOMPH_CHECK_CALLBACK_MULTI(CALLBACK)                                                       \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type) OOMPH_CHECK_CALLBACK_MSG}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_TAGS(CALLBACK)                                                  \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)               \
+            OOMPH_CHECK_CALLBACK_MSG}
 
 #define OOMPH_CHECK_CALLBACK_REF(CALLBACK)                                                         \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type) OOMPH_CHECK_CALLBACK_MSG_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_REF(CALLBACK)                                                   \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                            \
+            OOMPH_CHECK_CALLBACK_MSG_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_REF_TAGS(CALLBACK)                                              \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)               \
+            OOMPH_CHECK_CALLBACK_MSG_REF}
 
 #define OOMPH_CHECK_CALLBACK_CONST_REF(CALLBACK)                                                   \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type) OOMPH_CHECK_CALLBACK_MSG_CONST_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CALLBACK)                                             \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                            \
+            OOMPH_CHECK_CALLBACK_MSG_CONST_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_CONST_REF_TAGS(CALLBACK)                                        \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)               \
+            OOMPH_CHECK_CALLBACK_MSG_CONST_REF}
 
 namespace oomph
 {
@@ -108,6 +86,7 @@ struct communicator_state
     util::pool_factory<multi_request_state> m_mrs_factory;
     std::size_t                             scheduled_sends = 0;
     std::size_t                             scheduled_recvs = 0;
+    std::size_t                             group_id = 0;
 
     communicator_state(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
     ~communicator_state();
