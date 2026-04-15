@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
 #include <oomph/types.hpp>
 
 namespace oomph
@@ -21,19 +23,23 @@ class comm_logger
     void log_send(rank_type rank, const void* comm, std::size_t group_id, rank_type peer,
         std::size_t size_bytes)
     {
-        if (!m_file) return;
+        if (m_fd < 0) return;
         auto ns = timestamp_ns();
-        std::fprintf(m_file, "%lld,%d,%p,%zu,send,%d,%zu\n", (long long)ns, rank, comm, group_id,
-            peer, size_bytes);
+        char buf[256];
+        int n = std::snprintf(buf, sizeof(buf), "%lld,%d,%p,%zu,send,%d,%zu\n", (long long)ns, rank,
+            comm, group_id, peer, size_bytes);
+        ::write(m_fd, buf, n);
     }
 
     void log_recv(rank_type rank, const void* comm, std::size_t group_id, rank_type peer,
         std::size_t size_bytes)
     {
-        if (!m_file) return;
+        if (m_fd < 0) return;
         auto ns = timestamp_ns();
-        std::fprintf(m_file, "%lld,%d,%p,%zu,recv,%d,%zu\n", (long long)ns, rank, comm, group_id,
-            peer, size_bytes);
+        char buf[256];
+        int n = std::snprintf(buf, sizeof(buf), "%lld,%d,%p,%zu,recv,%d,%zu\n", (long long)ns, rank,
+            comm, group_id, peer, size_bytes);
+        ::write(m_fd, buf, n);
     }
 
   private:
@@ -41,14 +47,15 @@ class comm_logger
     {
         auto* path = std::getenv("OOMPH_COMM_LOG");
         if (!path || std::strlen(path) == 0) return;
-        m_file = std::fopen(path, "a");
-        if (!m_file) return;
-        std::fprintf(m_file, "timestamp_ns,rank,comm,group_id,direction,peer,size_bytes\n");
+        m_fd = ::open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (m_fd < 0) return;
+        const char header[] = "timestamp_ns,rank,comm,group_id,direction,peer,size_bytes\n";
+        ::write(m_fd, header, sizeof(header) - 1);
     }
 
     ~comm_logger()
     {
-        if (m_file) std::fclose(m_file);
+        if (m_fd >= 0) ::close(m_fd);
     }
 
     comm_logger(const comm_logger&) = delete;
@@ -60,7 +67,7 @@ class comm_logger
         return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
     }
 
-    std::FILE* m_file = nullptr;
+    int m_fd = -1;
 };
 
 } // namespace oomph
