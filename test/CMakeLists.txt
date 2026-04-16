@@ -70,11 +70,14 @@ endforeach()
 # ---------------------------------------------------------------------
 
 function(reg_serial_test t)
-  add_executable(${t} $<TARGET_OBJECTS:${t}_obj>)
-  oomph_target_compile_options(${t})
-  target_link_libraries(${t} PRIVATE ext-gtest)
-  target_link_libraries(${t} PRIVATE oomph_common)
-  add_test(NAME ${t} COMMAND $<TARGET_FILE:${t}>)
+    add_executable(${t} $<TARGET_OBJECTS:${t}_obj>)
+    oomph_target_compile_options(${t})
+    target_link_libraries(${t} PRIVATE ext-gtest)
+    target_link_libraries(${t} PRIVATE oomph_common)
+    add_test(
+        NAME ${t}
+        COMMAND $<TARGET_FILE:${t}>)
+    set_tests_properties(${t} PROPERTIES LABELS "serial")
 endfunction()
 
 foreach(t ${serial_tests})
@@ -83,15 +86,20 @@ endforeach()
 
 # creates an executable by linking to object file and to selected oomph backend
 function(reg_parallel_test t_ lib n)
-  set(t ${t_}_${lib})
-  add_executable(${t} $<TARGET_OBJECTS:${t_}_obj>)
-  oomph_target_compile_options(${t})
-  target_link_libraries(${t} PRIVATE gtest_main_mpi)
-  target_link_libraries(${t} PRIVATE oomph_${lib})
-  add_test(NAME ${t}
-           COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n}
-                   ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
-  set_tests_properties(${t} PROPERTIES RUN_SERIAL TRUE)
+    set(t ${t_}_${lib})
+    add_executable(${t} $<TARGET_OBJECTS:${t_}_obj>)
+    oomph_target_compile_options(${t})
+    target_link_libraries(${t} PRIVATE gtest_main_mpi)
+    target_link_libraries(${t} PRIVATE oomph_${lib})
+    if("${MPIEXEC_EXECUTABLE}" STREQUAL "")
+      add_test(NAME ${t} COMMAND $<TARGET_FILE:${t}>)
+    else()
+      add_test(
+          NAME ${t}
+          COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    endif()
+    set_tests_properties(${t} PROPERTIES RUN_SERIAL TRUE LABELS "parallel-ranks-${n}")
 endfunction()
 
 if(OOMPH_WITH_MPI)
