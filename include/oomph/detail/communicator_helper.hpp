@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <boost/callable_traits.hpp>
+#include <oomph/message_buffer.hpp>
 #include <oomph/request.hpp>
 #include <oomph/util/pool_factory.hpp>
 //#include <oomph/util/tag_range.hpp>
@@ -33,7 +34,7 @@
 
 #define OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
     static_assert(std::is_same<arg0_t, message_buffer<TT>&>::value ||                              \
-                      std::is_same<arg0_t, message_buffer<TT> const&>::value,                      \
+            std::is_same<arg0_t, message_buffer<TT> const&>::value,                                \
         "first callback argument type is not an l-value reference to a message_buffer");
 
 #define OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
@@ -41,129 +42,107 @@
         "first callback argument type is not a const l-value reference to a message_buffer");
 
 #define OOMPH_CHECK_CALLBACK(CALLBACK)                                                             \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type) OOMPH_CHECK_CALLBACK_MSG}
 
 #define OOMPH_CHECK_CALLBACK_MULTI(CALLBACK)                                                       \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type) OOMPH_CHECK_CALLBACK_MSG}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_TAGS(CALLBACK)                                                  \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)               \
+            OOMPH_CHECK_CALLBACK_MSG}
 
 #define OOMPH_CHECK_CALLBACK_REF(CALLBACK)                                                         \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type) OOMPH_CHECK_CALLBACK_MSG_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_REF(CALLBACK)                                                   \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                            \
+            OOMPH_CHECK_CALLBACK_MSG_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_REF_TAGS(CALLBACK)                                              \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)               \
+            OOMPH_CHECK_CALLBACK_MSG_REF}
 
 #define OOMPH_CHECK_CALLBACK_CONST_REF(CALLBACK)                                                   \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type) OOMPH_CHECK_CALLBACK_MSG_CONST_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CALLBACK)                                             \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                            \
+            OOMPH_CHECK_CALLBACK_MSG_CONST_REF}
 
 #define OOMPH_CHECK_CALLBACK_MULTI_CONST_REF_TAGS(CALLBACK)                                        \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
+    {OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)               \
+            OOMPH_CHECK_CALLBACK_MSG_CONST_REF}
 
-namespace oomph
-{
-class communicator_impl;
+namespace oomph {
+    class communicator_impl;
 
-namespace detail
-{
-struct communicator_state
-{
-    using impl_type = communicator_impl;
-    impl_type*                              m_impl;
-    std::atomic<std::size_t>*               m_shared_scheduled_recvs;
-    util::pool_factory<multi_request_state> m_mrs_factory;
-    std::size_t                             scheduled_sends = 0;
-    std::size_t                             scheduled_recvs = 0;
+    namespace detail {
+        struct communicator_state
+        {
+            using impl_type = communicator_impl;
+            impl_type* m_impl;
+            std::atomic<std::size_t>* m_shared_scheduled_recvs;
+            util::pool_factory<multi_request_state> m_mrs_factory;
+            std::size_t scheduled_sends = 0;
+            std::size_t scheduled_recvs = 0;
 
-    communicator_state(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
-    ~communicator_state();
-    communicator_state(communicator_state const&) = delete;
-    communicator_state(communicator_state&&) = delete;
-    communicator_state& operator=(communicator_state const&) = delete;
-    communicator_state& operator=(communicator_state&&) = delete;
+            communicator_state(impl_type* impl_, std::atomic<std::size_t>* shared_scheduled_recvs);
+            ~communicator_state();
+            communicator_state(communicator_state const&) = delete;
+            communicator_state(communicator_state&&) = delete;
+            communicator_state& operator=(communicator_state const&) = delete;
+            communicator_state& operator=(communicator_state&&) = delete;
 
-    auto make_multi_request_state(std::size_t ns) { return m_mrs_factory.make(m_impl, ns); }
+            auto make_multi_request_state(std::size_t ns) { return m_mrs_factory.make(m_impl, ns); }
 
-    template<typename T>
-    auto make_multi_request_state(std::vector<rank_type>&& neighs,
-        oomph::message_buffer<T> const&                    msg)
-    {
-        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::vector<tag_type>{},
-            msg.size(), &msg);
-    }
+            template <typename T>
+            auto make_multi_request_state(
+                std::vector<rank_type>&& neighs, oomph::message_buffer<T> const& msg)
+            {
+                return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs),
+                    std::vector<tag_type>{}, msg.size(), &msg);
+            }
 
-    template<typename T>
-    auto make_multi_request_state(std::vector<rank_type>&& neighs, std::vector<tag_type>&& tags,
-        oomph::message_buffer<T> const& msg)
-    {
-        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::move(tags),
-            msg.size(), &msg);
-    }
+            template <typename T>
+            auto make_multi_request_state(std::vector<rank_type>&& neighs,
+                std::vector<tag_type>&& tags, oomph::message_buffer<T> const& msg)
+            {
+                return m_mrs_factory.make(
+                    m_impl, neighs.size(), std::move(neighs), std::move(tags), msg.size(), &msg);
+            }
 
-    template<typename T>
-    auto make_multi_request_state(std::vector<rank_type>&& neighs, oomph::message_buffer<T>& msg)
-    {
-        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::vector<tag_type>{},
-            msg.size(), &msg);
-    }
+            template <typename T>
+            auto
+            make_multi_request_state(std::vector<rank_type>&& neighs, oomph::message_buffer<T>& msg)
+            {
+                return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs),
+                    std::vector<tag_type>{}, msg.size(), &msg);
+            }
 
-    template<typename T>
-    auto make_multi_request_state(std::vector<rank_type>&& neighs, std::vector<tag_type>&& tags,
-        oomph::message_buffer<T>& msg)
-    {
-        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::move(tags),
-            msg.size(), &msg);
-    }
+            template <typename T>
+            auto make_multi_request_state(std::vector<rank_type>&& neighs,
+                std::vector<tag_type>&& tags, oomph::message_buffer<T>& msg)
+            {
+                return m_mrs_factory.make(
+                    m_impl, neighs.size(), std::move(neighs), std::move(tags), msg.size(), &msg);
+            }
 
-    template<typename T>
-    auto make_multi_request_state(std::vector<rank_type>&& neighs, oomph::message_buffer<T>&& msg)
-    {
-        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::vector<tag_type>{},
-            msg.size(), nullptr, std::move(msg.m));
-    }
+            template <typename T>
+            auto make_multi_request_state(
+                std::vector<rank_type>&& neighs, oomph::message_buffer<T>&& msg)
+            {
+                return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs),
+                    std::vector<tag_type>{}, msg.size(), nullptr, std::move(msg.m));
+            }
 
-    template<typename T>
-    auto make_multi_request_state(std::vector<rank_type>&& neighs, std::vector<tag_type>&& tags,
-        oomph::message_buffer<T>&& msg)
-    {
-        return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::move(tags),
-            msg.size(), nullptr, std::move(msg.m));
-    }
-};
+            template <typename T>
+            auto make_multi_request_state(std::vector<rank_type>&& neighs,
+                std::vector<tag_type>&& tags, oomph::message_buffer<T>&& msg)
+            {
+                return m_mrs_factory.make(m_impl, neighs.size(), std::move(neighs), std::move(tags),
+                    msg.size(), nullptr, std::move(msg.m));
+            }
+        };
 
-} // namespace detail
-} // namespace oomph
+    }    // namespace detail
+}    // namespace oomph
