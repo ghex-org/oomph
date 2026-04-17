@@ -13,47 +13,50 @@
 #include <controller.hpp>
 #include <oomph_libfabric_defines.hpp>
 
-namespace oomph::libfabric {
-    void operation_context::handle_cancelled()
+namespace oomph::libfabric
+{
+void
+operation_context::handle_cancelled()
+{
+    LIBFATBAT_SCOPE(opctx_deb, "{} {} request {}", static_cast<void*>(this), __func__,
+        static_cast<void*>(&m_req));
+    // enqueue the cancelled/callback
+    if (std::holds_alternative<detail::request_state*>(m_req))
     {
-        [[maybe_unused]] auto scp = opctx_deb<1>.scope(NS_DEBUG::hptr(this), __func__);
-        // enqueue the cancelled/callback
-        if (std::holds_alternative<detail::request_state*>(m_req))
-        {
-            // regular (non-shared) recv
-            auto s = std::get<detail::request_state*>(m_req);
-            while (!(s->m_comm->m_recv_cb_cancel.push(s))) {}
-        }
-        else if (std::holds_alternative<detail::shared_request_state*>(m_req))
-        {
-            // shared recv
-            auto s = std::get<detail::shared_request_state*>(m_req);
-            while (!(s->m_ctxt->m_recv_cb_cancel.push(s))) {}
-        }
-        else { throw std::runtime_error("Request state invalid in handle_cancelled"); }
+        // regular (non-shared) recv
+        auto s = std::get<detail::request_state*>(m_req);
+        while (!(s->m_comm->m_recv_cb_cancel.push(s))) {}
     }
-
-    int operation_context::handle_tagged_recv_completion_impl(void* user_data)
+    else if (std::holds_alternative<detail::shared_request_state*>(m_req))
     {
-        [[maybe_unused]] auto scp = opctx_deb<1>.scope(NS_DEBUG::hptr(this), __func__);
-        if (std::holds_alternative<detail::request_state*>(m_req))
+        // shared recv
+        auto s = std::get<detail::shared_request_state*>(m_req);
+        while (!(s->m_ctxt->m_recv_cb_cancel.push(s))) {}
+    }
+    else
+    {
+        throw std::runtime_error("Request state invalid in handle_cancelled");
+    }
+}
+
+int
+operation_context::handle_tagged_recv_completion_impl(void* user_data)
+{
+    LIBFATBAT_SCOPE(opctx_deb, "{} {} request {}", static_cast<void*>(this), __func__,
+        static_cast<void*>(&m_req));
+
+    if (std::holds_alternative<detail::request_state*>(m_req))
+    {
+        // regular (non-shared) recv
+        auto s = std::get<detail::request_state*>(m_req);
+        //if (std::this_thread::get_id() == thread_id_)
+        if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
         {
-            // regular (non-shared) recv
-            auto s = std::get<detail::request_state*>(m_req);
-            //if (std::this_thread::get_id() == thread_id_)
-            if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
+            if (!s->m_comm->has_reached_recursion_depth())
             {
-                if (!s->m_comm->has_reached_recursion_depth())
-                {
-                    auto inc = s->m_comm->recursion();
-                    auto ptr = s->release_self_ref();
-                    s->invoke_cb();
-                }
-                else
-                {
-                    // enqueue the callback
-                    while (!(s->m_comm->m_recv_cb_queue.push(s))) {}
-                }
+                auto inc = s->m_comm->recursion();
+                auto ptr = s->release_self_ref();
+                s->invoke_cb();
             }
             else
             {
@@ -61,52 +64,52 @@ namespace oomph::libfabric {
                 while (!(s->m_comm->m_recv_cb_queue.push(s))) {}
             }
         }
-        else if (std::holds_alternative<detail::shared_request_state*>(m_req))
+        else
         {
-            // shared recv
-            auto s = std::get<detail::shared_request_state*>(m_req);
-            if (!s->m_comm->m_context->has_reached_recursion_depth())
-            {
-                auto inc = s->m_comm->m_context->recursion();
-                auto ptr = s->release_self_ref();
-                s->invoke_cb();
-            }
-            else
-            {
-                // enqueue the callback
-                while (!(s->m_comm->m_context->m_recv_cb_queue.push(s))) {}
-            }
+            // enqueue the callback
+            while (!(s->m_comm->m_recv_cb_queue.push(s))) {}
+        }
+    }
+    else if (std::holds_alternative<detail::shared_request_state*>(m_req))
+    {
+        // shared recv
+        auto s = std::get<detail::shared_request_state*>(m_req);
+        if (!s->m_comm->m_context->has_reached_recursion_depth())
+        {
+            auto inc = s->m_comm->m_context->recursion();
+            auto ptr = s->release_self_ref();
+            s->invoke_cb();
         }
         else
         {
-            detail::request_state** req = reinterpret_cast<detail::request_state**>(&m_req);
-            LF_DEB(NS_MEMORY::opctx_deb<9>,
-                error(
-                    str<>("invalid request_state"), this, "request", hptr(req)));
-            throw std::runtime_error("Request state invalid in handle_tagged_recv");
+            // enqueue the callback
+            while (!(s->m_comm->m_context->m_recv_cb_queue.push(s))) {}
         }
-        return 1;
     }
-
-    int operation_context::handle_tagged_send_completion_impl(void* user_data)
+    else
     {
-        if (std::holds_alternative<detail::request_state*>(m_req))
+        detail::request_state** req = reinterpret_cast<detail::request_state**>(&m_req);
+        LIBFATBAT_DEBUG(opctx_deb, "{:<20} tagged recv completion handler : context {} request {}",
+            "invalid request state", static_cast<void*>(this), static_cast<void*>(req));
+        throw std::runtime_error("Request state invalid in handle_tagged_recv");
+    }
+    return 1;
+}
+
+int
+operation_context::handle_tagged_send_completion_impl(void* user_data)
+{
+    if (std::holds_alternative<detail::request_state*>(m_req))
+    {
+        // regular (non-shared) recv
+        auto s = std::get<detail::request_state*>(m_req);
+        if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
         {
-            // regular (non-shared) recv
-            auto s = std::get<detail::request_state*>(m_req);
-            if (reinterpret_cast<oomph::communicator_impl*>(user_data) == s->m_comm)
+            if (!s->m_comm->has_reached_recursion_depth())
             {
-                if (!s->m_comm->has_reached_recursion_depth())
-                {
-                    auto inc = s->m_comm->recursion();
-                    auto ptr = s->release_self_ref();
-                    s->invoke_cb();
-                }
-                else
-                {
-                    // enqueue the callback
-                    while (!(s->m_comm->m_send_cb_queue.push(s))) {}
-                }
+                auto inc = s->m_comm->recursion();
+                auto ptr = s->release_self_ref();
+                s->invoke_cb();
             }
             else
             {
@@ -114,23 +117,32 @@ namespace oomph::libfabric {
                 while (!(s->m_comm->m_send_cb_queue.push(s))) {}
             }
         }
-        else if (std::holds_alternative<detail::shared_request_state*>(m_req))
+        else
         {
-            // shared recv
-            auto s = std::get<detail::shared_request_state*>(m_req);
-            if (!s->m_comm->m_context->has_reached_recursion_depth())
-            {
-                auto inc = s->m_comm->m_context->recursion();
-                auto ptr = s->release_self_ref();
-                s->invoke_cb();
-            }
-            else
-            {
-                // enqueue the callback
-                while (!(s->m_comm->m_context->m_recv_cb_queue.push(s))) {}
-            }
+            // enqueue the callback
+            while (!(s->m_comm->m_send_cb_queue.push(s))) {}
         }
-        else { throw std::runtime_error("Request state invalid in handle_tagged_send"); }
-        return 1;
     }
-}    // namespace oomph::libfabric
+    else if (std::holds_alternative<detail::shared_request_state*>(m_req))
+    {
+        // shared recv
+        auto s = std::get<detail::shared_request_state*>(m_req);
+        if (!s->m_comm->m_context->has_reached_recursion_depth())
+        {
+            auto inc = s->m_comm->m_context->recursion();
+            auto ptr = s->release_self_ref();
+            s->invoke_cb();
+        }
+        else
+        {
+            // enqueue the callback
+            while (!(s->m_comm->m_context->m_recv_cb_queue.push(s))) {}
+        }
+    }
+    else
+    {
+        throw std::runtime_error("Request state invalid in handle_tagged_send");
+    }
+    return 1;
+}
+} // namespace oomph::libfabric

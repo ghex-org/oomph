@@ -10,22 +10,24 @@
 
 #include <mpi.h>
 #include <oomph/context.hpp>
-#include "../benchmarks/mpi_environment.hpp"
+#include <libfatbat/logging.hpp>
+#include <hwmalloc/heap_config.hpp>
 //
+#include "../benchmarks/mpi_environment.hpp"
 #include "../communicator.hpp"
 #include "../context.hpp"
 
-#include <hwmalloc/heap_config.hpp>
-
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
+    libfatbat::log::init_from_env();
     using namespace oomph;
-    bool const message_pool_never_free = false;
+    bool const        message_pool_never_free = false;
     std::size_t const message_pool_reserve = 1024 * 1024 * 128;
-    bool const multi_threaded = true;
-    bool debug = true;
+    bool const        multi_threaded = true;
+    bool              debug = true;
     //
-    mpi_environment env(multi_threaded, argc, argv);
+    mpi_environment              env(multi_threaded, argc, argv);
     hwmalloc::heap_config const& default_heap = hwmalloc::get_default_heap_config();
     auto ctxt = context_impl(MPI_COMM_WORLD, true, default_heap /*, debug*/);
 }
