@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <stack>
+#include <type_traits>
 
 #include <boost/lockfree/queue.hpp>
 
@@ -51,6 +52,31 @@ class communicator_impl : public communicator_base<communicator_impl>
     callback_queue m_recv_cb_queue;
     callback_queue m_recv_cb_cancel;
 
+    template<typename T, bool IsPointer = std::is_pointer<typename std::decay<T>::type>::value,
+        bool IsIntegral = std::is_integral<typename std::decay<T>::type>::value>
+    struct mpi_format_helper
+    {
+        static char const* cast(T const&) { return "[opaque]"; }
+    };
+
+    template<typename T>
+    struct mpi_format_helper<T, true, false>
+    {
+        static void const* cast(T value) { return static_cast<void const*>(value); }
+    };
+
+    template<typename T>
+    struct mpi_format_helper<T, false, true>
+    {
+        static unsigned long long cast(T value) { return static_cast<unsigned long long>(value); }
+    };
+
+    template<typename T>
+    static auto mpi_format(T value) -> decltype(mpi_format_helper<T>::cast(value))
+    {
+        return mpi_format_helper<T>::cast(value);
+    }
+
     // --------------------------------------------------------------------
     communicator_impl(context_impl* ctxt)
     : communicator_base(ctxt)
@@ -59,7 +85,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_recv_cb_queue(128)
     , m_recv_cb_cancel(8)
     {
-        LIBFATBAT_DEBUG(comm_log, "{:<20} MPI_comm {} ", "Construct", (mpi_comm()));
+        LIBFATBAT_DEBUG(comm_log, "{:<20} MPI_comm {} ", "Construct",
+            mpi_format_helper<decltype(mpi_comm())>::cast(mpi_comm()));
         m_tx_endpoint = m_context->get_controller()->get_tx_endpoint();
         m_rx_endpoint = m_context->get_controller()->get_rx_endpoint();
     }
@@ -112,7 +139,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         uint64_t tag_, operation_context* ctxt)
     {
         LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
-        LIBFATBAT_DEBUG(comm_log, "{:<20} -> {:02} {} {} tag {:#12x} context {} tx endpoint {}",
+        LIBFATBAT_DEBUG(comm_log, "{:<20} -> {:02} {} tag {:#12x} context {} tx endpoint {}",
             "send_tagged_region", dst_addr_, send_region, tag_, static_cast<void*>(ctxt),
             static_cast<void*>(m_tx_endpoint.get_ep()));
         execute_fi_function(fi_tsend, "fi_tsend", m_tx_endpoint.get_ep(), send_region.get_address(),
@@ -125,7 +152,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         uint64_t tag_)
     {
         LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
-        LIBFATBAT_DEBUG(comm_log, "{:<20} -> {:02} {} {} tag {:#12x} tx endpoint {}",
+        LIBFATBAT_DEBUG(comm_log, "{:<20} -> {:02} {} tag {} tx endpoint {}",
             "inject_tagged_region", dst_addr_, send_region, tag_,
             static_cast<void*>(m_tx_endpoint.get_ep()));
         execute_fi_function(fi_tinject, "fi_tinject", m_tx_endpoint.get_ep(),
@@ -140,7 +167,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         uint64_t tag_, operation_context* ctxt)
     {
         LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
-        LIBFATBAT_DEBUG(comm_log, "{:<20} <- {:02} {} {} tag {:#12x} context {} rx endpoint {}",
+        LIBFATBAT_DEBUG(comm_log, "{:<20} <- {:02} {} tag {} context {} rx endpoint {}",
             "recv_tagged_region", src_addr_, recv_region, tag_, static_cast<void*>(ctxt),
             static_cast<void*>(m_rx_endpoint.get_ep()));
         constexpr uint64_t ignore = 0;
