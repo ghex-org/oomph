@@ -29,6 +29,8 @@ context_impl::context_impl(MPI_Comm comm, bool thread_safe,
 , m_recv_cb_queue(128)
 , m_recv_cb_cancel(8)
 {
+    libfatbat::log::init_from_env();
+    //
     int rank, size;
     OOMPH_CHECK_MPI_RESULT(MPI_Comm_rank(comm, &rank));
     OOMPH_CHECK_MPI_RESULT(MPI_Comm_size(comm, &size));

@@ -17,6 +17,21 @@ message(
 )
 
 # ------------------------------------------------------------------------------
+# spdlog logging library
+# ------------------------------------------------------------------------------
+string(TOUPPER ${FATBAT_LOG_LEVEL} FATBAT_LOG_LEVEL_UPPERCASE)
+if(NOT "${FATBAT_LOG_LEVEL_UPPERCASE}" MATCHES "OFF")
+  find_package(spdlog REQUIRED)
+  message(STATUS "✅ spdlog found ${spdlog_VERSION}")
+endif()
+
+# ------------------------------------------------------------------------------
+# fmt library (for nice formatting of messages)
+# ------------------------------------------------------------------------------
+find_package(fmt REQUIRED)
+message(STATUS "✅ fmt found ${fmt_VERSION}")
+
+# ------------------------------------------------------------------------------
 #
 # ------------------------------------------------------------------------------
 find_package(Boost REQUIRED CONFIG COMPONENTS thread)
@@ -46,6 +61,20 @@ list(TRANSFORM oomph_sources PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/../
 target_sources(oomph_libfabric PRIVATE ${oomph_sources_libfabric})
 target_sources(oomph_libfabric PRIVATE context.cpp)
 target_sources(oomph_libfabric PRIVATE operation_context.cpp)
+
+if(NOT "${FATBAT_LOG_LEVEL_UPPERCASE}" MATCHES "OFF")
+  target_compile_definitions(
+    oomph_libfabric INTERFACE LIBFATBAT_LOGGING_ENABLED=1
+  )
+  target_compile_definitions(
+    oomph_libfabric
+    INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${FATBAT_LOG_LEVEL_UPPERCASE}
+  )
+  target_link_libraries(
+    oomph_libfabric INTERFACE spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>
+  )
+  target_link_libraries(oomph_libfabric INTERFACE fmt::fmt)
+endif()
 
 # if we are using GPU, then the libfabric library was probably built with gpu
 # support, and we should link to cuda to prevent link errors

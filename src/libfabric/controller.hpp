@@ -173,7 +173,7 @@ class controller : public libfatbat::controller_base<controller>
         MPI_Comm_rank(mpi_comm, &rank);
         MPI_Comm_size(mpi_comm, &size);
 
-        LIBFATBAT_DEBUG(ctrl_log, "{:<20} size {}", "initialize_localities", size);
+        LIBFATBAT_DEBUG(ctrl_log, "{:<20} size {}", "init_localities", size);
 
         MPI_exchange_localities(av, mpi_comm, rank, size);
 #ifndef HAVE_LIBFABRIC_LNX // address stuff not yet supported
