@@ -41,12 +41,12 @@ namespace oomph::libfabric
 {
 inline auto ctrl_log = libfatbat::log::create("Ctrl");
 
-class controller : public libfatbat::controller_base<controller>
+class controller : public libfatbat::controller_base<controller, operation_context>
 {
   public:
     // --------------------------------------------------------------------
     controller()
-    : libfatbat::controller_base<controller>()
+    : libfatbat::controller_base<controller, operation_context>()
     {
     }
 
@@ -180,59 +180,6 @@ class controller : public libfatbat::controller_base<controller>
         debug_print_av_vector(size);
 #endif
         LIBFATBAT_DEBUG(ctrl_log, "{:<20} size {}", "Done localities", size);
-    }
-
-    // --------------------------------------------------------------------
-    inline constexpr bool bypass_tx_lock()
-    {
-#if defined(HAVE_LIBFABRIC_GNI)
-        return true;
-#elif defined(HAVE_LIBFABRIC_LNX)
-        // @todo : cxi provider is not yet thread safe using scalable endpoints
-        return false;
-#else
-        return (threadlevel_flags() == FI_THREAD_SAFE ||
-                endpoint_type_ == endpoint_type::threadlocalTx);
-#endif
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock get_tx_lock()
-    {
-        if (bypass_tx_lock()) return unique_lock();
-        return unique_lock(send_mutex_);
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock try_tx_lock()
-    {
-        if (bypass_tx_lock()) return unique_lock();
-        return unique_lock(send_mutex_, std::try_to_lock_t{});
-    }
-
-    // --------------------------------------------------------------------
-    inline constexpr bool bypass_rx_lock()
-    {
-#ifdef HAVE_LIBFABRIC_GNI
-        return true;
-#else
-        return (
-            threadlevel_flags() == FI_THREAD_SAFE || endpoint_type_ == endpoint_type::scalableTxRx);
-#endif
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock get_rx_lock()
-    {
-        if (bypass_rx_lock()) return unique_lock();
-        return unique_lock(recv_mutex_);
-    }
-
-    // --------------------------------------------------------------------
-    inline controller_base::unique_lock try_rx_lock()
-    {
-        if (bypass_rx_lock()) return unique_lock();
-        return unique_lock(recv_mutex_, std::try_to_lock_t{});
     }
 
     // --------------------------------------------------------------------
