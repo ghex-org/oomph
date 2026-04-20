@@ -28,7 +28,13 @@ endif()
 # ------------------------------------------------------------------------------
 # fmt library (for nice formatting of messages)
 # ------------------------------------------------------------------------------
-find_package(fmt REQUIRED)
+find_package(fmt QUIET)
+if(NOT fmt_FOUND)
+  message("Fetching fmt")
+  include(FetchContent)
+  FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt GIT_TAG 12.1.0)
+  FetchContent_MakeAvailable(fmt)
+endif()
 message(STATUS "✅ fmt found ${fmt_VERSION}")
 
 # ------------------------------------------------------------------------------
