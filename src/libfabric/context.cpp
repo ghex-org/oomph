@@ -18,7 +18,7 @@
 
 namespace oomph
 {
-inline auto src_log = libfatbat::log::create("SRC");
+MAKE_LOGGER(src_log, "SRC")
 
 using controller_type = libfabric::controller;
 

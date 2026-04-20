@@ -17,7 +17,7 @@ namespace oomph
 {
 namespace detail
 {
-inline auto req_deb = libfatbat::log::create("Request");
+MAKE_LOGGER(req_deb, "Request")
 
 struct request_state
 : public util::enable_shared_from_this<request_state>

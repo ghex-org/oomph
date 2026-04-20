@@ -19,7 +19,7 @@
 namespace oomph::libfabric
 {
 
-inline auto opctx_deb = libfatbat::log::create("opctxt");
+MAKE_LOGGER(opctx_deb, "opctxt")
 
 // This struct holds the ready state of a future
 // we must also store the context used in libfabric, in case

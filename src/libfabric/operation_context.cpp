@@ -88,7 +88,8 @@ operation_context::handle_tagged_recv_completion_impl(void* user_data)
     }
     else
     {
-        detail::request_state** req = reinterpret_cast<detail::request_state**>(&m_req);
+        [[maybe_unused]] detail::request_state** req =
+            reinterpret_cast<detail::request_state**>(&m_req);
         LIBFATBAT_DEBUG(opctx_deb, "{:<20} tagged recv completion handler : context {} request {}",
             "invalid request state", static_cast<void*>(this), static_cast<void*>(req));
         throw std::runtime_error("Request state invalid in handle_tagged_recv");

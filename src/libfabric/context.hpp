@@ -25,7 +25,7 @@
 namespace oomph
 {
 
-inline auto ctxt_log = libfatbat::log::create("Context");
+MAKE_LOGGER(ctxt_log, "Context")
 
 using controller_type = libfabric::controller;
 

@@ -39,7 +39,7 @@
 
 namespace oomph::libfabric
 {
-inline auto ctrl_log = libfatbat::log::create("Ctrl");
+MAKE_LOGGER(ctrl_log, "Ctrl")
 
 class controller : public libfatbat::controller_base<controller, operation_context>
 {

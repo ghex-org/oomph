@@ -28,7 +28,7 @@
 namespace oomph
 {
 
-inline auto comm_log = libfatbat::log::create("OomphCom");
+MAKE_LOGGER(comm_log, "OomphCom")
 
 using operation_context = libfabric::operation_context;
 
