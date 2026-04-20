@@ -129,4 +129,4 @@ if(OOMPH_WITH_LIBFABRIC)
   endforeach()
 endif()
 
-add_subdirectory(bindings)
+#add_subdirectory(bindings)

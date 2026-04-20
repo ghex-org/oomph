@@ -93,8 +93,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_config.inc.in
 # ---------------------------------------------------------------------
 # fortan bindings
 # ---------------------------------------------------------------------
-include(oomph_fortran)
-add_subdirectory(bindings)
+#include(oomph_fortran)
+#add_subdirectory(bindings)
 
 # ---------------------------------------------------------------------
 # testing
