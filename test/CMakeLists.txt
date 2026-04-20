@@ -48,6 +48,7 @@ function(reg_serial_test t)
     add_test(
         NAME ${t}
         COMMAND $<TARGET_FILE:${t}>)
+    set_tests_properties(${t} PROPERTIES RUN_SERIAL ON)
 endfunction()
 
 foreach(t ${serial_tests})
