@@ -9,7 +9,7 @@
  */
 #include <cstdint>
 //
-#include <boost/thread.hpp>
+#include <thread>
 // paths relative to backend
 #include <communicator.hpp>
 #include <context.hpp>
@@ -50,10 +50,10 @@ context_impl::context_impl(MPI_Comm comm, bool thread_safe,
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     if (sched_getaffinity(0, sizeof(cpuset), &cpuset) == 0) threads = CPU_COUNT(&cpuset);
-    else
-        threads = boost::thread::physical_concurrency();
+    else // threads = boost::thread::physical_concurrency(); 
+        threads = std::thread::hardware_concurrency();
 #else
-    threads = boost::thread::physical_concurrency();
+    threads = std::thread::hardware_concurrency();
 #endif
     m_controller = init_libfabric_controller(this, comm, rank, size, threads, debug);
     m_domain = m_controller->get_domain();
