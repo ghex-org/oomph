@@ -8,7 +8,7 @@ if(EXISTS ${PROJECT_SOURCE_DIR}/ext/libfatbat)
 endif()
 fetchcontent_declare(
   libFatbat GIT_REPOSITORY "https://github.com/biddisco/libfatbat.git"
-  GIT_TAG "main"
+  GIT_TAG "develop"
 )
 fetchcontent_makeavailable(libFatbat)
 message(
@@ -21,38 +21,34 @@ message(
 # ------------------------------------------------------------------------------
 string(TOUPPER ${FATBAT_LOG_LEVEL} FATBAT_LOG_LEVEL_UPPERCASE)
 if(NOT "${FATBAT_LOG_LEVEL_UPPERCASE}" MATCHES "OFF")
-  find_package(spdlog REQUIRED)
-  message(STATUS "✅ spdlog found ${spdlog_VERSION}")
+  find_package(spdlog QUIET)
+  if(spdlog_FOUND)
+    message(STATUS "✅ spdlog found ${spdlog_VERSION}")
+    message(STATUS "spdlog include dirs: ${spdlog_INCLUDE_DIRS}")
+  else()
+    message("Fetching spdlog")
+    include(FetchContent)
+    fetchcontent_declare(
+      spdlog GIT_REPOSITORY https://github.com/gabime/spdlog.git GIT_TAG v2.x
+    )
+    fetchcontent_makeavailable(spdlog)
+    message(STATUS "✅ spdlog found ${spdlog_VERSION}")
+  endif()
 endif()
 
 # ------------------------------------------------------------------------------
-# fmt library (for nice formatting of messages)
+# interface/dummy library of our private headers
 # ------------------------------------------------------------------------------
-find_package(fmt QUIET)
-if(NOT fmt_FOUND)
-  message("Fetching fmt")
-  include(FetchContent)
-  FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt GIT_TAG 12.1.0)
-  FetchContent_MakeAvailable(fmt)
-endif()
-message(STATUS "✅ fmt found ${fmt_VERSION}")
-
-# ------------------------------------------------------------------------------
-#
-# ------------------------------------------------------------------------------
-find_package(Boost REQUIRED CONFIG COMPONENTS thread)
-
-# dummy library of our private headers
 add_library(oomph_private_libfabric_headers INTERFACE)
 target_include_directories(
   oomph_private_libfabric_headers
   INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 )
 
-# actual library (created in oomph_libfabric.cmake) source files, depends on
-# dummy library
+# ------------------------------------------------------------------------------
+# actual library (created in oomph_libfabric.cmake) source files, depends on dummy library
+# ------------------------------------------------------------------------------
 target_link_libraries(oomph_libfabric PRIVATE oomph_private_libfabric_headers)
-target_link_libraries(oomph_libfabric PRIVATE Boost::thread)
 target_link_libraries(oomph_libfabric PRIVATE libfatbat)
 
 # we need to include a binary dir for the oomph_config_defines.hpp file
@@ -76,10 +72,11 @@ if(NOT "${FATBAT_LOG_LEVEL_UPPERCASE}" MATCHES "OFF")
     oomph_libfabric
     INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${FATBAT_LOG_LEVEL_UPPERCASE}
   )
+
   target_link_libraries(
-    oomph_libfabric INTERFACE spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>
+    oomph_libfabric INTERFACE $<BUILD_INTERFACE:spdlog::spdlog>
+                              $<BUILD_INTERFACE:fmt::fmt>
   )
-  target_link_libraries(oomph_libfabric INTERFACE fmt::fmt)
 endif()
 
 # if we are using GPU, then the libfabric library was probably built with gpu
