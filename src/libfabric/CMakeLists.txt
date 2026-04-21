@@ -13,7 +13,7 @@ fetchcontent_declare(
 fetchcontent_makeavailable(libFatbat)
 message(
   STATUS
-    "✅ libFatbat building: (${libFatbat_VERSION}) in ${libFatbat_BINARY_DIR}"
+    "✅ libFatbat building: (${libFatbat_VERSION}) from ${libFatbat_SOURCE_DIR} in ${libFatbat_BINARY_DIR}"
 )
 
 # ------------------------------------------------------------------------------
@@ -46,7 +46,8 @@ target_include_directories(
 )
 
 # ------------------------------------------------------------------------------
-# actual library (created in oomph_libfabric.cmake) source files, depends on dummy library
+# actual library (created in oomph_libfabric.cmake) source files, depends on
+# dummy library
 # ------------------------------------------------------------------------------
 target_link_libraries(oomph_libfabric PRIVATE oomph_private_libfabric_headers)
 target_link_libraries(oomph_libfabric PRIVATE libfatbat)
