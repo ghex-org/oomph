@@ -199,8 +199,8 @@ test_serial_libfabric:
 
 test_parallel_libfabric:
   extends: .test_parallel_template
-  variables:
-    FI_MR_CACHE_MAX_COUNT: 0 # Disables the MR cache to prevent the teardown segfault
+  # variables:
+  #   FI_MR_CACHE_MAX_COUNT: 0 # Disables the MR cache to prevent the teardown segfault
   needs:
     - job: build_libfabric
       artifacts: true
