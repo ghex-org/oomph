@@ -56,8 +56,10 @@ class communicator_impl : public communicator_base<communicator_impl>
         detail::group_cuda_event m_event{};
 
         // We arbitrarily use the last stream used within a group to synchronize
-        // the whole group.
-        cudaStream_t m_last_stream{};
+        // the whole group. nullopt indicates no operations were posted.
+        std::optional<cudaStream_t> m_last_stream;
+
+        bool has_operations() const noexcept { return m_last_stream.has_value(); }
     };
 
     // NCCL group information. When no group is active this is std::nullopt.
@@ -92,9 +94,12 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd());
 
-        // All streams used in a NCCL group synchronize with the end of the group.
-        // We arbitrarily pick the last stream to synchronize against.
-        m_group_info->m_event.record(m_group_info->m_last_stream);
+        if (m_group_info->has_operations())
+        {
+            // All streams used in a NCCL group synchronize with the end of the group.
+            // We arbitrarily pick the last stream to synchronize against.
+            m_group_info->m_event.record(*m_group_info->m_last_stream);
+        }
         m_group_info.reset();
     }
 
