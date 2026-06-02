@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <thread>
+
 #include <nccl.h>
 
 #include <oomph/util/mpi_error.hpp>
@@ -35,9 +37,12 @@ class nccl_comm
 
         OOMPH_CHECK_NCCL_RESULT(ncclCommInitRank(&m_comm, mpi_comm.size(), id, mpi_comm.rank()));
         ncclResult_t result;
-        do {
+        OOMPH_CHECK_NCCL_RESULT(ncclCommGetAsyncError(m_comm, &result));
+        while (result == ncclInProgress)
+        {
+            std::this_thread::yield();
             OOMPH_CHECK_NCCL_RESULT(ncclCommGetAsyncError(m_comm, &result));
-        } while (result == ncclInProgress);
+        }
         OOMPH_CHECK_NCCL_RESULT(result);
     }
     nccl_comm(nccl_comm&&) noexcept = default;
