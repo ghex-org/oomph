@@ -101,6 +101,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     nccl_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         [[maybe_unused]] tag_type tag, void* stream)
     {
+        if (dst == m_context->rank())
+        {
+            throw std::runtime_error(
+                "Attempting to do send/recv to self with oomph NCCL backend. "
+                "This is currently not supported. "
+                "Please use another backend for this functionality.");
+        }
         const_device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(ncclSend(dg.data(), size, ncclChar, dst, m_context->get_comm(),
             static_cast<cudaStream_t>(stream)));
@@ -123,6 +130,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     nccl_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         [[maybe_unused]] tag_type tag, void* stream)
     {
+        if (src == m_context->rank())
+        {
+            throw std::runtime_error(
+                "Attempting to do send/recv to self with oomph NCCL backend. "
+                "This is currently not supported. "
+                "Please use another backend for this functionality.");
+        }
         device_guard dg(ptr);
         OOMPH_CHECK_NCCL_RESULT(ncclRecv(dg.data(), size, ncclChar, src, m_context->get_comm(),
             static_cast<cudaStream_t>(stream)));

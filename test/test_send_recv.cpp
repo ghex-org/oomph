@@ -642,3 +642,63 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
     launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
 #endif
 }
+
+TEST_F(mpi_test_fixture, self_send_recv)
+{
+    oomph::context ctxt(world, false);
+    auto comm = ctxt.get_communicator();
+    auto buf = comm.make_buffer<rank_type>(64);
+    auto rbuf = comm.make_buffer<rank_type>(64);
+
+    if (is_nccl_backend(ctxt))
+    {
+        EXPECT_THROW(
+            {
+                try
+                {
+                    comm.send(buf, comm.rank(), 0);
+                }
+                catch (std::runtime_error const& e)
+                {
+                    EXPECT_STREQ(e.what(),
+                        "Attempting to do send/recv to self with oomph NCCL backend. "
+                        "This is currently not supported. "
+                        "Please use another backend for this functionality.");
+                    throw;
+                }
+            },
+            std::runtime_error);
+
+        EXPECT_THROW(
+            {
+                try
+                {
+                    comm.recv(rbuf, comm.rank(), 0);
+                }
+                catch (std::runtime_error const& e)
+                {
+                    EXPECT_STREQ(e.what(),
+                        "Attempting to do send/recv to self with oomph NCCL backend. "
+                        "This is currently not supported. "
+                        "Please use another backend for this functionality.");
+                    throw;
+                }
+            },
+            std::runtime_error);
+    }
+    else
+    {
+        for (auto& x : buf) x = comm.rank();
+        for (auto& x : rbuf) x = -1;
+
+        comm.start_group();
+        auto sreq = comm.send(buf, comm.rank(), 0);
+        auto rreq = comm.recv(rbuf, comm.rank(), 0);
+        comm.end_group();
+
+        sreq.wait();
+        rreq.wait();
+
+        for (auto const& x : rbuf) EXPECT_EQ(x, comm.rank());
+    }
+}
