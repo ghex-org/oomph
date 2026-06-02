@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2025, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -21,9 +21,9 @@ namespace oomph
 {
 struct nccl_request
 {
-    bool is_ready()
+    bool is_ready() const
     {
-        return std::visit([](auto& event) { return event.is_ready(); }, m_event);
+        return std::visit([](auto const& event) { return event.is_ready(); }, m_event);
     }
 
     // We store either a single event for a particular request, or a shared

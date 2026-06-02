@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -10,6 +10,7 @@
 #include <oomph/context.hpp>
 #include <gtest/gtest.h>
 #include "./mpi_runner/mpi_test_fixture.hpp"
+#include "./nccl_test_helpers.hpp"
 #include <iostream>
 #include <iomanip>
 #include <thread>
@@ -213,11 +214,7 @@ launch_test(Func f)
             threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
         for (auto& t : threads) t.join();
     } catch (std::runtime_error const& e) {
-        if (is_nccl_backend(oomph::context(MPI_COMM_WORLD, false))) {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw;
-        }
+        oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }
 

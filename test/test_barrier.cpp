@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,6 +11,7 @@
 #include <oomph/barrier.hpp>
 #include <gtest/gtest.h>
 #include "./mpi_runner/mpi_test_fixture.hpp"
+#include "./nccl_test_helpers.hpp"
 #include <iostream>
 #include <iomanip>
 #include <thread>
@@ -62,11 +63,7 @@ TEST_F(mpi_test_fixture, in_node1)
 
         oomph::test_barrier{b}.test_in_node1(ctxt);
     } catch (std::runtime_error const& e) {
-        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw;
-        }
+        oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }
 
@@ -83,11 +80,7 @@ TEST_F(mpi_test_fixture, in_barrier_1)
 
         for (int i = 0; i < 20; i++) { b.rank_barrier(); }
     } catch (std::runtime_error const& e) {
-        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw;
-        }
+        oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }
 
@@ -115,11 +108,7 @@ TEST_F(mpi_test_fixture, in_barrier)
         for (size_t i = 0; i < n_threads; ++i) { ths.push_back(std::thread{work}); }
         for (size_t i = 0; i < n_threads; ++i) { ths[i].join(); }
     } catch (std::runtime_error const& e) {
-        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw;
-        }
+        oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }
 
@@ -143,11 +132,7 @@ TEST_F(mpi_test_fixture, full_barrier)
         for (size_t i = 0; i < n_threads; ++i) { ths.push_back(std::thread{work}); }
         for (size_t i = 0; i < n_threads; ++i) { ths[i].join(); }
     } catch (std::runtime_error const& e) {
-        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw;
-        }
+        oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }
 
@@ -183,10 +168,6 @@ TEST_F(mpi_test_fixture, full_barrier_sendrecv)
         for (size_t i = 0; i < n_threads; ++i) { ths.push_back(std::thread{work, i}); }
         for (size_t i = 0; i < n_threads; ++i) { ths[i].join(); }
     } catch (std::runtime_error const& e) {
-        if (oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") == std::string("nccl")) {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw;
-        }
+        oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }

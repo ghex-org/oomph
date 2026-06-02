@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2025, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -36,13 +36,20 @@ class context_impl : public context_base
   public:
     shared_request_queue m_req_queue;
 
+  private:
+    static bool check_not_thread_safe(bool thread_safe)
+    {
+        if (thread_safe)
+            throw std::runtime_error("NCCL not supported with thread_safe = true");
+        return thread_safe;
+    }
+
   public:
     context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
-    : context_base(comm, thread_safe)
+    : context_base(comm, check_not_thread_safe(thread_safe))
     , m_heap{this, heap_config}
     , m_comm{oomph::detail::nccl_comm{comm}}
     {
-        if (thread_safe) { throw std::runtime_error("NCCL not supported with thread_safe = true"); }
     }
 
     context_impl(context_impl const&) = delete;

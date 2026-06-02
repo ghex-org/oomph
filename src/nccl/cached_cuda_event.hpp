@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2025, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -28,8 +28,8 @@ struct cached_cuda_event
     }
     cached_cuda_event(cached_cuda_event&& other) noexcept = default;
     cached_cuda_event& operator=(cached_cuda_event&& other) noexcept = default;
-    cached_cuda_event(const cached_cuda_event&) = default;
-    cached_cuda_event& operator=(const cached_cuda_event&) = default;
+    cached_cuda_event(const cached_cuda_event&) = delete;
+    cached_cuda_event& operator=(const cached_cuda_event&) = delete;
     ~cached_cuda_event() noexcept
     {
         if (m_event) { get_cuda_event_pool().push(std::move(m_event)); }

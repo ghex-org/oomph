@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2025, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -34,7 +34,7 @@ struct group_cuda_event
 
     void record(cudaStream_t stream) { m_event->record(stream); }
 
-    bool is_ready() { return m_event->is_ready(); }
+    bool is_ready() const { return m_event->is_ready(); }
 
     cudaEvent_t get() { return m_event->get(); }
 };

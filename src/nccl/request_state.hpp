@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2025, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -26,7 +26,6 @@ struct request_state
 
     nccl_request m_req;
     shared_ptr_t m_self_ptr;
-    std::size_t  m_index;
 
     request_state(oomph::context_impl* ctxt, oomph::communicator_impl* comm, std::size_t* scheduled,
         rank_type rank, tag_type tag, cb_type&& cb, nccl_request m)
