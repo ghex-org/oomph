@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -13,6 +13,7 @@
 #include <vector>
 #include <atomic>
 #include <cassert>
+#include <string>
 #include <boost/callable_traits.hpp>
 #include <hwmalloc/device.hpp>
 #include <oomph/config.hpp>
@@ -99,6 +100,8 @@ class communicator
     }
 
     bool is_stream_aware() const noexcept;
+
+    const char* get_transport_option(const std::string& opt) const;
 
     bool is_ready() const noexcept
     {

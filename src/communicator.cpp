@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -49,6 +49,12 @@ bool
 communicator::is_stream_aware() const noexcept
 {
     return m_state->m_impl->is_stream_aware();
+}
+
+const char*
+communicator::get_transport_option(const std::string& opt) const
+{
+    return m_state->m_impl->m_context->get_transport_option(opt);
 }
 
 void
