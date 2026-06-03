@@ -23,12 +23,6 @@
 std::vector<std::atomic<int>> shared_received(NTHREADS);
 thread_local int              thread_id;
 
-bool
-is_nccl_backend(oomph::context const& ctxt)
-{
-    return ctxt.get_transport_option("name") == std::string("nccl");
-}
-
 void
 reset_counters()
 {
@@ -200,7 +194,8 @@ launch_test(Func f)
     }
 
     // multi threaded
-    try {
+    try
+    {
         oomph::context           ctxt(MPI_COMM_WORLD, true);
         std::vector<std::thread> threads;
         threads.reserve(NTHREADS);
@@ -213,7 +208,9 @@ launch_test(Func f)
         for (int i = 0; i < NTHREADS; ++i)
             threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
         for (auto& t : threads) t.join();
-    } catch (std::runtime_error const& e) {
+    }
+    catch (std::runtime_error const& e)
+    {
         oomph::test::handle_nccl_thread_safe_exception(e);
     }
 }
@@ -233,10 +230,7 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
         env.comm.end_group();
-        while (!(rreq.is_ready() && sreq.is_ready())) 
-        { 
-            env.comm.progress(); 
-        };
+        while (!(rreq.is_ready() && sreq.is_ready())) { env.comm.progress(); };
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
@@ -285,7 +279,7 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -360,7 +354,7 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -443,7 +437,7 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     thread_id = env.thread_id;
 
@@ -532,7 +526,7 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
     using tag_type = test_environment::tag_type;
     using message = test_environment::message;
 
-    Env            env(ctxt, size, tid, num_threads, user_alloc);
+    Env env(ctxt, size, tid, num_threads, user_alloc);
 
     volatile int received = 0;
     volatile int sent = 0;
@@ -645,11 +639,11 @@ TEST_F(mpi_test_fixture, self_send_recv)
     using rank_type = test_environment::rank_type;
 
     oomph::context ctxt(MPI_COMM_WORLD, false);
-    auto comm = ctxt.get_communicator();
-    auto buf = comm.make_buffer<rank_type>(64);
-    auto rbuf = comm.make_buffer<rank_type>(64);
+    auto           comm = ctxt.get_communicator();
+    auto           buf = comm.make_buffer<rank_type>(64);
+    auto           rbuf = comm.make_buffer<rank_type>(64);
 
-    if (is_nccl_backend(ctxt))
+    if (oomph::test::is_nccl_backend(ctxt))
     {
         EXPECT_THROW(
             {

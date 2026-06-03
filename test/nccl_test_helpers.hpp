@@ -17,11 +17,16 @@
 
 namespace oomph::test
 {
+bool
+is_nccl_backend(oomph::context const& ctxt)
+{
+    return ctxt.get_transport_option("name") == std::string("nccl");
+}
+
 inline bool
 is_nccl_backend()
 {
-    return oomph::context(MPI_COMM_WORLD, false).get_transport_option("name") ==
-           std::string("nccl");
+    return is_nccl_backend(oomph::context(MPI_COMM_WORLD, false));
 }
 
 inline void
