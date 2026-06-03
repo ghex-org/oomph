@@ -642,6 +642,8 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
 
 TEST_F(mpi_test_fixture, self_send_recv)
 {
+    using rank_type = test_environment::rank_type;
+
     oomph::context ctxt(MPI_COMM_WORLD, false);
     auto comm = ctxt.get_communicator();
     auto buf = comm.make_buffer<rank_type>(64);
