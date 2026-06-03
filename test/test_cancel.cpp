@@ -66,9 +66,9 @@ TEST_F(mpi_test_fixture, test_cancel_request)
 {
     using namespace oomph;
     auto ctxt = context(MPI_COMM_WORLD, false);
-    if (ctxt.get_transport_option("name") == std::string("nccl")) {
-        // NCCL does not support cancellation
-        return;
+    if (ctxt.get_transport_option("name") == std::string("nccl"))
+    {
+        GTEST_SKIP() << "NCCL does not support cancellation";
     }
     auto comm = ctxt.get_communicator();
     test_1(comm, 1);
@@ -154,9 +154,9 @@ TEST_F(mpi_test_fixture, test_cancel_cb)
 {
     using namespace oomph;
     auto ctxt = context(MPI_COMM_WORLD, false);
-    if (ctxt.get_transport_option("name") == std::string("nccl")) {
-        // NCCL does not support cancellation
-        return;
+    if (ctxt.get_transport_option("name") == std::string("nccl"))
+    {
+        GTEST_SKIP() << "NCCL does not support cancellation";
     }
     auto comm = ctxt.get_communicator();
     test_2(comm, 1);
