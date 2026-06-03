@@ -15,9 +15,7 @@
 
 #include <oomph/context.hpp>
 
-namespace oomph
-{
-namespace test
+namespace oomph::test
 {
 inline bool
 is_nccl_backend()
@@ -33,10 +31,6 @@ handle_nccl_thread_safe_exception(std::runtime_error const& e)
     {
         EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
     }
-    else
-    {
-        throw;
-    }
+    else { throw; }
 }
-} // namespace test
-} // namespace oomph
+} // namespace oomph::test
