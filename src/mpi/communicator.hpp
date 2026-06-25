@@ -48,6 +48,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     {
         MPI_Request  r;
         device_guard dg(ptr);
+        if(OOMPH_ANY_SOURCE == src) src = MPI_ANY_SOURCE;
         OOMPH_CHECK_MPI_RESULT(MPI_Irecv(dg.data(), size, MPI_BYTE, src, tag, mpi_comm(), &r));
         return {r};
     }
