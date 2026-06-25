@@ -11,37 +11,33 @@
 
 #include <cstdint>
 #include <stack>
+#include <type_traits>
 
 #include <boost/lockfree/queue.hpp>
 
-#include <oomph/context.hpp>
 #include <oomph/communicator.hpp>
+#include <oomph/context.hpp>
 
 // paths relative to backend
 #include <../communicator_base.hpp>
 #include <../device_guard.hpp>
+#include <context.hpp>
+#include <controller.hpp>
 #include <operation_context.hpp>
 #include <request_state.hpp>
-#include <controller.hpp>
-#include <context.hpp>
 
 namespace oomph
 {
 
+MAKE_LOGGER(comm_log, "OomphCom")
+
 using operation_context = libfabric::operation_context;
-
-using tag_disp = NS_DEBUG::detail::hex<12, uintptr_t>;
-
-template<int Level>
-inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> com_deb("COMMUNI");
-
-static NS_DEBUG::enable_print<false> com_err("COMMUNI");
 
 class communicator_impl : public communicator_base<communicator_impl>
 {
     using tag_type = std::uint64_t;
     //
-    using segment_type = libfabric::memory_segment;
+    using segment_type = libfatbat::memory_segment;
     using region_type = segment_type::handle_type;
 
     using callback_queue = boost::lockfree::queue<detail::request_state*,
@@ -49,12 +45,37 @@ class communicator_impl : public communicator_base<communicator_impl>
 
   public:
     context_impl*               m_context;
-    libfabric::endpoint_wrapper m_tx_endpoint;
-    libfabric::endpoint_wrapper m_rx_endpoint;
+    libfatbat::endpoint_wrapper m_tx_endpoint;
+    libfatbat::endpoint_wrapper m_rx_endpoint;
     //
     callback_queue m_send_cb_queue;
     callback_queue m_recv_cb_queue;
     callback_queue m_recv_cb_cancel;
+
+    template<typename T, bool IsPointer = std::is_pointer<typename std::decay<T>::type>::value,
+        bool IsIntegral = std::is_integral<typename std::decay<T>::type>::value>
+    struct mpi_format_helper
+    {
+        static char const* cast(T const&) { return "[opaque]"; }
+    };
+
+    template<typename T>
+    struct mpi_format_helper<T, true, false>
+    {
+        static void const* cast(T value) { return static_cast<void const*>(value); }
+    };
+
+    template<typename T>
+    struct mpi_format_helper<T, false, true>
+    {
+        static unsigned long long cast(T value) { return static_cast<unsigned long long>(value); }
+    };
+
+    template<typename T>
+    static auto mpi_format(T value) -> decltype(mpi_format_helper<T>::cast(value))
+    {
+        return mpi_format_helper<T>::cast(value);
+    }
 
     // --------------------------------------------------------------------
     communicator_impl(context_impl* ctxt)
@@ -64,7 +85,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     , m_recv_cb_queue(128)
     , m_recv_cb_cancel(8)
     {
-        LF_DEB(com_deb<9>, debug(NS_DEBUG::str<>("MPI_comm"), NS_DEBUG::ptr(mpi_comm())));
+        LIBFATBAT_DEBUG(comm_log, "{:<20} MPI_comm {} ", "Construct",
+            mpi_format_helper<decltype(mpi_comm())>::cast(mpi_comm()));
         m_tx_endpoint = m_context->get_controller()->get_tx_endpoint();
         m_rx_endpoint = m_context->get_controller()->get_rx_endpoint();
     }
@@ -80,12 +102,13 @@ class communicator_impl : public communicator_base<communicator_impl>
     /// original tag can be 32bits, then we add 32bits of rank info.
     inline std::uint64_t make_tag64(std::uint32_t tag, /*std::uint32_t rank, */ std::uintptr_t ctxt)
     {
-        return (((ctxt & 0x0000000000FFFFFF) << 24) | ((std::uint64_t(tag) & 0x0000000000FFFFFF)));
+        return (((ctxt & 0x0000'0000'00FF'FFFF) << 24) |
+                ((std::uint64_t(tag) & 0x0000'0000'00FF'FFFF)));
     }
 
     // --------------------------------------------------------------------
     template<typename Func, typename... Args>
-    inline void execute_fi_function(Func F, const char* msg, Args&&... args)
+    inline void execute_fi_function(Func F, char const* msg, Args&&... args)
     {
         bool ok = false;
         while (!ok)
@@ -102,10 +125,11 @@ class communicator_impl : public communicator_base<communicator_impl>
             {
                 // if a node has failed, we can recover
                 // @TODO : put something better here
-                com_err.error("No destination endpoint, terminating.");
+                LIBFATBAT_ERROR(comm_log, "{:<20} No destination endpoint, terminating.",
+                    "fi_function");
                 std::terminate();
             }
-            else if (ret) { throw NS_LIBFABRIC::fabric_error(int(ret), msg); }
+            else if (ret) { throw libfatbat::fabric_error(int(ret), msg); }
         }
     }
 
@@ -114,16 +138,10 @@ class communicator_impl : public communicator_base<communicator_impl>
     void send_tagged_region(region_type const& send_region, std::size_t size, fi_addr_t dst_addr_,
         uint64_t tag_, operation_context* ctxt)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
-        // clang-format off
-        LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("send_tagged_region"),
-                  "->", NS_DEBUG::dec<2>(dst_addr_),
-                  send_region,
-                  "tag", tag_disp(tag_),
-                  "context", NS_DEBUG::ptr(ctxt),
-                  "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
-        // clang-format on
+        LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
+        LIBFATBAT_DEBUG(comm_log, "{:<20} -> {:02} {} tag {:#12x} context {} tx endpoint {}",
+            "send_tagged_region", dst_addr_, send_region, tag_, static_cast<void*>(ctxt),
+            static_cast<void*>(m_tx_endpoint.get_ep()));
         execute_fi_function(fi_tsend, "fi_tsend", m_tx_endpoint.get_ep(), send_region.get_address(),
             size, send_region.get_local_key(), dst_addr_, tag_, ctxt);
     }
@@ -133,12 +151,10 @@ class communicator_impl : public communicator_base<communicator_impl>
     void inject_tagged_region(region_type const& send_region, std::size_t size, fi_addr_t dst_addr_,
         uint64_t tag_)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
-        // clang-format on
-        LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("inject tagged"), "->", NS_DEBUG::dec<2>(dst_addr_), send_region,
-                "tag", tag_disp(tag_), "tx endpoint", NS_DEBUG::ptr(m_tx_endpoint.get_ep())));
-        // clang-format off
+        LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
+        LIBFATBAT_DEBUG(comm_log, "{:<20} -> {:02} {} tag {} tx endpoint {}",
+            "inject_tagged_region", dst_addr_, send_region, tag_,
+            static_cast<void*>(m_tx_endpoint.get_ep()));
         execute_fi_function(fi_tinject, "fi_tinject", m_tx_endpoint.get_ep(),
             send_region.get_address(), size, dst_addr_, tag_);
     }
@@ -150,16 +166,10 @@ class communicator_impl : public communicator_base<communicator_impl>
     void recv_tagged_region(region_type const& recv_region, std::size_t size, fi_addr_t src_addr_,
         uint64_t tag_, operation_context* ctxt)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
-        // clang-format off
-        LF_DEB(com_deb<1>,
-            debug(NS_DEBUG::str<>("recv_tagged_region"),
-                  "<-", NS_DEBUG::dec<2>(src_addr_),
-                  recv_region,
-                  "tag", tag_disp(tag_),
-                  "context", NS_DEBUG::ptr(ctxt),
-                  "rx endpoint", NS_DEBUG::ptr(m_rx_endpoint.get_ep())));
-        // clang-format on
+        LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
+        LIBFATBAT_DEBUG(comm_log, "{:<20} <- {:02} {} tag {} context {} rx endpoint {}",
+            "recv_tagged_region", src_addr_, recv_region, tag_, static_cast<void*>(ctxt),
+            static_cast<void*>(m_rx_endpoint.get_ep()));
         constexpr uint64_t ignore = 0;
         execute_fi_function(fi_trecv, "fi_trecv", m_rx_endpoint.get_ep(), recv_region.get_address(),
             size, recv_region.get_local_key(), src_addr_, tag_, ignore, ctxt);
@@ -171,7 +181,7 @@ class communicator_impl : public communicator_base<communicator_impl>
         oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
         std::uint64_t stag = make_tag64(tag, /*this->rank(), */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
@@ -183,8 +193,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
-            LF_DEB(com_err, error(NS_DEBUG::str<>("send mismatch"), "size", NS_DEBUG::hex<6>(size),
-                                "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+            LIBFATBAT_ERROR(comm_log, "{:<20} size {:#06x} reg size {:#06x} send mismatch", "send",
+                size, reg.get_size());
         }
 #endif
         m_context->get_controller()->sends_posted_++;
@@ -214,27 +224,18 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto s = m_req_state_factory.make(m_context, this, scheduled, dst, tag, std::move(cb));
         s->create_self_ref();
 
-        // clang-format off
-        LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("Send"),
-                  "thisrank", NS_DEBUG::dec<>(rank()),
-                  "rank", NS_DEBUG::dec<>(dst),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
-                  "stag", tag_disp(stag),
-                  "addr", NS_DEBUG::ptr(reg.get_address()),
-                  "size", NS_DEBUG::hex<6>(size),
-                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                  "req", NS_DEBUG::ptr(s.get())));
+        LIBFATBAT_DEBUG(comm_log,
+            "{:<20} thisrank {} rank {} tag {:#12x} stag {:#12x} addr {} size {:#06x} reg size {:#06x} op_ctx {} req {}",
+            "send", rank(), dst, std::uint64_t(tag), stag, static_cast<void*>(reg.get_address()),
+            size, reg.get_size(), static_cast<void*>(&(s->m_operation_context)),
+            static_cast<void*>(s.get()));
 #if OOMPH_ENABLE_DEVICE
-        if (!ptr.on_device()) {
-            LF_DEB(com_deb<9>,
-                debug(NS_DEBUG::str<>("send region CRC32"),
-                      NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
+        if (!ptr.on_device())
+        {
+            LIBFATBAT_DEBUG(comm_log, "{:<20} {}", "send device region",
+                libfatbat::log::mem_crc32(reg.get_address(), size));
         }
 #endif
-        // clang-format on
 
         send_tagged_region(reg, size, fi_addr_t(dst), stag, &(s->m_operation_context));
         return {std::move(s)};
@@ -244,8 +245,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::size_t* scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
+        LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
+        std::uint64_t stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
         auto const& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
@@ -256,8 +257,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
-            LF_DEB(com_err, error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size),
-                                "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+            LIBFATBAT_ERROR(comm_log, "{:<20} size {:#06x} reg size {:#06x} recv mismatch", "recv",
+                size, reg.get_size());
         }
 #endif
         m_context->get_controller()->recvs_posted_++;
@@ -266,27 +267,18 @@ class communicator_impl : public communicator_base<communicator_impl>
         auto s = m_req_state_factory.make(m_context, this, scheduled, src, tag, std::move(cb));
         s->create_self_ref();
 
-        // clang-format off
-        LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("recv"),
-                  "thisrank", NS_DEBUG::dec<>(rank()),
-                  "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
-                  "stag", tag_disp(stag),
-                  "addr", NS_DEBUG::ptr(reg.get_address()),
-                  "size", NS_DEBUG::hex<6>(size),
-                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                  "req", NS_DEBUG::ptr(s.get())));
+        LIBFATBAT_DEBUG(comm_log,
+            "{:<20} thisrank {} rank {} tag {:#12x} stag {:#12x} addr {} size {:#06x} reg size {:#06x} op_ctx {} req {}",
+            "recv", rank(), src, std::uint64_t(tag), stag, static_cast<void*>(reg.get_address()),
+            size, reg.get_size(), static_cast<void*>(&(s->m_operation_context)),
+            static_cast<void*>(s.get()));
 #if OOMPH_ENABLE_DEVICE
-        if (!ptr.on_device()) {
-            LF_DEB(com_deb<9>,
-                debug(NS_DEBUG::str<>("recv region CRC32"),
-                      NS_DEBUG::mem_crc32(reg.get_address(), size, "CRC32")));
+        if (!ptr.on_device())
+        {
+            LIBFATBAT_DEBUG(comm_log, "{:<20} {}", "recv device region",
+                libfatbat::log::mem_crc32(reg.get_address(), size));
         }
 #endif
-        // clang-format on
 
         recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
         return {std::move(s)};
@@ -297,8 +289,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
         std::atomic<std::size_t>*                                 scheduled)
     {
-        [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
-        std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
+        LIBFATBAT_SCOPE(comm_log, "{} {}", (void*)(this), __func__);
+        std::uint64_t stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
 
 #if OOMPH_ENABLE_DEVICE
         auto const& reg = ptr.on_device() ? ptr.device_handle() : ptr.handle();
@@ -309,8 +301,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 #ifdef EXTRA_SIZE_CHECKS
         if (size != reg.get_size())
         {
-            LF_DEB(com_err, error(NS_DEBUG::str<>("recv mismatch"), "size", NS_DEBUG::hex<6>(size),
-                                "reg size", NS_DEBUG::hex<6>(reg.get_size())));
+            LIBFATBAT_ERROR(comm_log, "{:<20} size {:#06x} reg size {:#06x} recv mismatch", "recv",
+                size, reg.get_size());
         }
 #endif
         m_context->get_controller()->recvs_posted_++;
@@ -320,20 +312,11 @@ class communicator_impl : public communicator_base<communicator_impl>
             tag, std::move(cb));
         s->create_self_ref();
 
-        // clang-format off
-        LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("shared_recv"),
-                  "thisrank", NS_DEBUG::dec<>(rank()),
-                  "rank", NS_DEBUG::dec<>(src),
-                  "tag", tag_disp(std::uint64_t(tag)),
-                  //"wrapped tag", tag_disp(std::uint64_t(tag.get())),
-                  "stag", tag_disp(stag),
-                  "addr", NS_DEBUG::ptr(reg.get_address()),
-                  "size", NS_DEBUG::hex<6>(size),
-                  "reg size", NS_DEBUG::hex<6>(reg.get_size()),
-                  "op_ctx", NS_DEBUG::ptr(&(s->m_operation_context)),
-                  "req", NS_DEBUG::ptr(s.get())));
-        // clang-format on
+        LIBFATBAT_DEBUG(comm_log,
+            "{:<20} thisrank {} rank {} tag {:#12x} stag {:#12x} addr {} size {:#06x} reg size {:#06x} op_ctx {} req {}",
+            "shared_recv", rank(), src, std::uint64_t(tag), stag,
+            static_cast<void*>(reg.get_address()), size, reg.get_size(),
+            static_cast<void*>(&(s->m_operation_context)), static_cast<void*>(s.get()));
 
         recv_tagged_region(reg, size, fi_addr_t(src), stag, &(s->m_operation_context));
         m_context->get_controller()->poll_recv_queue(m_rx_endpoint.get_rx_cq(), this);
@@ -353,8 +336,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_send_cb_queue.consume_all(
             [](oomph::detail::request_state* req)
             {
-                [[maybe_unused]] auto scp =
-                    com_deb<9>.scope("m_send_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                LIBFATBAT_SCOPE(comm_log, "{:<20} req {} callback", "m_send_cb_queue.consume_all",
+                    static_cast<void*>(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
@@ -362,8 +345,8 @@ class communicator_impl : public communicator_base<communicator_impl>
         m_recv_cb_queue.consume_all(
             [](oomph::detail::request_state* req)
             {
-                [[maybe_unused]] auto scp =
-                    com_deb<9>.scope("m_recv_cb_queue.consume_all", NS_DEBUG::ptr(req));
+                LIBFATBAT_SCOPE(comm_log, "{:<20} req {} callback", "m_recv_cb_queue.consume_all",
+                    static_cast<void*>(req));
                 auto ptr = req->release_self_ref();
                 req->invoke_cb();
             });
@@ -389,8 +372,8 @@ class communicator_impl : public communicator_base<communicator_impl>
 
         // submit the cancellation request
         bool ok = (fi_cancel(&m_rx_endpoint.get_ep()->fid, op_ctx) == 0);
-        LF_DEB(com_deb<9>,
-            debug(NS_DEBUG::str<>("Cancel"), "ok", ok, "op_ctx", NS_DEBUG::ptr(op_ctx)));
+        LIBFATBAT_DEBUG(comm_log, "{:<20} op_ctx {} fi_cancel ok {}", "cancel_recv",
+            static_cast<void*>(op_ctx), ok);
 
         // if the cancel operation failed completely, return
         if (!ok) return false;
@@ -408,8 +391,8 @@ class communicator_impl : public communicator_base<communicator_impl>
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    LF_DEB(com_deb<9>, debug(NS_DEBUG::str<>("Cancel"), "succeeded", "op_ctx",
-                                           NS_DEBUG::ptr(op_ctx)));
+                    LIBFATBAT_DEBUG(comm_log, "{:<20} op_ctx {} fi_cancel ok {}", "cancel_recv",
+                        static_cast<void*>(op_ctx), ok);
                     auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }

@@ -17,6 +17,7 @@ namespace oomph
 {
 namespace detail
 {
+MAKE_LOGGER(req_deb, "Request")
 
 struct request_state
 : public util::enable_shared_from_this<request_state>
@@ -71,12 +72,12 @@ struct shared_request_state
     : base{ctxt, comm, scheduled, rank, tag, std::move(cb)}
     , m_operation_context{this}
     {
-        [[maybe_unused]] auto scp = libfabric::opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        LIBFATBAT_SCOPE(req_deb, "{} {}", static_cast<void*>(this), __func__);
     }
 
     ~shared_request_state()
     {
-        [[maybe_unused]] auto scp = libfabric::opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
+        LIBFATBAT_SCOPE(req_deb, "{} {}", static_cast<void*>(this), __func__);
     }
 
     void progress();

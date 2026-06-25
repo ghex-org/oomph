@@ -14,7 +14,12 @@ jobs:
       - name: install libfabric
         run: |
           apt update
-          apt-get -y install libfabric-dev
+          git clone https://github.com/ofiwg/libfabric
+          cd libfabric
+          ./autogen.sh
+          ./configure --enable-debug --enable-tcp=yes --enable-lnx=no --enable-rxm=yes --enable-shm=yes --enable-cxi=no --enable-efa=no --enable-mrail=no --enable-opx=no --enable-psm2=no --enable-sm2=no --enable-psm3=no --enable-rxd=no --enable-sockets=no --enable-ucx=no --enable-udp=no --enable-usnic=no --enable-verbs=no --enable-xpmem=no  
+          make -j install
+          # apt-get -y install libfabric-dev
       - uses: actions/checkout@v3
         with:
           submodules: recursive
@@ -48,7 +53,9 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
+        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export
+          OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1
+          && env && ctest
 
   build-gpu-hip:
     runs-on: ubuntu-latest

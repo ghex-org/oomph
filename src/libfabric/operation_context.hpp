@@ -13,18 +13,18 @@
 //
 #include <oomph/request.hpp>
 //
-#include "operation_context_base.hpp"
+#include <libfatbat/logging.hpp>
+#include <libfatbat/operation_context_base.hpp>
 //
 namespace oomph::libfabric
 {
 
-template<int Level>
-inline /*constexpr*/ NS_DEBUG::print_threshold<Level, 0> opctx_deb("OP__CXT");
+MAKE_LOGGER(opctx_deb, "opctxt")
 
 // This struct holds the ready state of a future
 // we must also store the context used in libfabric, in case
 // a request is cancelled - fi_cancel(...) needs it
-struct operation_context : public operation_context_base<operation_context>
+struct operation_context : public libfatbat::operation_context_base<operation_context>
 {
     std::variant<oomph::detail::request_state*, oomph::detail::shared_request_state*> m_req;
 
@@ -33,8 +33,8 @@ struct operation_context : public operation_context_base<operation_context>
     : operation_context_base()
     , m_req{req}
     {
-        [[maybe_unused]] auto scp =
-            opctx_deb<9>.scope(NS_DEBUG::ptr(this), __func__, "request", req);
+        LIBFATBAT_SCOPE(opctx_deb, "{} {} request {}", static_cast<void*>(this), __func__,
+            static_cast<void*>(req));
     }
 
     // --------------------------------------------------------------------

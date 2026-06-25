@@ -9,34 +9,32 @@
  */
 #pragma once
 
-#include <thread>
 #include <stack>
 
 #include <hwmalloc/heap.hpp>
-#include <hwmalloc/heap_config.hpp>
 #include <hwmalloc/register.hpp>
 
 #include <oomph/config.hpp>
+#include <libfatbat/memory_region.hpp>
 
 // paths relative to backend
 #include <../context_base.hpp>
-#include <memory_region.hpp>
 #include <controller.hpp>
 #include <request_state.hpp>
 
 namespace oomph
 {
 
-static NS_DEBUG::enable_print<false> ctx_deb("CONTEXT");
+MAKE_LOGGER(ctxt_log, "Context")
 
 using controller_type = libfabric::controller;
 
 class context_impl : public context_base
 {
   public:
-    using region_type = libfabric::memory_segment;
+    using region_type = libfatbat::memory_segment;
     using domain_type = region_type::provider_domain;
-    using device_region_type = libfabric::memory_segment;
+    using device_region_type = libfatbat::memory_segment;
     using heap_type = hwmalloc::heap<context_impl>;
     using callback_queue = boost::lockfree::queue<detail::shared_request_state*,
         boost::lockfree::fixed_sized<false>, boost::lockfree::allocator<std::allocator<void>>>;
@@ -52,7 +50,7 @@ class context_impl : public context_base
     // create a singleton ptr to a libfabric controller that
     // can be shared between oomph context objects
     static std::shared_ptr<controller_type> init_libfabric_controller(oomph::context_impl* ctx,
-        MPI_Comm comm, int rank, int size, int threads);
+        MPI_Comm comm, int rank, int size, int threads, bool debug = false);
 
     // queue for shared recv callbacks
     callback_queue m_recv_cb_queue;
@@ -60,7 +58,10 @@ class context_impl : public context_base
     callback_queue m_recv_cb_cancel;
 
   public:
-    context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config);
+    context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config,
+        bool debug = false);
+    // context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
+    //     std::size_t message_pool_reserve, bool debug = false);
     context_impl(context_impl const&) = delete;
     context_impl(context_impl&&) = delete;
 
@@ -69,9 +70,12 @@ class context_impl : public context_base
         if (m_controller->get_mrbind())
         {
             void* endpoint = m_controller->get_rx_endpoint().get_ep();
-            return libfabric::memory_segment(m_domain, ptr, size, true, endpoint, device_id);
+            return libfatbat::memory_segment(m_domain, ptr, size, true, endpoint, device_id);
         }
-        else { return libfabric::memory_segment(m_domain, ptr, size, false, nullptr, device_id); }
+        else
+        {
+            return libfatbat::memory_segment(m_domain, ptr, size, false, nullptr, device_id);
+        }
     }
 
     auto& get_heap() noexcept { return m_heap; }
@@ -82,7 +86,7 @@ class context_impl : public context_base
     inline std::uintptr_t get_context_tag() { return m_ctxt_tag; }
 
     inline controller_type* get_controller() /*const */ { return m_controller.get(); }
-    const char*             get_transport_option(const std::string& opt);
+    char const*             get_transport_option(std::string const& opt);
 
     void progress() { get_controller()->poll_for_work_completions(nullptr); }
 
@@ -111,8 +115,8 @@ class context_impl : public context_base
                 {
                     // our recv was cancelled correctly
                     found = true;
-                    LF_DEB(oomph::ctx_deb, debug(NS_DEBUG::str<>("Cancel shared"), "succeeded",
-                                               "op_ctx", NS_DEBUG::ptr(op_ctx)));
+                    LIBFATBAT_DEBUG(ctxt_log, "{:<20} op_ctx {} fi_cancel ok {}",
+                        "Cancel Shared recv", static_cast<void*>(op_ctx), ok);
                     auto ptr = s->release_self_ref();
                     s->set_canceled();
                 }
@@ -138,7 +142,7 @@ class context_impl : public context_base
 
 // --------------------------------------------------------------------
 template<>
-inline oomph::libfabric::memory_segment
+inline libfatbat::memory_segment
 register_memory<oomph::context_impl>(oomph::context_impl& c, void* const ptr, std::size_t size)
 {
     return c.make_region(ptr, size, -2);
@@ -146,7 +150,7 @@ register_memory<oomph::context_impl>(oomph::context_impl& c, void* const ptr, st
 
 #if OOMPH_ENABLE_DEVICE
 template<>
-inline oomph::libfabric::memory_segment
+inline libfatbat::memory_segment
 register_device_memory<context_impl>(context_impl& c, int device_id, void* ptr, std::size_t size)
 {
     return c.make_region(ptr, size, device_id);
