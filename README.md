@@ -191,10 +191,9 @@ used:
 - Cancellation is not supported.
 - `wait` and `progress` are disallowed when a NCCL group is active as no
   progress can be made until a NCCL group is ended and submitted.
-- Send/recv to own rank is currently not supported. Due to the lack of tags in
-  NCCL self-send and -receive requires stronger ordering guarantees than the
-  current backend implementation provides. Attempting self-send and -receive
-  will throw an exception.
+- Send/recv to own rank is supported within NCCL groups. Outside of a group,
+  self-send/recv will throw an exception because NCCL's order-based matching
+  requires the atomic submission that groups provide.
 
 The NCCL backend is primarily designed for use in GHEX where these differences
 can be hidden from the user.

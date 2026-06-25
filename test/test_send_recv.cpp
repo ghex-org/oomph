@@ -654,9 +654,8 @@ TEST_F(mpi_test_fixture, self_send_recv)
                 catch (std::runtime_error const& e)
                 {
                     EXPECT_STREQ(e.what(),
-                        "Attempting to do send/recv to self with oomph NCCL backend. "
-                        "This is currently not supported. "
-                        "Please use another backend for this functionality.");
+                        "oomph NCCL backend: self-send/recv requires an active NCCL group. "
+                        "Use start_group()/end_group() around self-send/recv operations.");
                     throw;
                 }
             },
@@ -671,27 +670,24 @@ TEST_F(mpi_test_fixture, self_send_recv)
                 catch (std::runtime_error const& e)
                 {
                     EXPECT_STREQ(e.what(),
-                        "Attempting to do send/recv to self with oomph NCCL backend. "
-                        "This is currently not supported. "
-                        "Please use another backend for this functionality.");
+                        "oomph NCCL backend: self-send/recv requires an active NCCL group. "
+                        "Use start_group()/end_group() around self-send/recv operations.");
                     throw;
                 }
             },
             std::runtime_error);
     }
-    else
-    {
-        for (auto& x : buf) x = comm.rank();
-        for (auto& x : rbuf) x = -1;
 
-        comm.start_group();
-        auto sreq = comm.send(buf, comm.rank(), 0);
-        auto rreq = comm.recv(rbuf, comm.rank(), 0);
-        comm.end_group();
+    for (auto& x : buf) x = comm.rank();
+    for (auto& x : rbuf) x = -1;
 
-        sreq.wait();
-        rreq.wait();
+    comm.start_group();
+    auto sreq = comm.send(buf, comm.rank(), 0);
+    auto rreq = comm.recv(rbuf, comm.rank(), 0);
+    comm.end_group();
 
-        for (auto const& x : rbuf) EXPECT_EQ(x, comm.rank());
-    }
+    sreq.wait();
+    rreq.wait();
+
+    for (auto const& x : rbuf) EXPECT_EQ(x, comm.rank());
 }
