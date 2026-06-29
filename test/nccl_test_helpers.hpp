@@ -26,8 +26,7 @@ is_nccl_backend(oomph::context const& ctxt)
 inline bool
 is_nccl_backend()
 {
-    static const bool result = is_nccl_backend(oomph::context(MPI_COMM_WORLD, false));
-    return result;
+    return is_nccl_backend(oomph::context(MPI_COMM_WORLD, false));
 }
 
 inline void
