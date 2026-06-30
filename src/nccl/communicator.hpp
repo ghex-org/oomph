@@ -82,7 +82,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void start_group()
     {
-        assert(!is_group_active());
+        if (is_group_active())
+        {
+            throw std::logic_error(
+                "oomph NCCL backend: start_group called while a group is already active");
+        }
 
         OOMPH_CHECK_NCCL_RESULT(ncclGroupStart());
         m_group_info.emplace();
@@ -90,7 +94,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     void end_group()
     {
-        assert(is_group_active());
+        if (!is_group_active())
+        {
+            throw std::logic_error(
+                "oomph NCCL backend: end_group called without an active group");
+        }
 
         OOMPH_CHECK_NCCL_RESULT(ncclGroupEnd());
 
