@@ -17,7 +17,7 @@
 
 namespace oomph::test
 {
-bool
+inline bool
 is_nccl_backend(oomph::context const& ctxt)
 {
     return ctxt.get_transport_option("name") == std::string("nccl");

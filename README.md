@@ -169,10 +169,10 @@ an optional last parameter to `send` or `recv`:
 
 ```cpp
 if (comm.is_stream_aware()) {
-    # Schedule communication on the default CUDA stream if the backend is
-    # stream aware
+    // Schedule communication on the default CUDA stream if the backend is
+    // stream aware
     cudaStream_t stream = 0;
-    oomph::send_request comm.send(msg, 1, 0, stream);
+    oomph::send_request req = comm.send(msg, 1, 0, stream);
 }
 ```
 
