@@ -12,7 +12,7 @@ list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 
 include(CMakeDependentOption)
 include(oomph_version)
-make_version(OOMPH 0 5 2)
+make_version(OOMPH 0 6 0)
 
 project(oomph VERSION ${OOMPH_VERSION})
 enable_language(CXX)
